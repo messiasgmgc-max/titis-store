@@ -1,14 +1,15 @@
 {
   "name": "titis-monorepo",
   "version": "1.0.0",
-  "description": "Titi's Consultoria de Imagem & StyleMatch - Ecosystem Monorepo",
+  "description": "Titi's Store - Ecosystem Monorepo",
   "private": true,
   "scripts": {
     "dev": "npm --prefix web run dev",
     "dev:web": "npm --prefix web run dev",
     "dev:api": "npm --prefix api run start:dev",
     "dev:mobile": "npm --prefix mobile start",
-    "build": "npm --prefix web run build && npm --prefix api run build",
+    "build": "cd web && npm run build",
+    "build:api": "cd api && npm run build",
     "install:all": "npm --prefix web install && npm --prefix api install && npm --prefix mobile install"
   }
 }
