@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { 
   Sparkles, CheckCircle2, ChevronRight, ArrowLeft, Shirt, 
-  Sun, Moon, Sunset, Thermometer, Award, Share2, RefreshCw, Zap
+  Sun, Moon, Sunset, Thermometer, Share2, RefreshCw
 } from 'lucide-react';
 
 interface SkinToneOption {
@@ -134,15 +134,15 @@ export const StyleMatchStepFlow: React.FC = () => {
         
         {/* Section Title Header */}
         <div className="text-center space-y-4 mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-widest">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold uppercase tracking-widest">
             <Sparkles className="w-4 h-4 text-[#D4AF37]" />
             <span>Sistema Inteligente Titi's Store StyleMatch</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white font-heading tracking-tight">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-white font-heading tracking-tight">
             Monte Seu Look Sob Medida
           </h2>
-          <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto font-medium">
-            Em apenas 3 passos simples, receba a recomendação exata de combinação de peças, contraste e paleta de cores para se destacar com máxima legibilidade e elegância.
+          <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto font-normal leading-relaxed">
+            Em apenas 3 passos simples, receba a recomendação exata de combinação de peças, contraste e paleta de cores com clareza cristalina.
           </p>
         </div>
 
@@ -158,9 +158,9 @@ export const StyleMatchStepFlow: React.FC = () => {
             {/* Step 1 Circle */}
             <button
               onClick={() => setCurrentStep(1)}
-              className={`w-11 h-11 rounded-full flex items-center justify-center font-extrabold text-sm transition-all ${
+              className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
                 currentStep >= 1
-                  ? 'bg-gold-gradient text-[#0B0C10] shadow-lg shadow-amber-500/30 scale-110'
+                  ? 'bg-gold-gradient text-[#0B0C10] shadow-lg shadow-amber-500/20 scale-110'
                   : 'bg-slate-900 border border-slate-700 text-slate-400'
               }`}
             >
@@ -170,9 +170,9 @@ export const StyleMatchStepFlow: React.FC = () => {
             {/* Step 2 Circle */}
             <button
               onClick={() => setCurrentStep(2)}
-              className={`w-11 h-11 rounded-full flex items-center justify-center font-extrabold text-sm transition-all ${
+              className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
                 currentStep >= 2
-                  ? 'bg-gold-gradient text-[#0B0C10] shadow-lg shadow-amber-500/30 scale-110'
+                  ? 'bg-gold-gradient text-[#0B0C10] shadow-lg shadow-amber-500/20 scale-110'
                   : 'bg-slate-900 border border-slate-700 text-slate-400'
               }`}
             >
@@ -182,9 +182,9 @@ export const StyleMatchStepFlow: React.FC = () => {
             {/* Step 3 Circle */}
             <button
               onClick={() => currentStep >= 2 && setCurrentStep(3)}
-              className={`w-11 h-11 rounded-full flex items-center justify-center font-extrabold text-sm transition-all ${
+              className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
                 currentStep === 3
-                  ? 'bg-gold-gradient text-[#0B0C10] shadow-lg shadow-amber-500/30 scale-110'
+                  ? 'bg-gold-gradient text-[#0B0C10] shadow-lg shadow-amber-500/20 scale-110'
                   : 'bg-slate-900 border border-slate-700 text-slate-400'
               }`}
             >
@@ -192,10 +192,10 @@ export const StyleMatchStepFlow: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex justify-between text-xs font-bold text-slate-400 mt-3 px-1">
-            <span className={currentStep === 1 ? 'text-amber-300 font-extrabold' : ''}>1. Tom de Pele</span>
-            <span className={currentStep === 2 ? 'text-amber-300 font-extrabold' : ''}>2. Ocasião & Clima</span>
-            <span className={currentStep === 3 ? 'text-amber-300 font-extrabold' : ''}>3. Looks Recomendados</span>
+          <div className="flex justify-between text-xs font-medium text-slate-400 mt-3 px-1">
+            <span className={currentStep === 1 ? 'text-amber-300 font-semibold' : ''}>1. Tom de Pele</span>
+            <span className={currentStep === 2 ? 'text-amber-300 font-semibold' : ''}>2. Ocasião & Clima</span>
+            <span className={currentStep === 3 ? 'text-amber-300 font-semibold' : ''}>3. Looks Recomendados</span>
           </div>
         </div>
 
@@ -216,14 +216,14 @@ export const StyleMatchStepFlow: React.FC = () => {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
                   <div>
-                    <h3 className="text-2xl sm:text-3xl font-extrabold text-white font-heading">
+                    <h3 className="text-2xl sm:text-3xl font-semibold text-white font-heading">
                       Escolha o Tom que Mais se Aproxima de Você
                     </h3>
-                    <p className="text-slate-300 text-sm mt-1 font-medium">
+                    <p className="text-slate-300 text-sm mt-1 font-normal">
                       A análise cromática Titi's Store garante que as peças ressaltem o contraste natural do seu rosto.
                     </p>
                   </div>
-                  <div className="px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold self-start sm:self-auto">
+                  <div className="px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium self-start sm:self-auto">
                     Etapa 1 de 3
                   </div>
                 </div>
@@ -242,7 +242,6 @@ export const StyleMatchStepFlow: React.FC = () => {
                             : 'glass-card hover:border-slate-600 hover:scale-[1.01]'
                         }`}
                       >
-                        {/* Image Preview */}
                         <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden mb-4">
                           <Image
                             src={tone.image}
@@ -259,12 +258,11 @@ export const StyleMatchStepFlow: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Card Details */}
                         <div className="space-y-1">
-                          <h4 className="text-lg font-bold text-white flex items-center justify-between font-heading">
+                          <h4 className="text-lg font-semibold text-white flex items-center justify-between font-heading">
                             <span>{tone.name}</span>
                           </h4>
-                          <p className="text-xs text-slate-300 font-medium">{tone.subtitle}</p>
+                          <p className="text-xs text-slate-300 font-normal">{tone.subtitle}</p>
                         </div>
                       </div>
                     );
@@ -274,17 +272,17 @@ export const StyleMatchStepFlow: React.FC = () => {
                 {/* Dynamic Skin Tone Analysis Box */}
                 <div className="mt-8 p-6 rounded-[28px] bg-slate-900/90 border border-amber-500/30 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                   <div className="md:col-span-8 space-y-3">
-                    <div className="flex items-center gap-2 text-xs font-black text-amber-400 uppercase tracking-widest">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest">
                       <Sparkles className="w-4 h-4 text-[#D4AF37]" />
                       <span>Recomendação Cromática Titi's Store - Tom {activeSkinToneData.name}</span>
                     </div>
-                    <p className="text-sm text-slate-200 leading-relaxed font-semibold">
+                    <p className="text-sm text-slate-200 leading-relaxed font-medium">
                       "{activeSkinToneData.proTip}"
                     </p>
                   </div>
 
                   <div className="md:col-span-4 space-y-3">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">
                       Cores Ideais Recomendadas:
                     </span>
                     <div className="flex flex-wrap gap-2">
@@ -294,7 +292,7 @@ export const StyleMatchStepFlow: React.FC = () => {
                             className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm"
                             style={{ backgroundColor: color.hex }}
                           />
-                          <span className="text-xs text-slate-100 font-bold">{color.name}</span>
+                          <span className="text-xs text-slate-200 font-medium">{color.name}</span>
                         </div>
                       ))}
                     </div>
@@ -305,7 +303,7 @@ export const StyleMatchStepFlow: React.FC = () => {
                 <div className="flex justify-end pt-4">
                   <button
                     onClick={() => setCurrentStep(2)}
-                    className="px-9 py-4 rounded-full text-xs sm:text-sm font-black text-[#0B0C10] uppercase tracking-wider bg-gold-gradient shadow-xl shadow-amber-500/20 hover:scale-105 transition-all flex items-center gap-2"
+                    className="px-9 py-4 rounded-full text-xs sm:text-sm font-semibold text-[#0B0C10] uppercase tracking-wider bg-gold-gradient shadow-xl shadow-amber-500/20 hover:scale-105 transition-all flex items-center gap-2"
                   >
                     <span>Continuar para Ocasião & Clima</span>
                     <ChevronRight className="w-4 h-4 text-[#0B0C10]" />
@@ -326,21 +324,21 @@ export const StyleMatchStepFlow: React.FC = () => {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
                   <div>
-                    <h3 className="text-2xl sm:text-3xl font-extrabold text-white font-heading">
+                    <h3 className="text-2xl sm:text-3xl font-semibold text-white font-heading">
                       Qual é a Ocasião, Horário e Clima do Seu Compromisso?
                     </h3>
-                    <p className="text-slate-300 text-sm mt-1 font-medium">
+                    <p className="text-slate-300 text-sm mt-1 font-normal">
                       Ajustamos a densidade dos tecidos, camadas e formalidade para o contexto perfeito.
                     </p>
                   </div>
-                  <div className="px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold self-start sm:self-auto">
+                  <div className="px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium self-start sm:self-auto">
                     Etapa 2 de 3
                   </div>
                 </div>
 
                 {/* Event Category Grid */}
                 <div>
-                  <label className="block text-xs font-black text-slate-300 uppercase tracking-widest mb-4">
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-widest mb-4">
                     1. Selecione o Tipo de Evento / Ocasião:
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -362,8 +360,8 @@ export const StyleMatchStepFlow: React.FC = () => {
                             <Shirt className="w-5 h-5" />
                           </div>
                           <div>
-                            <h4 className="text-base font-bold text-white font-heading">{evt.title}</h4>
-                            <p className="text-xs text-slate-300 mt-1 font-medium">{evt.description}</p>
+                            <h4 className="text-base font-semibold text-white font-heading">{evt.title}</h4>
+                            <p className="text-xs text-slate-300 mt-1 font-normal">{evt.description}</p>
                           </div>
                         </div>
                       );
@@ -376,7 +374,7 @@ export const StyleMatchStepFlow: React.FC = () => {
                   
                   {/* Time of Day Picker */}
                   <div className="glass-card p-6 rounded-[28px] space-y-4">
-                    <label className="block text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                    <label className="block text-xs font-semibold text-amber-400 uppercase tracking-widest flex items-center gap-2">
                       <Sun className="w-4 h-4 text-amber-400" />
                       <span>2. Horário do Compromisso:</span>
                     </label>
@@ -391,14 +389,14 @@ export const StyleMatchStepFlow: React.FC = () => {
                           key={t.id}
                           type="button"
                           onClick={() => setSelectedTimeOfDay(t.id)}
-                          className={`p-3.5 rounded-2xl text-center text-xs font-extrabold transition-all ${
+                          className={`p-3.5 rounded-2xl text-center text-xs font-semibold transition-all ${
                             selectedTimeOfDay === t.id
                               ? 'bg-gold-gradient text-[#0B0C10] shadow-md'
                               : 'bg-slate-900 text-slate-200 border border-slate-800 hover:border-slate-700'
                           }`}
                         >
                           <div className="text-sm font-heading">{t.label}</div>
-                          <div className="text-[10px] font-medium opacity-80 mt-0.5">{t.sub}</div>
+                          <div className="text-[10px] font-normal opacity-80 mt-0.5">{t.sub}</div>
                         </button>
                       ))}
                     </div>
@@ -406,7 +404,7 @@ export const StyleMatchStepFlow: React.FC = () => {
 
                   {/* Climate / Temperature Picker */}
                   <div className="glass-card p-6 rounded-[28px] space-y-4">
-                    <label className="block text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                    <label className="block text-xs font-semibold text-amber-400 uppercase tracking-widest flex items-center gap-2">
                       <Thermometer className="w-4 h-4 text-amber-400" />
                       <span>3. Clima & Temperatura Estimada:</span>
                     </label>
@@ -421,14 +419,14 @@ export const StyleMatchStepFlow: React.FC = () => {
                           key={c.id}
                           type="button"
                           onClick={() => setSelectedClimate(c.id)}
-                          className={`p-3.5 rounded-2xl text-center text-xs font-extrabold transition-all ${
+                          className={`p-3.5 rounded-2xl text-center text-xs font-semibold transition-all ${
                             selectedClimate === c.id
                               ? 'bg-gold-gradient text-[#0B0C10] shadow-md'
                               : 'bg-slate-900 text-slate-200 border border-slate-800 hover:border-slate-700'
                           }`}
                         >
                           <div className="text-sm font-heading">{c.label}</div>
-                          <div className="text-[10px] font-medium opacity-80 mt-0.5">{c.sub}</div>
+                          <div className="text-[10px] font-normal opacity-80 mt-0.5">{c.sub}</div>
                         </button>
                       ))}
                     </div>
@@ -440,7 +438,7 @@ export const StyleMatchStepFlow: React.FC = () => {
                 <div className="flex items-center justify-between pt-6 border-t border-slate-800/80">
                   <button
                     onClick={() => setCurrentStep(1)}
-                    className="px-6 py-3.5 rounded-full text-xs font-bold text-slate-300 hover:text-white glass-card flex items-center gap-2 border border-slate-700"
+                    className="px-6 py-3.5 rounded-full text-xs font-medium text-slate-300 hover:text-white glass-card flex items-center gap-2 border border-slate-700"
                   >
                     <ArrowLeft className="w-4 h-4" />
                     <span>Voltar Passo 1</span>
@@ -448,7 +446,7 @@ export const StyleMatchStepFlow: React.FC = () => {
 
                   <button
                     onClick={handleFinish}
-                    className="px-9 py-4 rounded-full text-xs sm:text-sm font-black text-[#0B0C10] uppercase tracking-wider bg-gold-gradient shadow-xl shadow-amber-500/25 hover:scale-105 transition-all flex items-center gap-2"
+                    className="px-9 py-4 rounded-full text-xs sm:text-sm font-semibold text-[#0B0C10] uppercase tracking-wider bg-gold-gradient shadow-xl shadow-amber-500/20 hover:scale-105 transition-all flex items-center gap-2"
                   >
                     <Sparkles className="w-4 h-4 text-[#0B0C10]" />
                     <span>Gerar Looks Titi's Store</span>
@@ -468,14 +466,14 @@ export const StyleMatchStepFlow: React.FC = () => {
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-800/80 pb-6">
                   <div>
-                    <div className="inline-flex items-center gap-2 text-xs font-black text-amber-400 uppercase tracking-widest mb-1">
+                    <div className="inline-flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest mb-1">
                       <Sparkles className="w-4 h-4 text-[#D4AF37]" />
                       <span>Recomendações Exclusivas Titi's Store</span>
                     </div>
-                    <h3 className="text-2xl sm:text-3xl font-black text-white font-heading">
+                    <h3 className="text-2xl sm:text-3xl font-semibold text-white font-heading">
                       Seu Lookbook Personalizado
                     </h3>
-                    <p className="text-xs sm:text-sm text-slate-300 mt-1 font-medium">
+                    <p className="text-xs sm:text-sm text-slate-300 mt-1 font-normal">
                       Combinando tom de pele **{activeSkinToneData.name}** + ocasião **{selectedOccasion.toUpperCase()}** + clima **{selectedClimate.toUpperCase()}**.
                     </p>
                   </div>
@@ -483,7 +481,7 @@ export const StyleMatchStepFlow: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       onClick={handleCopyLookbook}
-                      className="px-5 py-3 rounded-full text-xs font-bold text-slate-200 glass-card hover:bg-slate-800 flex items-center gap-2 border border-slate-700"
+                      className="px-5 py-3 rounded-full text-xs font-medium text-slate-200 glass-card hover:bg-slate-800 flex items-center gap-2 border border-slate-700"
                     >
                       {copiedSuccess ? (
                         <>
@@ -500,7 +498,7 @@ export const StyleMatchStepFlow: React.FC = () => {
 
                     <button
                       onClick={() => setCurrentStep(1)}
-                      className="px-5 py-3 rounded-full text-xs font-black text-[#0B0C10] bg-gold-gradient flex items-center gap-2 shadow-md uppercase tracking-wider"
+                      className="px-5 py-3 rounded-full text-xs font-semibold text-[#0B0C10] bg-gold-gradient flex items-center gap-2 shadow-md uppercase tracking-wider"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>Novo Look</span>
@@ -516,25 +514,25 @@ export const StyleMatchStepFlow: React.FC = () => {
                     <div className="space-y-4">
                       
                       <div className="flex items-center justify-between">
-                        <span className="px-3.5 py-1 rounded-full bg-amber-500/10 text-amber-300 text-[11px] font-extrabold uppercase tracking-wider border border-amber-500/30">
+                        <span className="px-3.5 py-1 rounded-full bg-amber-500/10 text-amber-300 text-[11px] font-semibold uppercase tracking-wider border border-amber-500/30">
                           Recomendação Príma
                         </span>
-                        <div className="flex items-center gap-1.5 text-xs font-black text-amber-400">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-400">
                           <span>96% Presença</span>
                         </div>
                       </div>
 
                       <div>
-                        <h4 className="text-xl font-black text-white font-heading">
+                        <h4 className="text-xl font-semibold text-white font-heading">
                           Executivo Noir Gold
                         </h4>
-                        <p className="text-xs text-slate-300 mt-1 font-medium">
+                        <p className="text-xs text-slate-300 mt-1 font-normal">
                           Alfaiataria slim atemporal que transmite liderança, elegância e segurança.
                         </p>
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-slate-800">
-                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block">
+                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold block">
                           Paleta Harmônica:
                         </span>
                         <div className="flex flex-wrap items-center gap-2">
@@ -546,32 +544,32 @@ export const StyleMatchStepFlow: React.FC = () => {
                           ].map((c, i) => (
                             <div key={i} className="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-full border border-slate-800">
                               <div className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: c.hex }} />
-                              <span className="text-[10px] text-slate-200 font-bold">{c.name}</span>
+                              <span className="text-[10px] text-slate-200 font-medium">{c.name}</span>
                             </div>
                           ))}
                         </div>
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-slate-800">
-                        <span className="text-[11px] uppercase tracking-wider text-amber-300 font-extrabold block">
+                        <span className="text-[11px] uppercase tracking-wider text-amber-300 font-semibold block">
                           Peças Recomendadas:
                         </span>
-                        <ul className="space-y-2 text-xs text-slate-200 font-semibold">
+                        <ul className="space-y-2 text-xs text-slate-200 font-normal">
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Sobreposição:</span>
-                            <span className="text-white">Blazer Lã Fria Azul Marinho</span>
+                            <span className="text-white font-medium">Blazer Lã Fria Azul Marinho</span>
                           </li>
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Camisa:</span>
-                            <span className="text-white">Pima Cotton Branco Marfim</span>
+                            <span className="text-white font-medium">Pima Cotton Branco Marfim</span>
                           </li>
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Calça:</span>
-                            <span className="text-white">Chino Tailored Cinza Chumbo</span>
+                            <span className="text-white font-medium">Chino Tailored Cinza Chumbo</span>
                           </li>
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Calçado:</span>
-                            <span className="text-white">Loafer Couro Italiano Preto</span>
+                            <span className="text-white font-medium">Loafer Couro Italiano Preto</span>
                           </li>
                         </ul>
                       </div>
@@ -579,7 +577,7 @@ export const StyleMatchStepFlow: React.FC = () => {
                     </div>
 
                     <div className="mt-6 pt-4 border-t border-slate-800 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
-                      <p className="text-[11px] text-amber-200 font-semibold italic">
+                      <p className="text-[11px] text-amber-200 font-normal italic">
                         💡 **Dica Titi's Store:** Mantenha os punhos da camisa 1.5 cm à vista sob a manga do blazer.
                       </p>
                     </div>
@@ -590,25 +588,25 @@ export const StyleMatchStepFlow: React.FC = () => {
                     <div className="space-y-4">
                       
                       <div className="flex items-center justify-between">
-                        <span className="px-3.5 py-1 rounded-full bg-slate-800 text-slate-300 text-[11px] font-extrabold uppercase tracking-wider">
+                        <span className="px-3.5 py-1 rounded-full bg-slate-800 text-slate-300 text-[11px] font-semibold uppercase tracking-wider">
                           Smart Casual
                         </span>
-                        <div className="flex items-center gap-1.5 text-xs font-black text-slate-300">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
                           <span>89% Presença</span>
                         </div>
                       </div>
 
                       <div>
-                        <h4 className="text-xl font-black text-white font-heading">
+                        <h4 className="text-xl font-semibold text-white font-heading">
                           Casual Luxury Terracota
                         </h4>
-                        <p className="text-xs text-slate-300 mt-1 font-medium">
+                        <p className="text-xs text-slate-300 mt-1 font-normal">
                           Descontração sofisticada perfeita para encontros e jantares modernos.
                         </p>
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-slate-800">
-                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block">
+                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold block">
                           Paleta Harmônica:
                         </span>
                         <div className="flex flex-wrap items-center gap-2">
@@ -619,28 +617,28 @@ export const StyleMatchStepFlow: React.FC = () => {
                           ].map((c, i) => (
                             <div key={i} className="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-full border border-slate-800">
                               <div className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: c.hex }} />
-                              <span className="text-[10px] text-slate-200 font-bold">{c.name}</span>
+                              <span className="text-[10px] text-slate-200 font-medium">{c.name}</span>
                             </div>
                           ))}
                         </div>
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-slate-800">
-                        <span className="text-[11px] uppercase tracking-wider text-amber-300 font-extrabold block">
+                        <span className="text-[11px] uppercase tracking-wider text-amber-300 font-semibold block">
                           Peças Recomendadas:
                         </span>
-                        <ul className="space-y-2 text-xs text-slate-200 font-semibold">
+                        <ul className="space-y-2 text-xs text-slate-200 font-normal">
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Superior:</span>
-                            <span className="text-white">Tricô Cashmere Terracota</span>
+                            <span className="text-white font-medium">Tricô Cashmere Terracota</span>
                           </li>
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Calça:</span>
-                            <span className="text-white">Chino Areia Champagne</span>
+                            <span className="text-white font-medium">Chino Areia Champagne</span>
                           </li>
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Calçado:</span>
-                            <span className="text-white">Sneaker Nappa Couro Branco</span>
+                            <span className="text-white font-medium">Sneaker Nappa Couro Branco</span>
                           </li>
                         </ul>
                       </div>
@@ -648,7 +646,7 @@ export const StyleMatchStepFlow: React.FC = () => {
                     </div>
 
                     <div className="mt-6 pt-4 border-t border-slate-800 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
-                      <p className="text-[11px] text-slate-200 font-semibold italic">
+                      <p className="text-[11px] text-slate-200 font-normal italic">
                         💡 **Dica Titi's Store:** Dobre as mangas do tricô suavemente para expor o relógio.
                       </p>
                     </div>
@@ -659,25 +657,25 @@ export const StyleMatchStepFlow: React.FC = () => {
                     <div className="space-y-4">
                       
                       <div className="flex items-center justify-between">
-                        <span className="px-3.5 py-1 rounded-full bg-slate-800 text-slate-300 text-[11px] font-extrabold uppercase tracking-wider">
+                        <span className="px-3.5 py-1 rounded-full bg-slate-800 text-slate-300 text-[11px] font-semibold uppercase tracking-wider">
                           Edição Noturna
                         </span>
-                        <div className="flex items-center gap-1.5 text-xs font-black text-slate-300">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
                           <span>98% Presença</span>
                         </div>
                       </div>
 
                       <div>
-                        <h4 className="text-xl font-black text-white font-heading">
+                        <h4 className="text-xl font-semibold text-white font-heading">
                           Gala & Velvet Obsidian
                         </h4>
-                        <p className="text-xs text-slate-300 mt-1 font-medium">
+                        <p className="text-xs text-slate-300 mt-1 font-normal">
                           Monocromático de alto impacto com textura marcante em veludo noturno.
                         </p>
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-slate-800">
-                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block">
+                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold block">
                           Paleta Harmônica:
                         </span>
                         <div className="flex flex-wrap items-center gap-2">
@@ -688,28 +686,28 @@ export const StyleMatchStepFlow: React.FC = () => {
                           ].map((c, i) => (
                             <div key={i} className="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-full border border-slate-800">
                               <div className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: c.hex }} />
-                              <span className="text-[10px] text-slate-200 font-bold">{c.name}</span>
+                              <span className="text-[10px] text-slate-200 font-medium">{c.name}</span>
                             </div>
                           ))}
                         </div>
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-slate-800">
-                        <span className="text-[11px] uppercase tracking-wider text-amber-300 font-extrabold block">
+                        <span className="text-[11px] uppercase tracking-wider text-amber-300 font-semibold block">
                           Peças Recomendadas:
                         </span>
-                        <ul className="space-y-2 text-xs text-slate-200 font-semibold">
+                        <ul className="space-y-2 text-xs text-slate-200 font-normal">
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Jaqueta/Blazer:</span>
-                            <span className="text-white">Blazer Veludo Bordô Imperial</span>
+                            <span className="text-white font-medium">Blazer Veludo Bordô Imperial</span>
                           </li>
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Camisa:</span>
-                            <span className="text-white">Camisa Modal Botoes Ocultos</span>
+                            <span className="text-white font-medium">Camisa Modal Botoes Ocultos</span>
                           </li>
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Calçado:</span>
-                            <span className="text-white">Chelsea Boots Couro Polido</span>
+                            <span className="text-white font-medium">Chelsea Boots Couro Polido</span>
                           </li>
                         </ul>
                       </div>
@@ -717,7 +715,7 @@ export const StyleMatchStepFlow: React.FC = () => {
                     </div>
 
                     <div className="mt-6 pt-4 border-t border-slate-800 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
-                      <p className="text-[11px] text-slate-200 font-semibold italic">
+                      <p className="text-[11px] text-slate-200 font-normal italic">
                         💡 **Dica Titi's Store:** O veludo noturno absorve a luz e destaca sua silhueta com maestria.
                       </p>
                     </div>

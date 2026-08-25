@@ -22,27 +22,27 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartConsultation })
           <div className="lg:col-span-7 space-y-8 text-left">
             
             {/* Top Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card border-amber-500/40 text-amber-300 text-xs font-bold uppercase tracking-wider shadow-md">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card border-amber-500/40 text-amber-300 text-xs font-medium uppercase tracking-wider shadow-md">
               <Sparkles className="w-4 h-4 text-[#D4AF37]" />
               <span>Consultoria de Imagem Masculina Premium</span>
             </div>
 
-            {/* Main Headline with Outfit Font */}
+            {/* Main Headline */}
             <div className="space-y-4">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white font-heading leading-[1.12]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-white font-heading leading-[1.15]">
                 Estilo, Intensidade <br />
                 <span className="text-gold-gradient">e Presença Inconfundível</span>
               </h1>
               <p className="text-base sm:text-lg text-slate-300 font-normal leading-relaxed max-w-2xl">
-                Descubra looks de alta alfaiataria e combinações inteligentes projetadas sob medida para o seu tom de pele, ocasião, clima e estilo de vida. Curadoria oficial assinada pela <strong className="text-white">Titi's Store</strong>.
+                Descubra looks de alta alfaiataria e combinações inteligentes projetadas sob medida para o seu tom de pele, ocasião, clima e estilo de vida. Curadoria oficial assinada pela <strong className="text-white font-medium">Titi's Store</strong>.
               </p>
             </div>
 
-            {/* Action Buttons with Rounded Pill Design */}
+            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2">
               <button
                 onClick={onStartConsultation}
-                className="group px-9 py-4 rounded-full text-xs sm:text-sm font-black text-[#0B0C10] uppercase tracking-wider bg-gold-gradient shadow-2xl shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3"
+                className="group px-9 py-4 rounded-full text-xs sm:text-sm font-semibold text-[#0B0C10] uppercase tracking-wider bg-gold-gradient shadow-2xl shadow-amber-500/20 hover:shadow-amber-500/35 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3"
               >
                 <span>Montar Meu Look Agora</span>
                 <ArrowRight className="w-4 h-4 text-[#0B0C10] group-hover:translate-x-1 transition-transform" />
@@ -50,7 +50,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartConsultation })
 
               <a
                 href="#sobre"
-                className="px-7 py-4 rounded-full text-xs sm:text-sm font-semibold text-slate-200 glass-card hover:bg-slate-800/90 hover:text-white hover:border-amber-500/40 transition-all text-center border border-slate-700/80"
+                className="px-7 py-4 rounded-full text-xs sm:text-sm font-medium text-slate-200 glass-card hover:bg-slate-800/90 hover:text-white hover:border-amber-500/40 transition-all text-center border border-slate-700/80"
               >
                 Conhecer a Metodologia
               </a>
@@ -59,27 +59,27 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartConsultation })
             {/* Trust Metrics */}
             <div className="pt-6 border-t border-slate-800/80 grid grid-cols-3 gap-6">
               <div>
-                <div className="text-2xl sm:text-3xl font-extrabold text-amber-400 font-heading">
+                <div className="text-2xl sm:text-3xl font-semibold text-amber-400 font-heading">
                   99.4%
                 </div>
-                <div className="text-xs font-medium text-slate-400 mt-1">Aprovação de Estilo</div>
+                <div className="text-xs font-normal text-slate-400 mt-1">Aprovação de Estilo</div>
               </div>
 
               <div>
-                <div className="text-2xl sm:text-3xl font-extrabold text-[#D4AF37] font-heading">
+                <div className="text-2xl sm:text-3xl font-semibold text-[#D4AF37] font-heading">
                   +3.200
                 </div>
-                <div className="text-xs font-medium text-slate-400 mt-1">Looks Mapeados</div>
+                <div className="text-xs font-normal text-slate-400 mt-1">Looks Mapeados</div>
               </div>
 
               <div>
-                <div className="text-2xl sm:text-3xl font-extrabold text-amber-400 font-heading">
+                <div className="text-2xl sm:text-3xl font-semibold text-amber-400 font-heading">
                   <div className="flex items-center gap-1">
                     <span>5.0</span>
                     <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                   </div>
                 </div>
-                <div className="text-xs font-medium text-slate-400 mt-1">Avaliação dos Clientes</div>
+                <div className="text-xs font-normal text-slate-400 mt-1">Avaliação dos Clientes</div>
               </div>
             </div>
 
@@ -105,16 +105,16 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartConsultation })
                       <Award className="w-5 h-5 text-amber-300" />
                     </div>
                     <div>
-                      <div className="text-[11px] font-extrabold text-amber-300 uppercase tracking-widest">
+                      <div className="text-[11px] font-semibold text-amber-300 uppercase tracking-widest">
                         Titi's Store 2026
                       </div>
-                      <div className="text-sm font-bold text-white font-heading">
+                      <div className="text-sm font-semibold text-white font-heading">
                         Alfaiataria & Smart Casual
                       </div>
                     </div>
                   </div>
 
-                  <div className="px-3 py-1 rounded-full bg-gold-gradient text-[#0B0C10] text-[10px] font-black uppercase tracking-wider shadow-sm">
+                  <div className="px-3 py-1 rounded-full bg-gold-gradient text-[#0B0C10] text-[10px] font-bold uppercase tracking-wider shadow-sm">
                     Exclusivo
                   </div>
                 </div>

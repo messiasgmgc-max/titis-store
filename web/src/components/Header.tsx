@@ -38,9 +38,9 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
       <header className="sticky top-0 z-40 glass-card border-b border-amber-500/20 bg-[#0B0C10]/85 backdrop-blur-xl rounded-none border-x-0 border-t-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           
-          {/* Brand Logo with Official Titi's Medallion */}
+          {/* Brand Logo */}
           <div className="flex items-center gap-3.5 cursor-pointer group" onClick={() => window.location.href = '/'}>
-            <div className="relative w-11 h-11 rounded-full p-0.5 bg-gradient-to-br from-[#F5D77F] via-[#D4AF37] to-[#AA7C11] shadow-lg shadow-amber-500/25 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
+            <div className="relative w-11 h-11 rounded-full p-0.5 bg-gradient-to-br from-[#F5D77F] via-[#D4AF37] to-[#AA7C11] shadow-md shadow-amber-500/15 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
               <div className="w-full h-full rounded-full relative overflow-hidden bg-black">
                 <Image
                   src="/logo_titis.jpg"
@@ -52,17 +52,17 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
               </div>
             </div>
             <div>
-              <span className="text-xl sm:text-2xl font-black tracking-wider text-gold-gradient font-heading block">
+              <span className="text-xl sm:text-2xl font-semibold tracking-wider text-gold-gradient font-heading block">
                 TITI'S STORE
               </span>
-              <span className="block text-[10px] tracking-[0.3em] text-slate-400 font-semibold uppercase -mt-1">
+              <span className="block text-[10px] tracking-[0.3em] text-slate-400 font-normal uppercase -mt-1">
                 Consultoria de Imagem
               </span>
             </div>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold tracking-wide">
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide">
             <a href="/#consultoria" className="text-slate-300 hover:text-[#D4AF37] transition-colors">
               Montar Look
             </a>
@@ -72,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
             <a href="/#catalogo" className="text-slate-300 hover:text-[#D4AF37] transition-colors">
               Catálogo Signature
             </a>
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-amber-500/30 text-xs text-amber-300/90 font-medium">
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-amber-500/30 text-xs text-amber-300/90 font-normal">
               <Smartphone className="w-3.5 h-3.5 text-amber-400" />
               <span>App iOS & Android</span>
             </div>
@@ -84,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
               <div className="flex items-center gap-3">
                 <a
                   href="/dashboard"
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full glass-card border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-slate-800 transition-colors shadow-md"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full glass-card border-amber-500/40 text-amber-300 text-xs font-medium hover:bg-slate-800 transition-colors shadow-md"
                 >
                   <LayoutDashboard className="w-4 h-4 text-amber-400" />
                   <span>Painel VIP ({user.email?.split('@')[0]})</span>
@@ -102,14 +102,14 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setAuthModalOpen(true)}
-                  className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-200 hover:text-white glass-card border border-slate-700/80 hover:border-amber-500/40 transition-all"
+                  className="px-5 py-2.5 rounded-full text-xs font-medium text-slate-200 hover:text-white glass-card border border-slate-700/80 hover:border-amber-500/40 transition-all"
                 >
                   Entrar / Cadastrar
                 </button>
 
                 <button
                   onClick={onStartConsultation}
-                  className="group relative inline-flex items-center justify-center px-6 py-2.5 text-xs font-black text-[#0B0C10] uppercase tracking-wider transition-all duration-300 rounded-full bg-gold-gradient shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 active:scale-95"
+                  className="group relative inline-flex items-center justify-center px-6 py-2.5 text-xs font-semibold text-[#0B0C10] uppercase tracking-wider transition-all duration-300 rounded-full bg-gold-gradient shadow-xl shadow-amber-500/20 hover:shadow-amber-500/35 hover:scale-105 active:scale-95"
                 >
                   <Sparkles className="w-4 h-4 mr-2 text-[#0B0C10] group-hover:rotate-12 transition-transform" />
                   Consultoria Premium
@@ -134,16 +134,16 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
           <div className="md:hidden glass-card border-b border-amber-500/20 px-6 py-6 space-y-4 rounded-b-3xl animate-in slide-in-from-top duration-200">
             {user ? (
               <div className="p-3.5 rounded-2xl bg-slate-900 border border-amber-500/30 space-y-2">
-                <div className="text-xs text-amber-300 font-bold">VIP: {user.email}</div>
+                <div className="text-xs text-amber-300 font-medium">VIP: {user.email}</div>
                 <div className="flex items-center gap-2">
-                  <a href="/dashboard" className="text-xs text-white underline font-bold">Acessar Painel VIP</a>
-                  <button onClick={handleLogout} className="text-xs text-red-400 ml-auto font-semibold">Sair</button>
+                  <a href="/dashboard" className="text-xs text-white underline font-medium">Acessar Painel VIP</a>
+                  <button onClick={handleLogout} className="text-xs text-red-400 ml-auto font-medium">Sair</button>
                 </div>
               </div>
             ) : (
               <button
                 onClick={() => { setMobileMenuOpen(false); setAuthModalOpen(true); }}
-                className="w-full py-3 rounded-2xl bg-slate-900 border border-slate-700 text-slate-200 text-xs font-bold"
+                className="w-full py-3 rounded-2xl bg-slate-900 border border-slate-700 text-slate-200 text-xs font-semibold"
               >
                 Entrar na Conta / Cadastrar
               </button>
@@ -152,21 +152,21 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
             <a
               href="/#consultoria"
               onClick={() => setMobileMenuOpen(false)}
-              className="block text-slate-200 hover:text-[#D4AF37] font-semibold text-sm"
+              className="block text-slate-200 hover:text-[#D4AF37] font-medium text-sm"
             >
               Montar Look Interativo
             </a>
             <a
               href="/#sobre"
               onClick={() => setMobileMenuOpen(false)}
-              className="block text-slate-200 hover:text-[#D4AF37] font-semibold text-sm"
+              className="block text-slate-200 hover:text-[#D4AF37] font-medium text-sm"
             >
               A Metodologia Titi's
             </a>
             <a
               href="/#catalogo"
               onClick={() => setMobileMenuOpen(false)}
-              className="block text-slate-200 hover:text-[#D4AF37] font-semibold text-sm"
+              className="block text-slate-200 hover:text-[#D4AF37] font-medium text-sm"
             >
               Catálogo Signature
             </a>
@@ -176,7 +176,7 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
                 setMobileMenuOpen(false);
                 onStartConsultation();
               }}
-              className="w-full py-3.5 text-xs font-black text-[#0B0C10] uppercase tracking-wider rounded-full bg-gold-gradient text-center shadow-lg shadow-amber-500/25"
+              className="w-full py-3.5 text-xs font-semibold text-[#0B0C10] uppercase tracking-wider rounded-full bg-gold-gradient text-center shadow-lg shadow-amber-500/20"
             >
               Iniciar Consultoria Agora
             </button>
