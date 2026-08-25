@@ -11,5 +11,10 @@
     "build": "cd web && npm run build",
     "build:api": "cd api && npm run build",
     "install:all": "npm --prefix web install && npm --prefix api install && npm --prefix mobile install"
+  },
+  "dependencies": {
+    "next": "16.3.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   }
 }
