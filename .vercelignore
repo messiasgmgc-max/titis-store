@@ -1,0 +1,4 @@
+# Ignore non-web folders for Vercel Web Deployment to fit Hobby Plan function limits
+api/
+mobile/
+supabase/
