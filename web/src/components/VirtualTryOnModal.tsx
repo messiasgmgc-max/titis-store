@@ -2,7 +2,8 @@
 
 import React, { useState, useRef } from 'react';
 import Image from 'next/image';
-import { X, Sparkles, Shirt, ShoppingBag, CheckCircle2, Upload, Camera, RefreshCw } from 'lucide-react';
+import { X, Sparkles, Shirt, ShoppingBag, CheckCircle2, Upload, Camera, RefreshCw, Cpu } from 'lucide-react';
+import { generateVirtualTryOnImageWithGemini } from '@/lib/geminiImageClient';
 
 interface VirtualTryOnModalProps {
   isOpen: boolean;
@@ -27,26 +28,36 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
     }
     return null;
   });
-  const [uploadingFace, setUploadingFace] = useState(false);
+  const [generatingGemini, setGeneratingGemini] = useState(false);
+  const [generatedResultImage, setGeneratedResultImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const handleFaceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFaceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setUploadingFace(true);
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const result = reader.result as string;
         setUserFaceImage(result);
         if (typeof window !== 'undefined') {
           localStorage.setItem('titis_user_face_image', result);
         }
-        setUploadingFace(false);
+        await triggerGeminiImageGen(result);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const triggerGeminiImageGen = async (faceSrc: string) => {
+    setGeneratingGemini(true);
+    const outfitDesc = items.map(i => `${i.name} (${i.color})`).join(', ');
+    const geminiImg = await generateVirtualTryOnImageWithGemini(faceSrc, outfitDesc);
+    if (geminiImg && geminiImg.startsWith('data:image')) {
+      setGeneratedResultImage(geminiImg);
+    }
+    setGeneratingGemini(false);
   };
 
   const skinToneImageMap: Record<string, string> = {
@@ -73,14 +84,14 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
         {/* Header */}
         <div className="text-center space-y-2 mb-6">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold uppercase tracking-widest">
-            <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-            <span>Provador Virtual com Seu Rosto</span>
+            <Cpu className="w-4 h-4 text-[#D4AF37]" />
+            <span>Provador Virtual Gemini Nano AI</span>
           </div>
           <h3 className="text-2xl font-semibold text-white font-heading">
             {lookTitle}
           </h3>
           <p className="text-xs text-slate-300 font-normal">
-            Teste e veja como o caimento das peças fica no seu tom de pele.
+            Geração de provador digital combinando a foto do seu rosto e o caimento das roupas.
           </p>
         </div>
 
@@ -103,7 +114,7 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
               </div>
               <div>
                 <h4 className="text-base font-semibold text-white font-heading">Envie a Foto do Seu Rosto</h4>
-                <p className="text-xs text-slate-400 mt-1">A IA usará o seu rosto para vestir as roupas recomendadas no manequim.</p>
+                <p className="text-xs text-slate-400 mt-1">O Gemini Nano usará o seu rosto para vestir o look recomendado.</p>
               </div>
               <button type="button" className="px-6 py-2.5 rounded-full bg-gold-gradient text-[#0B0C10] text-xs font-bold uppercase tracking-wider">
                 Carregar Foto do Rosto
@@ -115,14 +126,21 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
             
             {/* AI Model Image with User Face Overlay */}
-            <div className="sm:col-span-6 relative aspect-[3/4] w-full rounded-3xl overflow-hidden border border-amber-500/30 shadow-2xl group">
+            <div className="sm:col-span-6 relative aspect-[3/4] w-full rounded-3xl overflow-hidden border border-amber-500/30 shadow-2xl group bg-slate-900">
               <Image
-                src={fallbackModelImage}
-                alt="Modelo Provador"
+                src={generatedResultImage || fallbackModelImage}
+                alt="Modelo Provador Gemini Nano"
                 fill
                 className="object-cover"
               />
               
+              {generatingGemini && (
+                <div className="absolute inset-0 bg-[#0B0C10]/80 backdrop-blur-sm flex flex-col items-center justify-center text-amber-300 space-y-2 p-4 text-center">
+                  <RefreshCw className="w-8 h-8 animate-spin text-amber-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Gerando Imagem Gemini Nano...</span>
+                </div>
+              )}
+
               {/* User Face Badge Bubble */}
               <div className="absolute top-4 left-4 flex items-center gap-2.5 p-2 pr-3 rounded-full bg-slate-950/80 border border-amber-500/40 backdrop-blur-md">
                 <div className="relative w-8 h-8 rounded-full overflow-hidden border border-amber-400">
