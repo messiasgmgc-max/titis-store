@@ -59,7 +59,7 @@ export const AiConsultantWidget: React.FC = () => {
         >
           <div className="relative w-7 h-7 rounded-full p-0.5 bg-black overflow-hidden shrink-0">
             <Image
-              src="/logo_titis.jpg"
+              src="/titislogo.jpeg"
               alt="Titi's Store Logo"
               fill
               className="object-cover"
@@ -83,7 +83,7 @@ export const AiConsultantWidget: React.FC = () => {
               <div className="relative w-9 h-9 rounded-full p-0.5 bg-gradient-to-br from-[#F5D77F] via-[#D4AF37] to-[#AA7C11] overflow-hidden shrink-0">
                 <div className="w-full h-full rounded-full relative overflow-hidden bg-black">
                   <Image
-                    src="/logo_titis.jpg"
+                    src="/titislogo.jpeg"
                     alt="Titi's Store Logo"
                     fill
                     className="object-cover"

@@ -18,7 +18,7 @@ export const Footer: React.FC = () => {
               <div className="relative w-10 h-10 rounded-full p-0.5 bg-gradient-to-br from-[#F5D77F] via-[#D4AF37] to-[#AA7C11] shadow-lg shadow-amber-500/20 overflow-hidden shrink-0">
                 <div className="w-full h-full rounded-full relative overflow-hidden bg-black">
                   <Image
-                    src="/logo_titis.jpg"
+                    src="/titislogo.jpeg"
                     alt="Titi's Store Logo"
                     fill
                     className="object-cover"

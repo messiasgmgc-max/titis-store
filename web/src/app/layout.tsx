@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Titi's Store - Consultoria de Imagem & StyleMatch",
     description: "Eleve sua presença e autenticidade com a curadoria de estilo Titi's Store.",
-    images: ["/logo_titis.jpg"],
+    images: ["/titislogo.jpeg"],
   },
 };
 

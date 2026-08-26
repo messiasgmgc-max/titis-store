@@ -75,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="relative w-11 h-11 rounded-full p-0.5 bg-gradient-to-br from-[#F5D77F] via-[#D4AF37] to-[#AA7C11] shadow-md shadow-amber-500/15 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
               <div className="w-full h-full rounded-full relative overflow-hidden bg-black">
                 <Image
-                  src="/logo_titis.jpg"
+                  src="/titislogo.jpeg"
                   alt="Titi's Store Logo"
                   fill
                   className="object-cover"

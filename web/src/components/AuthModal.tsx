@@ -83,7 +83,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           <div className="relative w-14 h-14 rounded-full p-0.5 bg-gradient-to-br from-[#F5D77F] via-[#D4AF37] to-[#AA7C11] mx-auto shadow-lg shadow-amber-500/25 overflow-hidden">
             <div className="w-full h-full rounded-full relative overflow-hidden bg-black">
               <Image
-                src="/logo_titis.jpg"
+                src="/titislogo.jpeg"
                 alt="Titi's Store Logo"
                 fill
                 className="object-cover"
