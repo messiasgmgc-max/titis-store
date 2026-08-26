@@ -105,7 +105,43 @@ const eventOptions: EventOption[] = [
   { id: 'jantar', title: 'Jantar de Gala', description: 'Restaurantes de alta gastronomia & noites especiais' },
   { id: 'festa', title: 'Evento Social', description: 'Casamentos, galas, formaturas e celebrações' },
   { id: 'esporte', title: 'Esporte Fino / Club', description: 'Eventos ao ar livre, corridas & clubes sociais' },
-  { id: 'outro', title: 'Outro Lugar Customizado', description: 'Digite um local ou evento específico para análise por IA (Groq)' },
+  { id: 'outro', title: 'Outro Lugar Customizado', description: 'Digite um local ou evento específico para análise por IA' },
+];
+
+// Store Catalog Products mapping for automatic matching
+const catalogStoreProducts = [
+  {
+    id: 'prod-1',
+    name: 'Blazer Tailored Super 120s',
+    category: 'Sobreposição',
+    color: 'Azul Marinho',
+    hex: '#1B2A4A',
+    image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600',
+  },
+  {
+    id: 'prod-2',
+    name: 'Tricô Cashmere Italiano',
+    category: 'Superior',
+    color: 'Terracota',
+    hex: '#A0522D',
+    image: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=600',
+  },
+  {
+    id: 'prod-3',
+    name: 'Camisa Pima Cotton Giza',
+    category: 'Camisa',
+    color: 'Branco Marfim',
+    hex: '#FFFFFF',
+    image: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600',
+  },
+  {
+    id: 'prod-4',
+    name: 'Chino Tailored Cotton-Elastano',
+    category: 'Calça',
+    color: 'Cinza Grafite',
+    hex: '#2C3539',
+    image: 'https://images.unsplash.com/photo-1479064555552-3ef4979f8908?w=600',
+  },
 ];
 
 interface StyleMatchStepFlowProps {
@@ -143,7 +179,7 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
         origin: { y: 0.6 },
         colors: ['#D4AF37', '#F5D77F', '#FFFFFF'],
       });
-    }, 1200);
+    }, 1000);
   };
 
   const handleCopyLookbook = () => {
@@ -164,13 +200,13 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
         <div className="text-center space-y-4 mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold uppercase tracking-widest">
             <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-            <span>Sistema Inteligente Titi's Store StyleMatch (Groq AI Integrated)</span>
+            <span>Sistema Inteligente de Estilo</span>
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-white font-heading tracking-tight">
             Monte Seu Look Sob Medida
           </h2>
           <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto font-normal leading-relaxed">
-            Em apenas 3 passos simples, receba a recomendação exata de combinação de peças, contraste e paleta de cores com inteligência artificial.
+            Em 3 passos simples, receba a recomendação de peças, contraste e paleta de cores para o seu tom de pele.
           </p>
         </div>
 
@@ -245,16 +281,16 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                       Escolha o Tom que Mais se Aproxima de Você
                     </h3>
                     <p className="text-slate-300 text-sm mt-1 font-normal">
-                      Ou utilize nosso escaneamento facial via câmera para detecção cromática 100% científica.
+                      Ou use a câmera para encontrar seu tom automaticamente por foto.
                     </p>
                   </div>
                   
                   <button
                     onClick={() => setScannerOpen(true)}
-                    className="px-5 py-2.5 rounded-full bg-gold-gradient text-[#0B0C10] font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-2 hover:scale-105 transition-all shrink-0"
+                    className="px-5 py-2.5 rounded-full bg-gold-gradient text-[#0B0C10] font-semibold text-xs uppercase tracking-wider shadow-lg flex items-center gap-2 hover:scale-105 transition-all shrink-0"
                   >
                     <Camera className="w-4 h-4 text-[#0B0C10]" />
-                    <span>Escanear Meu Rosto (IA)</span>
+                    <span>Escanear Foto do Rosto</span>
                   </button>
                 </div>
 
@@ -304,16 +340,16 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                   <div className="md:col-span-8 space-y-3">
                     <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest">
                       <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Recomendação Cromática Titi's Store - Tom {activeSkinToneData.name}</span>
+                      <span>Recomendação de Cores - Tom {activeSkinToneData.name}</span>
                     </div>
-                    <p className="text-sm text-slate-200 leading-relaxed font-medium">
-                      "{activeSkinToneData.proTip}"
+                    <p className="text-sm text-slate-200 leading-relaxed font-normal">
+                      {activeSkinToneData.proTip}
                     </p>
                   </div>
 
                   <div className="md:col-span-4 space-y-3">
                     <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block">
-                      Cores Ideais Recomendadas:
+                      Cores Recomendadas:
                     </span>
                     <div className="flex flex-wrap gap-2">
                       {activeSkinToneData.idealColors.map((color, idx) => (
@@ -402,20 +438,17 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                 {/* Custom Venue Text Input if 'outro' is selected */}
                 {selectedOccasion === 'outro' && (
                   <div className="p-6 rounded-[28px] glass-card border border-amber-500/40 bg-slate-900/90 space-y-3 animate-in fade-in duration-200">
-                    <label className="block text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                    <label className="block text-xs font-semibold text-amber-300 uppercase tracking-wider flex items-center gap-2">
                       <Cpu className="w-4 h-4 text-amber-400" />
-                      <span>Análise de Lugar por IA Groq Llama-3:</span>
+                      <span>Análise de Lugar por Inteligência Artificial:</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="Ex: Casamento ao por do sol em praia na Bahia, Jantar com investidores em vinícola..."
+                      placeholder="Ex: Casamento ao por do sol em praia na Bahia, Jantar em vinícola..."
                       value={customVenueInput}
                       onChange={(e) => setCustomVenueInput(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/60"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/60 font-normal"
                     />
-                    <p className="text-[11px] text-slate-400 font-normal italic">
-                      💡 A inteligência artificial Groq lerá seu contexto e sugerirá caimento, tecidos leves ou estruturados sob medida.
-                    </p>
                   </div>
                 )}
 
@@ -502,12 +535,12 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                     {isAiProcessing ? (
                       <>
                         <RefreshCw className="w-4 h-4 text-[#0B0C10] animate-spin" />
-                        <span>Processando via IA Groq...</span>
+                        <span>Processando via IA...</span>
                       </>
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4 text-[#0B0C10]" />
-                        <span>Gerar Looks Titi's Store</span>
+                        <span>Gerar Looks</span>
                       </>
                     )}
                   </button>
@@ -528,13 +561,13 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                   <div>
                     <div className="inline-flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest mb-1">
                       <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Recomendações Exclusivas Titi's Store (Groq IA Verified)</span>
+                      <span>Recomendações Exclusivas</span>
                     </div>
                     <h3 className="text-2xl sm:text-3xl font-semibold text-white font-heading">
                       Seu Lookbook Personalizado
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-300 mt-1 font-normal">
-                      Combinando tom de pele **{activeSkinToneData.name}** + contexto **{selectedOccasion === 'outro' && customVenueInput ? customVenueInput : selectedOccasion.toUpperCase()}** + clima **{selectedClimate.toUpperCase()}**.
+                      Combinando tom de pele {activeSkinToneData.name} + contexto {selectedOccasion === 'outro' && customVenueInput ? customVenueInput : selectedOccasion.toUpperCase()} + clima {selectedClimate.toUpperCase()}.
                     </p>
                   </div>
 
@@ -569,44 +602,57 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                 {/* 3 Main Look Cards */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   
-                  {/* Look Card 1 */}
+                  {/* Look Card 1 - Check Store Catalog First */}
                   <div className="glass-card rounded-[32px] p-6 border border-amber-500/35 flex flex-col justify-between relative group hover:border-amber-400 transition-all duration-300 shadow-xl">
                     <div className="space-y-4">
                       
                       <div className="flex items-center justify-between">
                         <span className="px-3.5 py-1 rounded-full bg-amber-500/10 text-amber-300 text-[11px] font-semibold uppercase tracking-wider border border-amber-500/30">
-                          Recomendação Príma
+                          Recomendação Principal
                         </span>
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-400">
                           <span>96% Presença</span>
                         </div>
                       </div>
 
+                      {/* Real Store Catalog Product Match Image Preview */}
+                      <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden border border-slate-800 bg-slate-900">
+                        <Image
+                          src={catalogStoreProducts[0].image}
+                          alt={catalogStoreProducts[0].name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-semibold backdrop-blur-md">
+                          Disponível no Catálogo
+                        </div>
+                      </div>
+
                       <div>
                         <h4 className="text-xl font-semibold text-white font-heading">
-                          {selectedOccasion === 'outro' && customVenueInput ? `Edição ${customVenueInput.slice(0, 20)}...` : 'Executivo Noir Gold'}
+                          Executivo Noir Gold
                         </h4>
                         <p className="text-xs text-slate-300 mt-1 font-normal">
-                          Alfaiataria slim atemporal ajustada pela IA Groq para máxima elegância.
+                          Alfaiataria slim atemporal que transmite liderança, elegância e segurança.
                         </p>
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-slate-800">
                         <span className="text-[11px] uppercase tracking-wider text-amber-300 font-semibold block">
-                          Peças Recomendadas:
+                          Peças Encontradas no Catálogo:
                         </span>
                         <ul className="space-y-2 text-xs text-slate-200 font-normal">
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Sobreposição:</span>
-                            <span className="text-white font-medium">Blazer Lã Fria Azul Marinho</span>
+                            <span className="text-white font-medium">{catalogStoreProducts[0].name}</span>
                           </li>
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Camisa:</span>
-                            <span className="text-white font-medium">Pima Cotton Branco Marfim</span>
+                            <span className="text-white font-medium">{catalogStoreProducts[2].name}</span>
                           </li>
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Calça:</span>
-                            <span className="text-white font-medium">Chino Tailored Cinza Chumbo</span>
+                            <span className="text-white font-medium">{catalogStoreProducts[3].name}</span>
                           </li>
                         </ul>
                       </div>
@@ -616,29 +662,30 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                     <div className="mt-6 pt-4 border-t border-slate-800 space-y-3">
                       <button
                         onClick={() => handleOpenTryOn('Executivo Noir Gold', [
-                          { name: 'Blazer Lã Fria Azul Marinho', category: 'Sobreposição', color: 'Azul Marinho', hex: '#1B2A4A' },
-                          { name: 'Pima Cotton Branco Marfim', category: 'Camisa', color: 'Branco Marfim', hex: '#F7F7F7' },
-                          { name: 'Chino Tailored Cinza Chumbo', category: 'Calça', color: 'Cinza Chumbo', hex: '#2C3539' },
+                          { name: catalogStoreProducts[0].name, category: 'Sobreposição', color: 'Azul Marinho', hex: '#1B2A4A' },
+                          { name: catalogStoreProducts[2].name, category: 'Camisa', color: 'Branco Marfim', hex: '#FFFFFF' },
+                          { name: catalogStoreProducts[3].name, category: 'Calça', color: 'Cinza Grafite', hex: '#2C3539' },
                         ])}
-                        className="w-full py-2.5 rounded-full bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-800"
+                        className="w-full py-2.5 rounded-full bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-semibold flex items-center justify-center gap-2 hover:bg-slate-800"
                       >
                         <Eye className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Provador Virtual (IA Try-On)</span>
+                        <span>Provador Digital com Seu Rosto</span>
                       </button>
 
+                      {/* Prominent Encontrar Produto Button with Big Shopping Bag */}
                       <button
                         onClick={() => {
                           onAddToCart({ id: 'item-1', name: 'Executivo Noir Gold (Look Completo)', category: 'Lookbook', color: 'Azul Marinho & Marfim', hex: '#1B2A4A' });
                         }}
-                        className="w-full py-3 rounded-full bg-gold-gradient text-[#0B0C10] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:scale-105 transition-all"
+                        className="w-full py-4 rounded-full bg-gold-gradient text-[#0B0C10] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-3 shadow-xl hover:scale-105 transition-all"
                       >
-                        <ShoppingBag className="w-4 h-4 text-[#0B0C10]" />
-                        <span>Encomendar no WhatsApp (+5531996000213)</span>
+                        <ShoppingBag className="w-5 h-5 text-[#0B0C10]" />
+                        <span>Encontrar Produto</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Look Card 2 */}
+                  {/* Look Card 2 - Check Store Catalog First */}
                   <div className="glass-card rounded-[32px] p-6 border border-slate-800 flex flex-col justify-between relative group hover:border-amber-500/40 transition-all duration-300 shadow-xl">
                     <div className="space-y-4">
                       
@@ -648,6 +695,19 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                         </span>
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
                           <span>89% Presença</span>
+                        </div>
+                      </div>
+
+                      {/* Real Store Catalog Product Match Image Preview */}
+                      <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden border border-slate-800 bg-slate-900">
+                        <Image
+                          src={catalogStoreProducts[1].image}
+                          alt={catalogStoreProducts[1].name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-semibold backdrop-blur-md">
+                          Disponível no Catálogo
                         </div>
                       </div>
 
@@ -662,12 +722,12 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
 
                       <div className="space-y-2 pt-2 border-t border-slate-800">
                         <span className="text-[11px] uppercase tracking-wider text-amber-300 font-semibold block">
-                          Peças Recomendadas:
+                          Peças Encontradas no Catálogo:
                         </span>
                         <ul className="space-y-2 text-xs text-slate-200 font-normal">
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Superior:</span>
-                            <span className="text-white font-medium">Tricô Cashmere Terracota</span>
+                            <span className="text-white font-medium">{catalogStoreProducts[1].name}</span>
                           </li>
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Calça:</span>
@@ -681,28 +741,29 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                     <div className="mt-6 pt-4 border-t border-slate-800 space-y-3">
                       <button
                         onClick={() => handleOpenTryOn('Casual Luxury Terracota', [
-                          { name: 'Tricô Cashmere Terracota', category: 'Superior', color: 'Terracota', hex: '#A0522D' },
+                          { name: catalogStoreProducts[1].name, category: 'Superior', color: 'Terracota', hex: '#A0522D' },
                           { name: 'Chino Areia Champagne', category: 'Calça', color: 'Areia Champagne', hex: '#E6D7C3' },
                         ])}
-                        className="w-full py-2.5 rounded-full bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-800"
+                        className="w-full py-2.5 rounded-full bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-semibold flex items-center justify-center gap-2 hover:bg-slate-800"
                       >
                         <Eye className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Provador Virtual (IA Try-On)</span>
+                        <span>Provador Digital com Seu Rosto</span>
                       </button>
 
+                      {/* Prominent Encontrar Produto Button with Big Shopping Bag */}
                       <button
                         onClick={() => {
                           onAddToCart({ id: 'item-2', name: 'Casual Luxury Terracota (Look)', category: 'Lookbook', color: 'Terracota & Areia', hex: '#A0522D' });
                         }}
-                        className="w-full py-3 rounded-full bg-gold-gradient text-[#0B0C10] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:scale-105 transition-all"
+                        className="w-full py-4 rounded-full bg-gold-gradient text-[#0B0C10] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-3 shadow-xl hover:scale-105 transition-all"
                       >
-                        <ShoppingBag className="w-4 h-4 text-[#0B0C10]" />
-                        <span>Encomendar no WhatsApp (+5531996000213)</span>
+                        <ShoppingBag className="w-5 h-5 text-[#0B0C10]" />
+                        <span>Encontrar Produto</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Look Card 3 */}
+                  {/* Look Card 3 - Check Store Catalog First */}
                   <div className="glass-card rounded-[32px] p-6 border border-slate-800 flex flex-col justify-between relative group hover:border-amber-500/40 transition-all duration-300 shadow-xl">
                     <div className="space-y-4">
                       
@@ -712,6 +773,19 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                         </span>
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
                           <span>98% Presença</span>
+                        </div>
+                      </div>
+
+                      {/* Fallback image when not explicitly in default catalog */}
+                      <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden border border-slate-800 bg-slate-900">
+                        <Image
+                          src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600"
+                          alt="Gala & Velvet Obsidian"
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-semibold backdrop-blur-md">
+                          Recomendação Sob Medida
                         </div>
                       </div>
 
@@ -748,20 +822,21 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                           { name: 'Blazer Veludo Bordô Imperial', category: 'Blazer', color: 'Bordô Imperial', hex: '#58111A' },
                           { name: 'Camisa Modal Botoes Ocultos', category: 'Camisa', color: 'Preto Obsidian', hex: '#0B0C10' },
                         ])}
-                        className="w-full py-2.5 rounded-full bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-800"
+                        className="w-full py-2.5 rounded-full bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-semibold flex items-center justify-center gap-2 hover:bg-slate-800"
                       >
                         <Eye className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Provador Virtual (IA Try-On)</span>
+                        <span>Provador Digital com Seu Rosto</span>
                       </button>
 
+                      {/* Prominent Encontrar Produto Button with Big Shopping Bag */}
                       <button
                         onClick={() => {
                           onAddToCart({ id: 'item-3', name: 'Gala & Velvet Obsidian (Look)', category: 'Lookbook', color: 'Bordô & Obsidian', hex: '#58111A' });
                         }}
-                        className="w-full py-3 rounded-full bg-gold-gradient text-[#0B0C10] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:scale-105 transition-all"
+                        className="w-full py-4 rounded-full bg-gold-gradient text-[#0B0C10] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-3 shadow-xl hover:scale-105 transition-all"
                       >
-                        <ShoppingBag className="w-4 h-4 text-[#0B0C10]" />
-                        <span>Encomendar no WhatsApp (+5531996000213)</span>
+                        <ShoppingBag className="w-5 h-5 text-[#0B0C10]" />
+                        <span>Encontrar Produto</span>
                       </button>
                     </div>
                   </div>
