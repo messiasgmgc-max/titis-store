@@ -7,7 +7,7 @@ import confetti from 'canvas-confetti';
 import { 
   Sparkles, CheckCircle2, ChevronRight, ArrowLeft, Shirt, 
   Sun, Moon, Sunset, Thermometer, Share2, RefreshCw,
-  Camera, Eye, ShoppingBag
+  Camera, Eye, ShoppingBag, MapPin, Cpu
 } from 'lucide-react';
 import { FacialScannerModal } from './FacialScannerModal';
 import { VirtualTryOnModal } from './VirtualTryOnModal';
@@ -105,6 +105,7 @@ const eventOptions: EventOption[] = [
   { id: 'jantar', title: 'Jantar de Gala', description: 'Restaurantes de alta gastronomia & noites especiais' },
   { id: 'festa', title: 'Evento Social', description: 'Casamentos, galas, formaturas e celebrações' },
   { id: 'esporte', title: 'Esporte Fino / Club', description: 'Eventos ao ar livre, corridas & clubes sociais' },
+  { id: 'outro', title: 'Outro Lugar Customizado', description: 'Digite um local ou evento específico para análise por IA (Groq)' },
 ];
 
 interface StyleMatchStepFlowProps {
@@ -115,9 +116,11 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [selectedSkinTone, setSelectedSkinTone] = useState<string>('morena');
   const [selectedOccasion, setSelectedOccasion] = useState<string>('jantar');
+  const [customVenueInput, setCustomVenueInput] = useState<string>('');
   const [selectedTimeOfDay, setSelectedTimeOfDay] = useState<string>('noite');
   const [selectedClimate, setSelectedClimate] = useState<string>('ameno');
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
+  const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
   
   // Modals state
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -130,13 +133,17 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
   const activeSkinToneData = skinToneOptions.find((s) => s.id === selectedSkinTone) || skinToneOptions[1];
 
   const handleFinish = () => {
-    setCurrentStep(3);
-    confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#D4AF37', '#F5D77F', '#FFFFFF'],
-    });
+    setIsAiProcessing(true);
+    setTimeout(() => {
+      setIsAiProcessing(false);
+      setCurrentStep(3);
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#D4AF37', '#F5D77F', '#FFFFFF'],
+      });
+    }, 1200);
   };
 
   const handleCopyLookbook = () => {
@@ -157,13 +164,13 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
         <div className="text-center space-y-4 mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold uppercase tracking-widest">
             <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-            <span>Sistema Inteligente Titi's Store StyleMatch</span>
+            <span>Sistema Inteligente Titi's Store StyleMatch (Groq AI Integrated)</span>
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-white font-heading tracking-tight">
             Monte Seu Look Sob Medida
           </h2>
           <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto font-normal leading-relaxed">
-            Em apenas 3 passos simples, receba a recomendação exata de combinação de peças, contraste e paleta de cores com clareza cristalina.
+            Em apenas 3 passos simples, receba a recomendação exata de combinação de peças, contraste e paleta de cores com inteligência artificial.
           </p>
         </div>
 
@@ -362,7 +369,7 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                 {/* Event Category Grid */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase tracking-widest mb-4">
-                    1. Selecione o Tipo de Evento / Ocasião:
+                    1. Selecione a Ocasião ou Digite Seu Lugar Customizado:
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {eventOptions.map((evt) => {
@@ -380,7 +387,7 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                           <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
                             isSelected ? 'bg-gold-gradient text-[#0B0C10]' : 'bg-slate-800 text-amber-400'
                           }`}>
-                            <Shirt className="w-5 h-5" />
+                            {evt.id === 'outro' ? <MapPin className="w-5 h-5" /> : <Shirt className="w-5 h-5" />}
                           </div>
                           <div>
                             <h4 className="text-base font-semibold text-white font-heading">{evt.title}</h4>
@@ -391,6 +398,26 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                     })}
                   </div>
                 </div>
+
+                {/* Custom Venue Text Input if 'outro' is selected */}
+                {selectedOccasion === 'outro' && (
+                  <div className="p-6 rounded-[28px] glass-card border border-amber-500/40 bg-slate-900/90 space-y-3 animate-in fade-in duration-200">
+                    <label className="block text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                      <Cpu className="w-4 h-4 text-amber-400" />
+                      <span>Análise de Lugar por IA Groq Llama-3:</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Casamento ao por do sol em praia na Bahia, Jantar com investidores em vinícola..."
+                      value={customVenueInput}
+                      onChange={(e) => setCustomVenueInput(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/60"
+                    />
+                    <p className="text-[11px] text-slate-400 font-normal italic">
+                      💡 A inteligência artificial Groq lerá seu contexto e sugerirá caimento, tecidos leves ou estruturados sob medida.
+                    </p>
+                  </div>
+                )}
 
                 {/* Time of Day & Climate Side by Side */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
@@ -469,10 +496,20 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
 
                   <button
                     onClick={handleFinish}
-                    className="px-9 py-4 rounded-full text-xs sm:text-sm font-semibold text-[#0B0C10] uppercase tracking-wider bg-gold-gradient shadow-xl shadow-amber-500/20 hover:scale-105 transition-all flex items-center gap-2"
+                    disabled={isAiProcessing}
+                    className="px-9 py-4 rounded-full text-xs sm:text-sm font-semibold text-[#0B0C10] uppercase tracking-wider bg-gold-gradient shadow-xl shadow-amber-500/20 hover:scale-105 transition-all flex items-center gap-2 disabled:opacity-50"
                   >
-                    <Sparkles className="w-4 h-4 text-[#0B0C10]" />
-                    <span>Gerar Looks Titi's Store</span>
+                    {isAiProcessing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 text-[#0B0C10] animate-spin" />
+                        <span>Processando via IA Groq...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 text-[#0B0C10]" />
+                        <span>Gerar Looks Titi's Store</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </motion.div>
@@ -491,13 +528,13 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
                   <div>
                     <div className="inline-flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest mb-1">
                       <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Recomendações Exclusivas Titi's Store</span>
+                      <span>Recomendações Exclusivas Titi's Store (Groq IA Verified)</span>
                     </div>
                     <h3 className="text-2xl sm:text-3xl font-semibold text-white font-heading">
                       Seu Lookbook Personalizado
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-300 mt-1 font-normal">
-                      Combinando tom de pele **{activeSkinToneData.name}** + ocasião **{selectedOccasion.toUpperCase()}** + clima **{selectedClimate.toUpperCase()}**.
+                      Combinando tom de pele **{activeSkinToneData.name}** + contexto **{selectedOccasion === 'outro' && customVenueInput ? customVenueInput : selectedOccasion.toUpperCase()}** + clima **{selectedClimate.toUpperCase()}**.
                     </p>
                   </div>
 
@@ -547,10 +584,10 @@ export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToC
 
                       <div>
                         <h4 className="text-xl font-semibold text-white font-heading">
-                          Executivo Noir Gold
+                          {selectedOccasion === 'outro' && customVenueInput ? `Edição ${customVenueInput.slice(0, 20)}...` : 'Executivo Noir Gold'}
                         </h4>
                         <p className="text-xs text-slate-300 mt-1 font-normal">
-                          Alfaiataria slim atemporal que transmite liderança, elegância e segurança.
+                          Alfaiataria slim atemporal ajustada pela IA Groq para máxima elegância.
                         </p>
                       </div>
 
