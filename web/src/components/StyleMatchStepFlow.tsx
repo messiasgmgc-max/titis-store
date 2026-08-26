@@ -6,8 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { 
   Sparkles, CheckCircle2, ChevronRight, ArrowLeft, Shirt, 
-  Sun, Moon, Sunset, Thermometer, Share2, RefreshCw
+  Sun, Moon, Sunset, Thermometer, Share2, RefreshCw,
+  Camera, Eye, ShoppingBag
 } from 'lucide-react';
+import { FacialScannerModal } from './FacialScannerModal';
+import { VirtualTryOnModal } from './VirtualTryOnModal';
+import { CartItem } from './WhatsAppCartModal';
 
 interface SkinToneOption {
   id: string;
@@ -103,13 +107,25 @@ const eventOptions: EventOption[] = [
   { id: 'esporte', title: 'Esporte Fino / Club', description: 'Eventos ao ar livre, corridas & clubes sociais' },
 ];
 
-export const StyleMatchStepFlow: React.FC = () => {
+interface StyleMatchStepFlowProps {
+  onAddToCart: (item: CartItem) => void;
+}
+
+export const StyleMatchStepFlow: React.FC<StyleMatchStepFlowProps> = ({ onAddToCart }) => {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [selectedSkinTone, setSelectedSkinTone] = useState<string>('morena');
   const [selectedOccasion, setSelectedOccasion] = useState<string>('jantar');
   const [selectedTimeOfDay, setSelectedTimeOfDay] = useState<string>('noite');
   const [selectedClimate, setSelectedClimate] = useState<string>('ameno');
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
+  
+  // Modals state
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [tryOnOpen, setTryOnOpen] = useState(false);
+  const [activeLookTryOn, setActiveLookTryOn] = useState<{
+    title: string;
+    items: { name: string; category: string; color: string; hex: string }[];
+  } | null>(null);
 
   const activeSkinToneData = skinToneOptions.find((s) => s.id === selectedSkinTone) || skinToneOptions[1];
 
@@ -126,6 +142,11 @@ export const StyleMatchStepFlow: React.FC = () => {
   const handleCopyLookbook = () => {
     setCopiedSuccess(true);
     setTimeout(() => setCopiedSuccess(false), 2500);
+  };
+
+  const handleOpenTryOn = (title: string, items: { name: string; category: string; color: string; hex: string }[]) => {
+    setActiveLookTryOn({ title, items });
+    setTryOnOpen(true);
   };
 
   return (
@@ -155,7 +176,6 @@ export const StyleMatchStepFlow: React.FC = () => {
               style={{ width: `${((currentStep - 1) / 2) * 100}%` }}
             />
 
-            {/* Step 1 Circle */}
             <button
               onClick={() => setCurrentStep(1)}
               className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
@@ -167,7 +187,6 @@ export const StyleMatchStepFlow: React.FC = () => {
               1
             </button>
 
-            {/* Step 2 Circle */}
             <button
               onClick={() => setCurrentStep(2)}
               className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
@@ -179,7 +198,6 @@ export const StyleMatchStepFlow: React.FC = () => {
               2
             </button>
 
-            {/* Step 3 Circle */}
             <button
               onClick={() => currentStep >= 2 && setCurrentStep(3)}
               className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
@@ -214,18 +232,23 @@ export const StyleMatchStepFlow: React.FC = () => {
                 transition={{ duration: 0.3 }}
                 className="space-y-8"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
                   <div>
                     <h3 className="text-2xl sm:text-3xl font-semibold text-white font-heading">
                       Escolha o Tom que Mais se Aproxima de Você
                     </h3>
                     <p className="text-slate-300 text-sm mt-1 font-normal">
-                      A análise cromática Titi's Store garante que as peças ressaltem o contraste natural do seu rosto.
+                      Ou utilize nosso escaneamento facial via câmera para detecção cromática 100% científica.
                     </p>
                   </div>
-                  <div className="px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium self-start sm:self-auto">
-                    Etapa 1 de 3
-                  </div>
+                  
+                  <button
+                    onClick={() => setScannerOpen(true)}
+                    className="px-5 py-2.5 rounded-full bg-gold-gradient text-[#0B0C10] font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-2 hover:scale-105 transition-all shrink-0"
+                  >
+                    <Camera className="w-4 h-4 text-[#0B0C10]" />
+                    <span>Escanear Meu Rosto (IA)</span>
+                  </button>
                 </div>
 
                 {/* Skin Tone Cards Grid */}
@@ -532,25 +555,6 @@ export const StyleMatchStepFlow: React.FC = () => {
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-slate-800">
-                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold block">
-                          Paleta Harmônica:
-                        </span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {[
-                            { name: 'Azul Marinho', hex: '#1B2A4A' },
-                            { name: 'Branco Marfim', hex: '#F7F7F7' },
-                            { name: 'Preto Absoluto', hex: '#111111' },
-                            { name: 'Champagne', hex: '#D4AF37' },
-                          ].map((c, i) => (
-                            <div key={i} className="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-full border border-slate-800">
-                              <div className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: c.hex }} />
-                              <span className="text-[10px] text-slate-200 font-medium">{c.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pt-2 border-t border-slate-800">
                         <span className="text-[11px] uppercase tracking-wider text-amber-300 font-semibold block">
                           Peças Recomendadas:
                         </span>
@@ -567,19 +571,33 @@ export const StyleMatchStepFlow: React.FC = () => {
                             <span className="text-slate-400 font-normal">Calça:</span>
                             <span className="text-white font-medium">Chino Tailored Cinza Chumbo</span>
                           </li>
-                          <li className="flex items-center justify-between">
-                            <span className="text-slate-400 font-normal">Calçado:</span>
-                            <span className="text-white font-medium">Loafer Couro Italiano Preto</span>
-                          </li>
                         </ul>
                       </div>
 
                     </div>
 
-                    <div className="mt-6 pt-4 border-t border-slate-800 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
-                      <p className="text-[11px] text-amber-200 font-normal italic">
-                        💡 **Dica Titi's Store:** Mantenha os punhos da camisa 1.5 cm à vista sob a manga do blazer.
-                      </p>
+                    <div className="mt-6 pt-4 border-t border-slate-800 space-y-3">
+                      <button
+                        onClick={() => handleOpenTryOn('Executivo Noir Gold', [
+                          { name: 'Blazer Lã Fria Azul Marinho', category: 'Sobreposição', color: 'Azul Marinho', hex: '#1B2A4A' },
+                          { name: 'Pima Cotton Branco Marfim', category: 'Camisa', color: 'Branco Marfim', hex: '#F7F7F7' },
+                          { name: 'Chino Tailored Cinza Chumbo', category: 'Calça', color: 'Cinza Chumbo', hex: '#2C3539' },
+                        ])}
+                        className="w-full py-2.5 rounded-full bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-800"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Provador Virtual (IA Try-On)</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          onAddToCart({ id: 'item-1', name: 'Executivo Noir Gold (Look Completo)', category: 'Lookbook', color: 'Azul Marinho & Marfim', hex: '#1B2A4A' });
+                        }}
+                        className="w-full py-3 rounded-full bg-gold-gradient text-[#0B0C10] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:scale-105 transition-all"
+                      >
+                        <ShoppingBag className="w-4 h-4 text-[#0B0C10]" />
+                        <span>Encomendar no WhatsApp (+5531996000213)</span>
+                      </button>
                     </div>
                   </div>
 
@@ -606,24 +624,6 @@ export const StyleMatchStepFlow: React.FC = () => {
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-slate-800">
-                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold block">
-                          Paleta Harmônica:
-                        </span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {[
-                            { name: 'Terracota', hex: '#A0522D' },
-                            { name: 'Areia', hex: '#E6D7C3' },
-                            { name: 'Asfalto', hex: '#4A5568' },
-                          ].map((c, i) => (
-                            <div key={i} className="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-full border border-slate-800">
-                              <div className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: c.hex }} />
-                              <span className="text-[10px] text-slate-200 font-medium">{c.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pt-2 border-t border-slate-800">
                         <span className="text-[11px] uppercase tracking-wider text-amber-300 font-semibold block">
                           Peças Recomendadas:
                         </span>
@@ -636,19 +636,32 @@ export const StyleMatchStepFlow: React.FC = () => {
                             <span className="text-slate-400 font-normal">Calça:</span>
                             <span className="text-white font-medium">Chino Areia Champagne</span>
                           </li>
-                          <li className="flex items-center justify-between">
-                            <span className="text-slate-400 font-normal">Calçado:</span>
-                            <span className="text-white font-medium">Sneaker Nappa Couro Branco</span>
-                          </li>
                         </ul>
                       </div>
 
                     </div>
 
-                    <div className="mt-6 pt-4 border-t border-slate-800 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
-                      <p className="text-[11px] text-slate-200 font-normal italic">
-                        💡 **Dica Titi's Store:** Dobre as mangas do tricô suavemente para expor o relógio.
-                      </p>
+                    <div className="mt-6 pt-4 border-t border-slate-800 space-y-3">
+                      <button
+                        onClick={() => handleOpenTryOn('Casual Luxury Terracota', [
+                          { name: 'Tricô Cashmere Terracota', category: 'Superior', color: 'Terracota', hex: '#A0522D' },
+                          { name: 'Chino Areia Champagne', category: 'Calça', color: 'Areia Champagne', hex: '#E6D7C3' },
+                        ])}
+                        className="w-full py-2.5 rounded-full bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-800"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Provador Virtual (IA Try-On)</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          onAddToCart({ id: 'item-2', name: 'Casual Luxury Terracota (Look)', category: 'Lookbook', color: 'Terracota & Areia', hex: '#A0522D' });
+                        }}
+                        className="w-full py-3 rounded-full bg-gold-gradient text-[#0B0C10] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:scale-105 transition-all"
+                      >
+                        <ShoppingBag className="w-4 h-4 text-[#0B0C10]" />
+                        <span>Encomendar no WhatsApp (+5531996000213)</span>
+                      </button>
                     </div>
                   </div>
 
@@ -675,49 +688,44 @@ export const StyleMatchStepFlow: React.FC = () => {
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-slate-800">
-                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold block">
-                          Paleta Harmônica:
-                        </span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {[
-                            { name: 'Obsidian', hex: '#0B0C10' },
-                            { name: 'Vinho Bordô', hex: '#58111A' },
-                            { name: 'Prata', hex: '#C0C0C0' },
-                          ].map((c, i) => (
-                            <div key={i} className="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-full border border-slate-800">
-                              <div className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: c.hex }} />
-                              <span className="text-[10px] text-slate-200 font-medium">{c.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pt-2 border-t border-slate-800">
                         <span className="text-[11px] uppercase tracking-wider text-amber-300 font-semibold block">
                           Peças Recomendadas:
                         </span>
                         <ul className="space-y-2 text-xs text-slate-200 font-normal">
                           <li className="flex items-center justify-between">
-                            <span className="text-slate-400 font-normal">Jaqueta/Blazer:</span>
+                            <span className="text-slate-400 font-normal">Blazer:</span>
                             <span className="text-white font-medium">Blazer Veludo Bordô Imperial</span>
                           </li>
                           <li className="flex items-center justify-between">
                             <span className="text-slate-400 font-normal">Camisa:</span>
                             <span className="text-white font-medium">Camisa Modal Botoes Ocultos</span>
                           </li>
-                          <li className="flex items-center justify-between">
-                            <span className="text-slate-400 font-normal">Calçado:</span>
-                            <span className="text-white font-medium">Chelsea Boots Couro Polido</span>
-                          </li>
                         </ul>
                       </div>
 
                     </div>
 
-                    <div className="mt-6 pt-4 border-t border-slate-800 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
-                      <p className="text-[11px] text-slate-200 font-normal italic">
-                        💡 **Dica Titi's Store:** O veludo noturno absorve a luz e destaca sua silhueta com maestria.
-                      </p>
+                    <div className="mt-6 pt-4 border-t border-slate-800 space-y-3">
+                      <button
+                        onClick={() => handleOpenTryOn('Gala & Velvet Obsidian', [
+                          { name: 'Blazer Veludo Bordô Imperial', category: 'Blazer', color: 'Bordô Imperial', hex: '#58111A' },
+                          { name: 'Camisa Modal Botoes Ocultos', category: 'Camisa', color: 'Preto Obsidian', hex: '#0B0C10' },
+                        ])}
+                        className="w-full py-2.5 rounded-full bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-800"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Provador Virtual (IA Try-On)</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          onAddToCart({ id: 'item-3', name: 'Gala & Velvet Obsidian (Look)', category: 'Lookbook', color: 'Bordô & Obsidian', hex: '#58111A' });
+                        }}
+                        className="w-full py-3 rounded-full bg-gold-gradient text-[#0B0C10] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:scale-105 transition-all"
+                      >
+                        <ShoppingBag className="w-4 h-4 text-[#0B0C10]" />
+                        <span>Encomendar no WhatsApp (+5531996000213)</span>
+                      </button>
                     </div>
                   </div>
 
@@ -731,6 +739,33 @@ export const StyleMatchStepFlow: React.FC = () => {
         </div>
 
       </div>
+
+      <FacialScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScanComplete={(result) => {
+          setSelectedSkinTone(result.skinTone);
+        }}
+      />
+
+      {activeLookTryOn && (
+        <VirtualTryOnModal
+          isOpen={tryOnOpen}
+          onClose={() => setTryOnOpen(false)}
+          lookTitle={activeLookTryOn.title}
+          skinTone={selectedSkinTone}
+          items={activeLookTryOn.items}
+          onAddToCart={() => {
+            onAddToCart({
+              id: `tryon-${Date.now()}`,
+              name: `${activeLookTryOn.title} (Seleção Completa)`,
+              category: 'Lookbook Custom',
+              color: 'Harmônica',
+              hex: activeLookTryOn.items[0]?.hex || '#D4AF37',
+            });
+          }}
+        />
+      )}
     </section>
   );
 };

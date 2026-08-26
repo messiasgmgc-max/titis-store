@@ -2,34 +2,66 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Smartphone, Sparkles, Menu, X, LogOut, LayoutDashboard } from 'lucide-react';
+import { Smartphone, Sparkles, Menu, X, LogOut, LayoutDashboard, ShoppingBag, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { AuthModal } from './AuthModal';
+import { WhatsAppCartModal, CartItem } from './WhatsAppCartModal';
+import { AdminCatalogModal } from './AdminCatalogModal';
 
 interface HeaderProps {
   onStartConsultation: () => void;
+  cartItems: CartItem[];
+  onRemoveCartItem: (id: string) => void;
+  onClearCart: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
+export const Header: React.FC<HeaderProps> = ({
+  onStartConsultation,
+  cartItems,
+  onRemoveCartItem,
+  onClearCart,
+}) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string>('client');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
+      if (user) {
+        fetchUserProfile(user.id);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const activeUser = session?.user ?? null;
+      setUser(activeUser);
+      if (activeUser) {
+        fetchUserProfile(activeUser.id);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data } = await supabase.from('profiles').select('role').eq('id', userId).single();
+      if (data?.role) {
+        setUserRole(data.role);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setUserRole('client');
     window.location.href = '/';
   };
 
@@ -66,8 +98,8 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
             <a href="/#consultoria" className="text-slate-300 hover:text-[#D4AF37] transition-colors">
               Montar Look
             </a>
-            <a href="/#sobre" className="text-slate-300 hover:text-[#D4AF37] transition-colors">
-              A Metodologia
+            <a href="/#planos" className="text-slate-300 hover:text-[#D4AF37] transition-colors">
+              Passes & Planos
             </a>
             <a href="/#catalogo" className="text-slate-300 hover:text-[#D4AF37] transition-colors">
               Catálogo Signature
@@ -78,8 +110,34 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
             </div>
           </nav>
 
-          {/* Desktop Auth Controls */}
+          {/* Controls */}
           <div className="hidden md:flex items-center gap-4">
+            
+            {/* Cart Button */}
+            <button
+              onClick={() => setCartModalOpen(true)}
+              className="relative p-2.5 rounded-full glass-card border-amber-500/30 text-amber-300 hover:text-white hover:border-amber-400 transition-all"
+              title="Carrinho VIP WhatsApp"
+            >
+              <ShoppingBag className="w-5 h-5 text-amber-400" />
+              {cartItems.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gold-gradient text-[#0B0C10] font-black text-[10px] flex items-center justify-center shadow-md">
+                  {cartItems.length}
+                </span>
+              )}
+            </button>
+
+            {/* Admin Badge if role === admin */}
+            {userRole === 'admin' && (
+              <button
+                onClick={() => setAdminModalOpen(true)}
+                className="px-4 py-2 rounded-full bg-amber-500/20 border border-amber-500/50 text-amber-300 text-xs font-bold flex items-center gap-1.5 hover:bg-amber-500/30 transition-all"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+                <span>Admin Painel</span>
+              </button>
+            )}
+
             {user ? (
               <div className="flex items-center gap-3">
                 <a
@@ -118,8 +176,20 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
             )}
           </div>
 
-          {/* Mobile Hamburger Button */}
-          <div className="md:hidden flex items-center">
+          {/* Mobile Hamburger */}
+          <div className="md:hidden flex items-center gap-3">
+            <button
+              onClick={() => setCartModalOpen(true)}
+              className="relative p-2 rounded-full glass-card border-amber-500/30 text-amber-300"
+            >
+              <ShoppingBag className="w-5 h-5 text-amber-400" />
+              {cartItems.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gold-gradient text-[#0B0C10] font-bold text-[9px] flex items-center justify-center">
+                  {cartItems.length}
+                </span>
+              )}
+            </button>
+
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2.5 rounded-2xl text-slate-300 hover:text-white hover:bg-slate-800"
@@ -134,7 +204,7 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
           <div className="md:hidden glass-card border-b border-amber-500/20 px-6 py-6 space-y-4 rounded-b-3xl animate-in slide-in-from-top duration-200">
             {user ? (
               <div className="p-3.5 rounded-2xl bg-slate-900 border border-amber-500/30 space-y-2">
-                <div className="text-xs text-amber-300 font-medium">VIP: {user.email}</div>
+                <div className="text-xs text-amber-300 font-medium">VIP: {user.email} (Role: {userRole})</div>
                 <div className="flex items-center gap-2">
                   <a href="/dashboard" className="text-xs text-white underline font-medium">Acessar Painel VIP</a>
                   <button onClick={handleLogout} className="text-xs text-red-400 ml-auto font-medium">Sair</button>
@@ -157,11 +227,11 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
               Montar Look Interativo
             </a>
             <a
-              href="/#sobre"
+              href="/#planos"
               onClick={() => setMobileMenuOpen(false)}
               className="block text-slate-200 hover:text-[#D4AF37] font-medium text-sm"
             >
-              A Metodologia Titi's
+              Passes & Planos
             </a>
             <a
               href="/#catalogo"
@@ -188,6 +258,19 @@ export const Header: React.FC<HeaderProps> = ({ onStartConsultation }) => {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         onSuccess={() => setAuthModalOpen(false)}
+      />
+
+      <WhatsAppCartModal
+        isOpen={cartModalOpen}
+        onClose={() => setCartModalOpen(false)}
+        items={cartItems}
+        onRemoveItem={onRemoveCartItem}
+        onClearCart={onClearCart}
+      />
+
+      <AdminCatalogModal
+        isOpen={adminModalOpen}
+        onClose={() => setAdminModalOpen(false)}
       />
     </>
   );
