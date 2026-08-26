@@ -10,16 +10,16 @@ import { AdminCatalogModal } from './AdminCatalogModal';
 
 interface HeaderProps {
   onStartConsultation: () => void;
-  cartItems: CartItem[];
-  onRemoveCartItem: (id: string) => void;
-  onClearCart: () => void;
+  cartItems?: CartItem[];
+  onRemoveCartItem?: (id: string) => void;
+  onClearCart?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onStartConsultation,
-  cartItems,
-  onRemoveCartItem,
-  onClearCart,
+  cartItems = [],
+  onRemoveCartItem = () => {},
+  onClearCart = () => {},
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
