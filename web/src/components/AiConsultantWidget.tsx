@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { X, Send, Bot, Sparkles } from 'lucide-react';
+import { X, Send } from 'lucide-react';
 import { analyzeCustomVenueWithGroq } from '@/lib/groqClient';
 
 interface ChatMessage {
@@ -36,13 +36,11 @@ export const AiConsultantWidget: React.FC = () => {
     if (!textToSend) setInputText('');
     setIsTyping(true);
 
-    // Call Groq AI or fallback answer clean of asterisks
     try {
       const aiResponse = await analyzeCustomVenueWithGroq(query);
       setIsTyping(false);
 
       if (aiResponse) {
-        // Clean markdown asterisks from output
         const cleaned = aiResponse.replace(/\*\*/g, '').replace(/\*/g, '');
         setMessages((prev) => [...prev, { sender: 'bot', text: cleaned }]);
       } else {
@@ -85,12 +83,12 @@ export const AiConsultantWidget: React.FC = () => {
         </button>
       )}
 
-      {/* Chat Window Modal */}
+      {/* Chat Window Modal - Solid Obsidian Black Background */}
       {isOpen && (
-        <div className="w-[360px] sm:w-[390px] h-[500px] glass-card border border-amber-500/35 rounded-[32px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="w-[360px] sm:w-[390px] h-[500px] bg-[#0B0C10] border border-amber-500/40 rounded-[32px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
           
           {/* Header */}
-          <div className="p-4 border-b border-slate-800 bg-[#0B0C10]/95 flex items-center justify-between">
+          <div className="p-4 border-b border-slate-800 bg-[#0B0C10] flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-gold-gradient text-[#0B0C10] font-black flex items-center justify-center text-xs font-heading">
                 IA
@@ -114,8 +112,8 @@ export const AiConsultantWidget: React.FC = () => {
             </button>
           </div>
 
-          {/* Messages Body */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs bg-slate-950/40">
+          {/* Messages Body - Solid Black */}
+          <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs bg-[#050608]">
             {messages.map((m, idx) => (
               <div
                 key={idx}
@@ -136,19 +134,19 @@ export const AiConsultantWidget: React.FC = () => {
             {isTyping && (
               <div className="flex justify-start">
                 <div className="bg-slate-900 border border-slate-800 text-slate-400 p-3 rounded-2xl text-xs font-normal">
-                  Analisando dados cromáticos e estilo...
+                  Analisando estilo...
                 </div>
               </div>
             )}
           </div>
 
           {/* Quick suggestions */}
-          <div className="p-2.5 border-t border-slate-800/80 bg-slate-900/60 overflow-x-auto flex gap-2 no-scrollbar">
+          <div className="p-2.5 border-t border-slate-800/80 bg-[#0B0C10] overflow-x-auto flex gap-2 no-scrollbar">
             {quickQuestions.map((q, i) => (
               <button
                 key={i}
                 onClick={() => handleSendMessage(q)}
-                className="shrink-0 px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-200 font-medium border border-slate-700 whitespace-nowrap"
+                className="shrink-0 px-3 py-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-[10px] text-slate-200 font-medium border border-slate-800 whitespace-nowrap"
               >
                 {q}
               </button>
@@ -163,7 +161,7 @@ export const AiConsultantWidget: React.FC = () => {
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-              className="flex-1 bg-slate-900/90 border border-slate-800 rounded-full px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 font-normal"
+              className="flex-1 bg-slate-900 border border-slate-800 rounded-full px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 font-normal"
             />
             <button
               onClick={() => handleSendMessage()}
