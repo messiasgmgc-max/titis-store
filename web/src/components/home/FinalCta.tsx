@@ -1,4 +1,4 @@
-import { Medallion } from '@/components/ui/Logo';
+import { Coin } from '@/components/ui/Logo';
 import { WhatsAppIcon } from '@/components/ui/icons';
 import { whatsappLink } from '@/lib/format';
 import { ConsultingCta } from './ConsultingCta';
@@ -9,13 +9,13 @@ export function FinalCta() {
   return (
     <section data-hide-mobile-cta aria-labelledby="cta-final-title" className="pb-24 sm:pb-32">
       <div className="container-luxe">
-        <FadeIn className="panel-gold relative isolate overflow-hidden rounded-[2rem] px-6 py-14 text-center sm:px-12 sm:py-16">
+        <FadeIn rise className="panel-gold relative isolate overflow-hidden rounded-[2rem] px-6 py-14 text-center sm:px-12 sm:py-16">
           <div
             aria-hidden
             className="glow-gold pointer-events-none absolute left-1/2 top-0 -z-10 h-96 w-96 -translate-x-1/2 -translate-y-1/2"
           />
           <div className="flex justify-center">
-            <Medallion size={52} />
+            <Coin size={72} mode="spin" />
           </div>
           <h2
             id="cta-final-title"

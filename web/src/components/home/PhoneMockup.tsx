@@ -6,6 +6,11 @@ import { cn } from '@/lib/format';
 import { generateLooks } from '@/lib/stylist/engine';
 import { getSeason } from '@/lib/stylist/knowledge';
 import type { StyleRequest } from '@/lib/types';
+import { PhoneStage } from './PhoneStage';
+
+/** Cartões que flutuam na frente do celular (profundidade real no palco 3D). */
+const FLOAT_CARD =
+  'absolute hidden rounded-xl border border-line-gold bg-surface-2 px-3.5 py-2.5 text-xs font-bold text-ivory shadow-[0_24px_40px_-20px_rgb(0_0_0/0.9)] md:block';
 
 /** Pedido de exemplo: o resultado abaixo é gerado pelo mesmo motor usado no app. */
 const EXAMPLE_REQUEST: StyleRequest = {
@@ -29,8 +34,16 @@ export function PhoneMockup({ className }: { className?: string }) {
   const pieces = look ? look.pieces.slice(0, 4) : [];
 
   return (
-    <figure className={cn('relative mx-auto w-full max-w-[330px]', className)}>
+    <PhoneStage className={cn('mx-auto w-full max-w-[330px]', className)}>
+    <figure className="relative transform-3d">
       <div aria-hidden className="glow-gold pointer-events-none absolute -inset-[20%] -z-10" />
+
+      <span aria-hidden className={cn(FLOAT_CARD, 'right-0 top-24 lg:-right-16')} style={{ transform: 'translateZ(70px)' }}>
+        Cartela pronta <span className="text-gold-light">na hora</span>
+      </span>
+      <span aria-hidden className={cn(FLOAT_CARD, 'bottom-32 left-0 lg:-left-20')} style={{ transform: 'translateZ(90px)' }}>
+        <span className="text-gold-light">3 looks</span> para o jantar
+      </span>
 
       <div className="rounded-[2.75rem] border border-line-gold bg-coal p-[9px] shadow-[0_50px_100px_-45px_rgb(0_0_0/0.95)]">
         <div className="relative overflow-hidden rounded-[2.2rem] border border-line bg-obsidian">
@@ -78,7 +91,7 @@ export function PhoneMockup({ className }: { className?: string }) {
             <p className={cn(LABEL, 'mt-4 text-smoke')}>Cores que valorizam</p>
             <div className="mt-2 flex justify-between gap-2">
               {season.palette.map((color) => (
-                <Swatch key={color.hex} name={color.name} hex={color.hex} size="sm" showLabel={false} />
+                <Swatch key={color.hex} name={color.name} hex={color.hex} size="sm" showLabel={false} flip />
               ))}
             </div>
 
@@ -138,5 +151,6 @@ export function PhoneMockup({ className }: { className?: string }) {
         Exemplo de resultado do app de consultoria
       </figcaption>
     </figure>
+    </PhoneStage>
   );
 }

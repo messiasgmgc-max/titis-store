@@ -4,7 +4,11 @@ import { formatBRL } from '@/lib/format';
 import { CLUB_PLANS } from '@/lib/site';
 import { ConsultingCta } from './ConsultingCta';
 import { Eyebrow } from './Heading';
+import { FlipWords } from './FlipWords';
 import { PhoneMockup } from './PhoneMockup';
+
+/** Entrada em sequência dos blocos de texto (classe animate-rise-in), depois do título. */
+const riseAt = (delay: number) => ({ animationDelay: `${delay}s` });
 
 const EASE_POINTS = ['100% online, pelo celular', 'Resultado na hora', 'Atendimento do Titi no WhatsApp'] as const;
 
@@ -30,14 +34,14 @@ export function HomeHero() {
             id="hero-title"
             className="mt-5 text-[clamp(2.75rem,7vw,5.25rem)] font-extrabold leading-[1] tracking-[-0.035em] text-ivory"
           >
-            Pare de adivinhar <span className="text-foil">o que vestir.</span>
+            <FlipWords words={['Pare', 'de', 'adivinhar']} accentWords={['o', 'que', 'vestir.']} />
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-mist md:text-xl">
+          <p style={riseAt(0.7)} className="mt-6 max-w-xl text-lg leading-relaxed text-mist animate-rise-in md:text-xl">
             Envie uma foto e descubra as cores que valorizam o seu rosto. Receba sua cartela completa e looks montados
             para cada ocasião, com peças reais da loja e o Titi ao seu lado.
           </p>
 
-          <div className="mt-9 flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-8">
+          <div style={riseAt(0.85)} className="mt-9 flex flex-col items-start gap-5 animate-rise-in sm:flex-row sm:items-center sm:gap-8">
             <ConsultingCta />
             <Link
               href="#como-funciona"
@@ -52,7 +56,7 @@ export function HomeHero() {
             </Link>
           </div>
 
-          <ul className="mt-9 flex flex-wrap gap-x-6 gap-y-2.5 text-sm text-mist">
+          <ul style={riseAt(1)} className="mt-9 flex flex-wrap gap-x-6 gap-y-2.5 text-sm text-mist animate-rise-in">
             {EASE_POINTS.map((point) => (
               <li key={point} className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-gold" strokeWidth={2.2} aria-hidden />
@@ -60,7 +64,7 @@ export function HomeHero() {
               </li>
             ))}
           </ul>
-          <p className="mt-5 text-sm text-smoke">
+          <p style={riseAt(1.1)} className="mt-5 text-sm text-smoke animate-rise-in">
             Planos a partir de <span className="font-semibold text-parchment">{formatBRL(LOWEST_PRICE)}</span>.
           </p>
         </div>

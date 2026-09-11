@@ -58,7 +58,7 @@ export function HowItWorks() {
 
         <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
           {DELIVERABLES.map(({ icon: Icon, title, text }, index) => (
-            <FadeIn as="li" key={title} delay={index * 0.05} className="panel rounded-3xl p-6">
+            <FadeIn as="li" rise key={title} delay={index * 0.08} className="panel rounded-3xl p-6">
               <span className="grid h-11 w-11 place-items-center rounded-full border border-line-gold text-gold">
                 <Icon className="h-5 w-5" strokeWidth={1.5} aria-hidden />
               </span>
@@ -80,7 +80,7 @@ export function HowItWorks() {
 
           <ol className="mt-9 grid gap-9 lg:grid-cols-3 lg:gap-10">
             {STEPS.map((step, index) => (
-              <FadeIn as="li" key={step.title} delay={index * 0.06}>
+              <FadeIn as="li" rise key={step.title} delay={index * 0.12}>
                 <div className="flex items-center gap-4">
                   <span className="text-[2.6rem] font-extrabold leading-none tracking-[-0.04em] text-foil">
                     {String(index + 1).padStart(2, '0')}

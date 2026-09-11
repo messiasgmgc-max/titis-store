@@ -31,6 +31,54 @@ export function Medallion({ size = 44, className, ring = true }: { size?: number
   );
 }
 
+const COIN_IMG_STYLE = { width: '254%', height: '254%', left: '-77.3%', top: '-19.7%' } as const;
+
+/**
+ * Medalhão como moeda de ouro em 3D, com espessura e verso.
+ * `hover`: dá voltas ao passar o ponteiro. `spin`: gira devagar o tempo todo.
+ */
+export function Coin({
+  size = 56,
+  mode = 'hover',
+  className,
+}: {
+  size?: number;
+  mode?: 'hover' | 'spin';
+  className?: string;
+}) {
+  const face =
+    'absolute inset-0 overflow-hidden rounded-full bg-obsidian backface-hidden shadow-[0_0_0_1px_rgba(212,175,55,0.55)]';
+  return (
+    <span
+      className={cn('group/coin relative inline-block [perspective:900px]', className)}
+      style={{ width: size, height: size }}
+      aria-hidden
+    >
+      <span
+        className={cn(
+          'relative block h-full w-full transform-3d',
+          mode === 'spin'
+            ? 'animate-coin-spin motion-reduce:animate-none'
+            : 'transition-transform duration-[1300ms] ease-[var(--ease-couture)] group-hover/coin:[transform:rotateY(540deg)] motion-reduce:transition-none',
+        )}
+      >
+        <span
+          className="absolute inset-0 rounded-full bg-[linear-gradient(90deg,#aa7c11,#f5d77f,#aa7c11)] shadow-[0_0_0_4px_#aa7c11,0_30px_50px_-20px_rgba(212,175,55,0.45)]"
+          style={{ transform: 'translateZ(-4px)' }}
+        />
+        <span className={face}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={LOGO_SRC} alt="" draggable={false} className="absolute max-w-none select-none" style={COIN_IMG_STYLE} />
+        </span>
+        <span className={face} style={{ transform: 'rotateY(180deg)' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={LOGO_SRC} alt="" draggable={false} className="absolute max-w-none select-none" style={COIN_IMG_STYLE} />
+        </span>
+      </span>
+    </span>
+  );
+}
+
 /** Logo completa (medalhão + TITI'S STORE) com bordas esfumadas no obsidian. */
 export function LogoFull({ size = 220, className, priority }: { size?: number; className?: string; priority?: boolean }) {
   return (

@@ -1,19 +1,18 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { useCatalog } from '@/lib/catalog';
 import { formatBRL } from '@/lib/format';
 import type { Product } from '@/lib/types';
 import { useUI } from '@/providers/UIProvider';
+import { Coverflow } from './Coverflow';
 import { SectionTitle } from './Heading';
 
 const MAX_ITEMS = 8;
 const EDGE = 'clamp(1.25rem,4vw,3rem)';
-const ITEM_WIDTH = 'w-[68%] shrink-0 snap-start sm:w-[42%] md:w-[31%] lg:w-[calc((100%_-_3.75rem)/4)]';
-const ARROW =
-  'grid h-11 w-11 place-items-center rounded-full border border-line text-parchment transition-colors duration-300 hover:border-line-gold hover:text-gold-light';
+const ITEM_WIDTH = 'w-[68%] shrink-0 snap-start sm:w-[42%]';
 
 /** Peças em destaque primeiro, mantendo a ordem da loja. */
 function pickProducts(products: Product[]): Product[] {
@@ -54,13 +53,7 @@ function ProductTile({ product, onOpen }: { product: Product; onOpen: () => void
 export function StoreStrip() {
   const { products, loading } = useCatalog();
   const { openOverlay } = useUI();
-  const trackRef = useRef<HTMLUListElement>(null);
   const items = useMemo(() => pickProducts(products), [products]);
-
-  function scrollTrack(direction: 1 | -1) {
-    const track = trackRef.current;
-    if (track) track.scrollBy({ left: direction * track.clientWidth * 0.8, behavior: 'smooth' });
-  }
 
   if (!loading && items.length === 0) return null;
 
@@ -78,34 +71,33 @@ export function StoreStrip() {
             }
             lead="Com a consultoria você sabe exatamente o que comprar: sua cartela aponta as cores certas e o Titi indica as peças. Os pedidos são feitos pelo WhatsApp."
           />
-          <div className="flex shrink-0 items-center gap-5">
-            <Link
-              href="/colecao"
-              className="group inline-flex items-center gap-2 text-[15px] font-semibold text-ivory transition-colors duration-300 hover:text-gold-light"
-            >
-              Ver loja completa
-              <ArrowUpRight
-                className="h-4 w-4 text-gold transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                strokeWidth={2}
-                aria-hidden
-              />
-            </Link>
-            <div className="hidden gap-2 md:flex">
-              <button type="button" onClick={() => scrollTrack(-1)} aria-label="Peças anteriores" className={ARROW}>
-                <ArrowLeft className="h-4 w-4" strokeWidth={1.8} aria-hidden />
-              </button>
-              <button type="button" onClick={() => scrollTrack(1)} aria-label="Próximas peças" className={ARROW}>
-                <ArrowRight className="h-4 w-4" strokeWidth={1.8} aria-hidden />
-              </button>
-            </div>
-          </div>
+          <Link
+            href="/colecao"
+            className="group inline-flex shrink-0 items-center gap-2 text-[15px] font-semibold text-ivory transition-colors duration-300 hover:text-gold-light"
+          >
+            Ver loja completa
+            <ArrowUpRight
+              className="h-4 w-4 text-gold transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+              strokeWidth={2}
+              aria-hidden
+            />
+          </Link>
         </div>
 
+        {/* Telas maiores: vitrine em carrossel 3D */}
+        <div className="mt-8 hidden md:block" aria-busy={loading || undefined}>
+          {loading ? (
+            <div className="mx-auto h-[340px] w-[250px] animate-pulse rounded-2xl bg-surface" aria-hidden />
+          ) : (
+            <Coverflow products={items} onOpen={(product) => openOverlay({ type: 'product', product })} />
+          )}
+        </div>
+
+        {/* Celular: faixa rolável com toque */}
         <ul
-          ref={trackRef}
           aria-label="Peças da loja"
           aria-busy={loading || undefined}
-          className="no-scrollbar mt-10 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 sm:gap-5"
+          className="no-scrollbar mt-10 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 sm:gap-5 md:hidden"
           style={{ marginInline: `calc(-1 * ${EDGE})`, paddingInline: EDGE, scrollPaddingInline: EDGE }}
         >
           {loading
