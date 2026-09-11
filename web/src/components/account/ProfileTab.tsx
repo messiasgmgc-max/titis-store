@@ -24,7 +24,7 @@ function InlineConfirm({
   busy?: boolean;
 }) {
   return (
-    <span className="inline-flex items-center gap-4 text-[0.72rem] font-medium uppercase tracking-[0.2em]" role="group" aria-label={question}>
+    <span className="inline-flex items-center gap-4 text-[12px] font-semibold uppercase tracking-[0.14em]" role="group" aria-label={question}>
       <span className="text-parchment">{question}</span>
       <button type="button" onClick={onConfirm} disabled={busy} className="text-danger underline-offset-4 hover:underline disabled:opacity-50">
         Sim
@@ -116,7 +116,7 @@ export function ProfileTab({ onSignOut, signingOut }: { onSignOut: () => void; s
         eyebrow="Perfil"
         title={
           <>
-            Seus dados de <em className="italic text-gold-light">atendimento</em>
+            Seus dados de <span className="text-gold-light">atendimento</span>
           </>
         }
         lead="Mantenha nome e WhatsApp atualizados para agilizar pedidos e retornos."
@@ -184,7 +184,7 @@ export function ProfileTab({ onSignOut, signingOut }: { onSignOut: () => void; s
             {dirty && !saving && (
               <button
                 type="button"
-                className="text-[0.7rem] uppercase tracking-[0.2em] text-mist hover:text-ivory"
+                className="text-[12px] font-semibold uppercase tracking-[0.14em] text-mist hover:text-ivory"
                 onClick={() => {
                   setNameDraft(null);
                   setPhoneDraft(null);
@@ -218,7 +218,7 @@ export function ProfileTab({ onSignOut, signingOut }: { onSignOut: () => void; s
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={faceImage} alt="Foto do rosto guardada neste aparelho" className="h-14 w-14 shrink-0 object-cover img-editorial" />
                 ) : (
-                  <span className="grid h-14 w-14 shrink-0 place-items-center border border-dashed border-line text-[0.55rem] uppercase tracking-[0.2em] text-smoke" aria-hidden>
+                  <span className="grid h-14 w-14 shrink-0 place-items-center border border-dashed border-line text-[10px] font-semibold uppercase tracking-[0.14em] text-smoke" aria-hidden>
                     Foto
                   </span>
                 )}

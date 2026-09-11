@@ -1,16 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { PRODUCT_CATEGORIES, type Diagnosis, type Product } from '@/lib/types';
 import { useCatalog } from '@/lib/catalog';
 import { cn, whatsappLink } from '@/lib/format';
 import { useDiagnosis } from '@/providers/DiagnosisProvider';
-import { useUI } from '@/providers/UIProvider';
 import { Button } from '@/components/ui/Button';
 import { Reveal } from '@/components/ui/Reveal';
-import { SectionHeading } from '@/components/ui/SectionHeading';
 import { ColorDot, Swatch } from '@/components/ui/Swatch';
 import { WhatsAppIcon } from '@/components/ui/icons';
 import { ProductCard, paletteFit, toneMatches } from './ProductCard';
@@ -75,7 +74,6 @@ function arrange(
 export function Collection() {
   const { products, loading } = useCatalog();
   const { diagnosis } = useDiagnosis();
-  const { openOverlay } = useUI();
   const [category, setCategory] = useState<string>(ALL);
   const [paletteMode, setPaletteMode] = useState(false);
 
@@ -98,66 +96,41 @@ export function Collection() {
   };
 
   return (
-    <section id="colecao" className="relative isolate overflow-hidden border-t border-line py-24 sm:py-32">
+    <section id="colecao" className="relative isolate overflow-hidden pb-24 pt-2 sm:pb-32">
       <div aria-hidden className="glow-gold pointer-events-none absolute -right-48 top-0 -z-10 h-[560px] w-[560px]" />
       <p
         aria-hidden
-        className="vertical-text pointer-events-none absolute left-8 top-36 hidden font-caps text-[0.62rem] tracking-[0.5em] text-smoke 2xl:block"
+        className="vertical-text pointer-events-none absolute left-8 top-36 hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-smoke 2xl:block"
       >
         Coleção · Titi&apos;s Store
       </p>
 
       <div className="container-luxe">
-        <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-16">
+        {diagnosis && (
           <Reveal>
-            <SectionHeading
-              numeral="III"
-              eyebrow="A Coleção"
-              title={
-                <>
-                  Peças escolhidas pela <em className="italic text-foil">medida</em>, não pela vitrine.
-                </>
-              }
-              lead="Alfaiataria, camisaria e acessórios selecionados um a um: tecido, caimento e cor pensados para conversar entre si e com a sua cartela."
-            />
-          </Reveal>
-
-          <Reveal delay={0.12}>
-            <aside className="panel relative w-full p-6 sm:max-w-sm sm:p-7 lg:w-[22rem]">
-              <span aria-hidden className="stitch absolute inset-x-6 top-3" />
-              {diagnosis ? (
-                <>
-                  <p className="eyebrow mt-3">Sua cartela</p>
-                  <p className="mt-3 font-display text-3xl italic leading-none text-gold-light">{diagnosis.season}</p>
-                  {palettePreview.length > 0 && (
-                    <div className="mt-5 flex gap-1.5" aria-hidden>
-                      {palettePreview.map((s, i) => (
-                        <Swatch key={`${s.hex}-${i}`} name={s.name} hex={s.hex} size="sm" showLabel={false} />
-                      ))}
-                    </div>
-                  )}
-                  <button type="button" onClick={() => setPaletteMode((v) => !v)} className="link-luxe mt-6">
-                    {paletteOn ? 'Ver toda a coleção' : 'Ver peças na minha cartela'}
-                    <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className="eyebrow mt-3">Sob a sua luz</p>
-                  <p className="mt-4 text-sm leading-relaxed text-mist">
-                    Faça a leitura de colorimetria e a coleção passa a indicar as peças que valorizam o seu tom de pele.
-                  </p>
-                  <button type="button" onClick={() => openOverlay({ type: 'scanner' })} className="link-luxe mt-6">
-                    Descobrir minha cartela
-                    <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-                  </button>
-                </>
+            <aside className="panel relative mb-8 flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+              <div>
+                <p className="eyebrow">Sua cartela</p>
+                <p className="mt-2 font-display text-[1.6rem] font-extrabold leading-[1.05] tracking-[-0.02em] text-gold-light">
+                  {diagnosis.season}
+                </p>
+              </div>
+              {palettePreview.length > 0 && (
+                <div className="flex gap-1.5" aria-hidden>
+                  {palettePreview.map((s, i) => (
+                    <Swatch key={`${s.hex}-${i}`} name={s.name} hex={s.hex} size="sm" showLabel={false} />
+                  ))}
+                </div>
               )}
+              <button type="button" onClick={() => setPaletteMode((v) => !v)} className="link-luxe self-start sm:self-center">
+                {paletteOn ? 'Ver toda a coleção' : 'Ver peças na minha cartela'}
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+              </button>
             </aside>
           </Reveal>
-        </div>
+        )}
 
-        <div className="mt-14 border-y border-line sm:mt-16">
+        <div className="border-y border-line">
           <div className="flex flex-col gap-4 py-4 md:flex-row md:items-center md:justify-between md:gap-8">
             <div
               role="group"
@@ -206,12 +179,15 @@ export function Collection() {
                   Na minha cartela
                 </button>
               )}
-              <p className="ml-auto shrink-0 font-caps text-[0.7rem] tracking-[0.3em] text-mist md:ml-0" aria-live="polite">
+              <p
+                className="ml-auto shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-mist md:ml-0"
+                aria-live="polite"
+              >
                 {showSkeleton ? (
                   <span className="text-smoke">— peças</span>
                 ) : (
                   <>
-                    <span className="text-gold-light">{pad(count)}</span> {count === 1 ? 'peça' : 'peças'}
+                    <span className="font-extrabold tabular-nums text-gold-light">{pad(count)}</span> {count === 1 ? 'peça' : 'peças'}
                   </>
                 )}
               </p>
@@ -222,7 +198,7 @@ export function Collection() {
         {paletteOn && diagnosis && (
           <p className="mt-5 text-sm leading-relaxed text-mist">
             Peças indicadas para o seu tom, da mais próxima à mais distante da cartela{' '}
-            <span className="font-display text-base italic text-gold-light">{diagnosis.season}</span>.
+            <span className="font-semibold text-gold-light">{diagnosis.season}</span>.
           </p>
         )}
 
@@ -255,8 +231,28 @@ export function Collection() {
             </motion.ul>
           )}
         </div>
+
+        {!showSkeleton && count > 0 && <ConsultingNudge className="mt-16 border-t border-line pt-8 sm:mt-20" />}
       </div>
     </section>
+  );
+}
+
+/** Convite discreto para a consultoria paga, no rodapé e nos estados vazios da loja. */
+function ConsultingNudge({ className }: { className?: string }) {
+  return (
+    <p
+      className={cn(
+        'flex flex-col items-center justify-center gap-x-4 gap-y-2 text-center text-sm font-medium text-mist sm:flex-row',
+        className,
+      )}
+    >
+      Não sabe o que combina com você?
+      <Link href="/#planos" className="link-luxe text-gold-light">
+        Conheça a consultoria
+        <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+      </Link>
+    </p>
   );
 }
 
@@ -303,15 +299,15 @@ function EmptyState({
   const title =
     kind === 'catalog' ? (
       <>
-        Novas peças em <em className="italic text-foil">prova</em>.
+        Novas peças em <span className="text-foil">prova</span>.
       </>
     ) : kind === 'palette' ? (
       <>
-        Nada aqui veste a sua <em className="italic text-foil">cartela</em> — ainda.
+        Nada aqui veste a sua <span className="text-foil">cartela</span> — ainda.
       </>
     ) : (
       <>
-        Nenhuma peça nesta <em className="italic text-foil">seleção</em>.
+        Nenhuma peça nesta <span className="text-foil">seleção</span>.
       </>
     );
 
@@ -326,7 +322,9 @@ function EmptyState({
     <div className="panel relative mx-auto flex max-w-2xl flex-col items-center overflow-hidden px-6 pb-14 pt-16 text-center sm:px-12">
       <div aria-hidden className="tape absolute inset-x-0 top-0 opacity-50" />
       <span aria-hidden className="pinked block h-16 w-12 bg-gold-dark/40" />
-      <h3 className="mt-8 font-display text-3xl leading-tight text-ivory sm:text-4xl">{title}</h3>
+      <h3 className="mt-8 font-display text-[1.75rem] font-extrabold leading-[1.1] tracking-[-0.02em] text-ivory sm:text-[2.1rem]">
+        {title}
+      </h3>
       <p className="mt-4 max-w-md leading-relaxed text-mist">{text}</p>
       <div className="mt-9 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
         {kind !== 'catalog' && (
@@ -339,6 +337,8 @@ function EmptyState({
           Pedir curadoria
         </Button>
       </div>
+      <span aria-hidden className="stitch mt-10 w-24" />
+      <ConsultingNudge className="mt-6" />
     </div>
   );
 }

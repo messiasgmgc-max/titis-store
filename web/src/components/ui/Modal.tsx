@@ -138,7 +138,7 @@ export function Modal({
             className,
           )}
         >
-          <h2 id={titleId} className={cn(showTitle ? 'px-6 pt-6 font-display text-3xl sm:px-8 sm:pt-8' : 'sr-only')}>
+          <h2 id={titleId} className={cn(showTitle ? 'px-6 pt-6 font-display text-[1.6rem] font-extrabold leading-[1.1] tracking-[-0.02em] sm:px-8 sm:pt-8 sm:text-[1.85rem]' : 'sr-only')}>
             {title}
           </h2>
           {!hideClose && (

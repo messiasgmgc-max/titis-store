@@ -46,7 +46,7 @@ export function Swatch({
       </span>
       {showLabel && (
         <figcaption className={cn('leading-tight text-mist', sizes[size].label)}>
-          <span className="block text-ivory/90">{name}</span>
+          <span className="block font-medium text-ivory/90">{name}</span>
           <span className="font-mono text-[9px] uppercase tracking-wider text-smoke">{hex}</span>
         </figcaption>
       )}

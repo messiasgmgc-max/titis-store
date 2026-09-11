@@ -1,15 +1,18 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
+import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowUp, RotateCcw, X } from 'lucide-react';
+import { ArrowRight, ArrowUp, RotateCcw, X } from 'lucide-react';
 import { Medallion } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
 import { WhatsAppIcon } from '@/components/ui/icons';
 import { useUI } from '@/providers/UIProvider';
 import { useDiagnosis } from '@/providers/DiagnosisProvider';
+import { useSession } from '@/providers/SessionProvider';
 import { sendConcierge } from '@/lib/api';
 import { whatsappLink } from '@/lib/format';
+import { CONSULTING_PATH } from '@/lib/site';
 import type { ChatMessage } from '@/lib/types';
 
 const STORAGE_KEY = 'titis:concierge:v1';
@@ -18,11 +21,13 @@ const STORED_LIMIT = 40;
 const MAX_CHARS = 1000;
 const EASE = [0.22, 1, 0.36, 1] as const;
 
+const PLANS_PATH = '/assinar?plano=clube';
+
 const SUGGESTIONS = [
+  'Como funciona a consultoria?',
+  'Qual plano escolher?',
   'Que sapato usar com calça cinza?',
   'Traje para casamento à tarde',
-  'Como combinar relógio e cinto?',
-  'Cores da minha cartela',
 ];
 
 // ---------------------------------------------------------------------------
@@ -118,7 +123,7 @@ function renderInline(text: string): React.ReactNode[] {
 function RichText({ text }: { text: string }) {
   const blocks = parseBlocks(text);
   return (
-    <div className="space-y-2.5 [&_strong]:font-medium [&_strong]:text-gold-light">
+    <div className="space-y-2.5 [&_strong]:font-semibold [&_strong]:text-gold-light">
       {blocks.map((block, i) => {
         if (block.kind === 'p') {
           return (
@@ -134,7 +139,7 @@ function RichText({ text }: { text: string }) {
         }
         if (block.kind === 'ol') {
           return (
-            <ol key={i} className="list-decimal space-y-1.5 pl-5 marker:font-caps marker:text-[0.72em] marker:text-gold">
+            <ol key={i} className="list-decimal space-y-1.5 pl-5 marker:font-bold marker:text-[0.8em] marker:text-gold">
               {block.items.map((entry, j) => (
                 <li key={j} className="pl-1">
                   {renderInline(entry)}
@@ -189,6 +194,74 @@ function UserBubble({ text }: { text: string }) {
   );
 }
 
+/** Pré-venda: convida para os planos (ou abre a consultoria de quem já tem acesso). */
+function planCta(hasAccess: boolean) {
+  return hasAccess
+    ? {
+        href: CONSULTING_PATH,
+        kicker: 'Seu plano está ativo',
+        title: 'Sua consultoria já está liberada.',
+        text: 'Cartela, looks por ocasião e provador virtual te esperam.',
+        strip: 'Plano ativo',
+        action: 'Abrir minha consultoria',
+      }
+    : {
+        href: PLANS_PATH,
+        kicker: 'Consultoria com o Titi',
+        title: 'Quer sua cartela e looks montados pelo Titi?',
+        text: 'Leitura de cores por foto, looks para cada ocasião e provador virtual com o seu rosto.',
+        strip: 'Cartela e looks montados pelo Titi',
+        action: 'Ver planos',
+      };
+}
+
+function PlanCard({ hasAccess, onNavigate }: { hasAccess: boolean; onNavigate: () => void }) {
+  const cta = planCta(hasAccess);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: EASE, delay: 0.1 }}
+      className="relative max-w-[92%] overflow-hidden border border-line-gold bg-gold/[0.05] px-4 py-4"
+    >
+      <span aria-hidden className="glow-gold pointer-events-none absolute -right-10 -top-12 h-32 w-32" />
+      <p className="relative text-[11px] font-semibold uppercase tracking-[0.16em] text-gold">{cta.kicker}</p>
+      <p className="relative mt-2 font-display text-[1.05rem] font-bold leading-[1.2] tracking-[-0.02em] text-ivory">
+        {cta.title}
+      </p>
+      <p className="relative mt-1.5 text-xs leading-relaxed text-mist">{cta.text}</p>
+      <Button size="sm" href={cta.href} onClick={onNavigate} className="relative mt-4">
+        {cta.action}
+        <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+      </Button>
+    </motion.div>
+  );
+}
+
+function PlanStrip({ hasAccess, onNavigate }: { hasAccess: boolean; onNavigate: () => void }) {
+  const cta = planCta(hasAccess);
+  return (
+    <Link
+      href={cta.href}
+      onClick={onNavigate}
+      className="group mb-3 flex items-center justify-between gap-3 border-b border-line-gold/60 pb-2.5 text-xs text-mist transition-colors hover:text-parchment"
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
+        <span className="truncate font-medium">{cta.strip}</span>
+      </span>
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-light">
+        {cta.action}
+        <ArrowRight
+          className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5"
+          strokeWidth={2}
+          aria-hidden
+        />
+      </span>
+    </Link>
+  );
+}
+
 function TypingIndicator() {
   return (
     <div
@@ -215,6 +288,7 @@ function TypingIndicator() {
 export function ConciergeWidget() {
   const { overlay, conciergeOpen, setConciergeOpen } = useUI();
   const { diagnosis } = useDiagnosis();
+  const { hasAccess } = useSession();
   // O painel só aparece após interação, então ler o sessionStorage aqui não altera o HTML hidratado.
   const [messages, setMessages] = useState<ChatMessage[]>(readHistory);
   const [draft, setDraft] = useState('');
@@ -359,8 +433,8 @@ export function ConciergeWidget() {
       : 'Olá, Titi! Vim pelo concierge do site e gostaria de uma orientação de estilo.',
   );
   const welcome = diagnosis
-    ? `Boas-vindas ao Atelier. Sua estação é **${diagnosis.season}**. Posso sugerir combinações com a sua cartela.`
-    : 'Boas-vindas ao Atelier. Posso orientar combinações, trajes para cada ocasião, cores e acessórios.';
+    ? `Boas-vindas à Titi's Store. Sua estação é **${diagnosis.season}**. Posso sugerir combinações com a sua cartela.`
+    : "Boas-vindas à Titi's Store. Tiro dúvidas de estilo, trajes para cada ocasião e explico como funciona a consultoria com o Titi.";
   const showLauncher = !conciergeOpen && !overlay;
 
   return (
@@ -380,15 +454,15 @@ export function ConciergeWidget() {
               type="button"
               onClick={() => setConciergeOpen(true)}
               aria-haspopup="dialog"
-              aria-label="Abrir o Concierge Titi's"
+              aria-label="Abrir o assistente de estilo da Titi's Store"
               className="group relative flex items-center rounded-full"
             >
               <span
                 aria-hidden
-                className="pointer-events-none absolute right-full top-1/2 mr-3 hidden -translate-y-1/2 translate-x-2 items-center gap-2 whitespace-nowrap border border-line-gold bg-surface py-2 pl-2.5 pr-3.5 font-caps text-[0.62rem] tracking-[0.32em] text-gold-light opacity-0 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.85)] transition-all duration-500 ease-[var(--ease-couture)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 sm:flex"
+                className="pointer-events-none absolute right-full top-1/2 mr-3 hidden -translate-y-1/2 translate-x-2 items-center gap-2 whitespace-nowrap border border-line-gold bg-surface py-2 pl-2.5 pr-3.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-gold-light opacity-0 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.85)] transition-all duration-500 ease-[var(--ease-couture)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 sm:flex"
               >
                 <span className="h-1.5 w-1.5 rounded-full border border-gold/70" />
-                Concierge
+                Assistente de estilo
               </span>
               <span className="relative grid place-items-center">
                 <motion.span
@@ -440,10 +514,10 @@ export function ConciergeWidget() {
             <header className="relative flex shrink-0 items-center gap-3.5 px-5 pb-4 pt-3 sm:pt-4">
               <Medallion size={42} />
               <div className="min-w-0 flex-1">
-                <h2 id={titleId} className="font-display text-[1.35rem] leading-tight text-ivory">
-                  Concierge Titi&apos;s
+                <h2 id={titleId} className="font-display text-[1.15rem] font-extrabold leading-[1.15] tracking-[-0.02em] text-ivory">
+                  Titi&apos;s Store
                 </h2>
-                <p className="mt-0.5 truncate text-xs text-mist">Consultoria de estilo, a qualquer hora</p>
+                <p className="mt-0.5 truncate text-xs text-mist">Assistente de estilo · a qualquer hora</p>
               </div>
               <button
                 type="button"
@@ -467,6 +541,7 @@ export function ConciergeWidget() {
                 text={welcome}
                 footnote="Respostas automáticas, processadas por inteligência artificial. Para pedidos e medidas, fale com o Titi."
               />
+              <PlanCard hasAccess={hasAccess} onNavigate={close} />
               {messages.map((message, index) =>
                 message.role === 'user' ? (
                   <UserBubble key={index} text={message.content} />
@@ -488,7 +563,7 @@ export function ConciergeWidget() {
                     <button
                       type="button"
                       onClick={retry}
-                      className="text-[0.66rem] font-medium uppercase tracking-[0.18em] text-mist transition-colors hover:text-gold-light"
+                      className="text-[11px] font-semibold uppercase tracking-[0.14em] text-mist transition-colors hover:text-gold-light"
                     >
                       Tentar novamente
                     </button>
@@ -498,6 +573,7 @@ export function ConciergeWidget() {
             </div>
 
             <div className="shrink-0 border-t border-line px-5 pb-4 pt-3">
+              <PlanStrip hasAccess={hasAccess} onNavigate={close} />
               {!hasUserMessages && (
                 <div role="group" aria-label="Sugestões de perguntas" className="no-scrollbar -mx-5 mb-3 flex gap-2 overflow-x-auto px-5">
                   {SUGGESTIONS.map((suggestion) => (
@@ -553,7 +629,7 @@ export function ConciergeWidget() {
                   <button
                     type="button"
                     onClick={reset}
-                    className="ml-auto inline-flex items-center gap-1.5 font-medium uppercase tracking-[0.18em] transition-colors hover:text-gold-light"
+                    className="ml-auto inline-flex items-center gap-1.5 font-semibold uppercase tracking-[0.14em] transition-colors hover:text-gold-light"
                   >
                     <RotateCcw className="h-3 w-3" strokeWidth={1.75} aria-hidden />
                     Reiniciar conversa

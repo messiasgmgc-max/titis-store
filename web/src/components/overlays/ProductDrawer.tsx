@@ -57,7 +57,7 @@ function fitMessage(fit: PaletteFit, product: Product): string {
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-4 py-4 sm:grid-cols-[8.5rem_minmax(0,1fr)]">
-      <dt className="text-[0.64rem] font-medium uppercase tracking-[0.22em] text-smoke">{label}</dt>
+      <dt className="text-[11px] font-semibold uppercase tracking-[0.14em] text-smoke">{label}</dt>
       <dd className="text-sm text-ivory">{children}</dd>
     </div>
   );
@@ -172,7 +172,7 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
                   className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-obsidian/70 to-transparent"
                 />
                 <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-5 pb-4 sm:px-8">
-                  <span className="font-caps text-[0.65rem] tracking-[0.3em] text-parchment" aria-hidden>
+                  <span className="text-[11px] font-semibold tabular-nums tracking-[0.14em] text-parchment" aria-hidden>
                     {pad(current + 1)} / {pad(total)}
                   </span>
                   <div className="flex gap-2">
@@ -223,16 +223,21 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
               <span className="stitch w-8" aria-hidden />
             </div>
 
-            <p aria-hidden className="mt-4 font-display text-[2.1rem] leading-[1.04] text-ivory sm:text-[2.6rem]">
+            <p
+              aria-hidden
+              className="mt-4 font-display text-[1.75rem] font-extrabold leading-[1.08] tracking-[-0.03em] text-ivory sm:text-[2.15rem]"
+            >
               {product.name}
             </p>
 
             <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
               {priced ? (
-                <p className="text-xl tabular-nums tracking-wide text-gold-light">{formatBRL(product.price_cents)}</p>
+                <p className="text-2xl font-extrabold tabular-nums tracking-[-0.01em] text-gold-light">
+                  {formatBRL(product.price_cents)}
+                </p>
               ) : (
                 <>
-                  <p className="font-display text-2xl italic text-gold-light">Sob consulta</p>
+                  <p className="font-display text-xl font-extrabold tracking-[-0.02em] text-gold-light">Sob consulta</p>
                   <p className="text-xs text-smoke">valor informado no atendimento</p>
                 </>
               )}
@@ -292,7 +297,7 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
               <section className="panel-gold mt-8 p-5 sm:p-6" aria-label="Harmonia com a sua cartela">
                 <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                   <p className="eyebrow">Harmonia com a sua cartela</p>
-                  <span className="font-caps text-[0.6rem] tracking-[0.2em] text-smoke">{diagnosis.season}</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-smoke">{diagnosis.season}</span>
                 </div>
                 <div className="mt-5 flex items-center gap-5">
                   <div className="flex shrink-0 items-center gap-2" aria-hidden>
@@ -303,7 +308,7 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
                   <div className="min-w-0">
                     <p
                       className={cn(
-                        'font-display text-2xl leading-tight sm:text-[1.75rem]',
+                        'font-display text-xl font-extrabold leading-[1.1] tracking-[-0.02em] sm:text-2xl',
                         fit.level === 'distante' ? 'text-parchment' : 'text-gold-light',
                       )}
                     >

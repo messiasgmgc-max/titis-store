@@ -4,8 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
 import type { Profile } from '@/lib/types';
+import { hasConsultingAccess } from '@/lib/access';
 
-type EditableProfile = Partial<Omit<Profile, 'id' | 'role' | 'created_at' | 'updated_at'>>;
+type EditableProfile = Partial<Omit<Profile, 'id' | 'role' | 'plan' | 'access_until' | 'created_at' | 'updated_at'>>;
 
 interface SessionValue {
   user: User | null;
@@ -15,6 +16,10 @@ interface SessionValue {
   isAdmin: boolean;
   /** VIP ou admin — assinantes com acesso completo. */
   isVip: boolean;
+  /** Plano ativo: pode usar a consultoria digital (Atelier, leitura, provador). */
+  hasAccess: boolean;
+  /** Fim do acesso (ISO) ou null. */
+  accessUntil: string | null;
   accessToken: string | null;
   refreshProfile: () => Promise<void>;
   updateProfile: (patch: EditableProfile) => Promise<{ error: string | null }>;
@@ -36,6 +41,8 @@ function fallbackProfile(user: User): Profile {
     contrast_level: null,
     seasonal_palette: null,
     preferred_style: null,
+    plan: null,
+    access_until: null,
   };
 }
 
@@ -108,7 +115,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       profile,
       loading,
       isAdmin: profile?.role === 'admin',
-      isVip: profile?.role === 'vip' || profile?.role === 'admin',
+      isVip: hasConsultingAccess(profile),
+      hasAccess: hasConsultingAccess(profile),
+      accessUntil: profile?.access_until ?? null,
       accessToken: session?.access_token ?? null,
       refreshProfile,
       updateProfile,

@@ -45,12 +45,17 @@ export function TapeMeasure({
                 aria-current={active ? 'step' : undefined}
                 className={cn('group flex flex-col gap-1.5 disabled:cursor-default', i === 0 ? 'items-start' : i === steps.length - 1 ? 'items-end' : 'items-center')}
               >
-                <span className={cn('numeral text-xs transition-colors', active || done ? 'text-gold' : 'text-smoke')}>
+                <span
+                  className={cn(
+                    'numeral text-[11px] font-semibold tracking-[0.14em] transition-colors',
+                    active || done ? 'text-gold' : 'text-smoke',
+                  )}
+                >
                   {['I', 'II', 'III', 'IV', 'V'][i]}
                 </span>
                 <span
                   className={cn(
-                    'text-[0.66rem] font-medium uppercase tracking-[0.2em] transition-colors sm:text-[0.7rem]',
+                    'text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors sm:text-[12px]',
                     active ? 'text-ivory' : done ? 'text-mist group-hover:text-ivory' : 'text-smoke',
                   )}
                 >

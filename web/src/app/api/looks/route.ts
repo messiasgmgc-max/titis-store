@@ -1,5 +1,6 @@
 // POST /api/looks — compõe três looks para o contexto do cliente.
 // IA (Gemini, depois Groq) quando configurada; o motor do Atelier é a garantia determinística.
+import { requireConsultingAccess } from '@/lib/server/access';
 import { getActiveCatalog } from '@/lib/server/catalog';
 import { generateGeminiJson, geminiConfigured } from '@/lib/server/gemini';
 import { groqChat, groqConfigured } from '@/lib/server/groq';
@@ -9,7 +10,6 @@ import {
   TEN_MINUTES,
   clampInt,
   cleanText,
-  clientIp,
   enforceRateLimit,
   errorResponse,
   isRecord,
@@ -90,7 +90,7 @@ function parseStyleRequest(body: Record<string, unknown>): StyleRequest {
 // Prompt
 // ------------------------------------------------------------
 
-const SYSTEM = `Você é o stylist-chefe do Atelier da Titi's Store, consultoria de imagem masculina e alfaiataria.
+const SYSTEM = `Você é o stylist-chefe da Titi's Store (o nome da marca é somente "Titi's Store"; nunca use outros nomes), consultoria de imagem masculina e alfaiataria.
 Compõe looks completos, elegantes e usáveis, com domínio de colorimetria (12 estações), proporção, formalidade e tecidos.
 Escreve em português do Brasil, com tom sofisticado, conciso e confiante. Nunca cita marcas, preços ou disponibilidade.
 Responde somente com JSON válido.`;
@@ -318,10 +318,14 @@ async function composeWithAi(req: StyleRequest, catalog: Product[], fallback: Lo
 // ------------------------------------------------------------
 
 export async function POST(req: Request) {
+  // Consultoria paga: sessão válida e plano ativo antes de compor os looks.
+  const access = await requireConsultingAccess(req);
+  if (access instanceof Response) return access;
+
   try {
-    const ip = clientIp(req);
+    const key = access.user.id;
     // Limite duro contra abuso; o limite de IA (abaixo) apenas desvia para o motor do Atelier.
-    enforceRateLimit(`looks:${ip}`, 120, TEN_MINUTES);
+    enforceRateLimit(`looks:${key}`, 120, TEN_MINUTES);
 
     const body = await readJson(req, 16 * 1024);
     const request = parseStyleRequest(body);
@@ -336,7 +340,7 @@ export async function POST(req: Request) {
     }
 
     const aiAvailable = geminiConfigured() || groqConfigured();
-    if (aiAvailable && rateLimit(`looks-ai:${ip}`, 20, TEN_MINUTES).allowed) {
+    if (aiAvailable && rateLimit(`looks-ai:${key}`, 20, TEN_MINUTES).allowed) {
       const looks = await composeWithAi(request, catalog, baseline);
       if (looks) return jsonOk<LooksResponse>({ looks, source: 'ai', summary });
     }

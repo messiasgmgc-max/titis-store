@@ -5,8 +5,10 @@ import type { OrderRow, Product } from '@/lib/types';
 import {
   describeError,
   fetchAdminOrders,
+  fetchAdminPayments,
   fetchAdminProducts,
   fetchAdminProfiles,
+  type AdminPayment,
   type ClientProfile,
 } from './admin-utils';
 
@@ -86,4 +88,8 @@ export function useAdminOrders(): Resource<OrderRow> {
 
 export function useAdminClients(): Resource<ClientProfile> {
   return useResource(fetchAdminProfiles, 'Não foi possível carregar os clientes.');
+}
+
+export function useAdminPayments(): Resource<AdminPayment> {
+  return useResource(fetchAdminPayments, 'Não foi possível carregar os pagamentos.');
 }

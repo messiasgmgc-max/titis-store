@@ -10,7 +10,9 @@ import { useSession } from '@/providers/SessionProvider';
 import { useDiagnosis } from '@/providers/DiagnosisProvider';
 import { useUI } from '@/providers/UIProvider';
 import { cn } from '@/lib/format';
+import { getPlan } from '@/lib/site';
 import { AccountLoader } from './AccountLoader';
+import { PlanStatusCard, useConsultingLink } from './PlanStatusCard';
 import { PaletteTab } from './PaletteTab';
 import { SavedLooksTab } from './SavedLooksTab';
 import { OrdersTab } from './OrdersTab';
@@ -61,23 +63,23 @@ function HangTag({ role, file, since, season }: { role: string; file: string; si
       >
         <span className="pointer-events-none absolute inset-2 border border-dashed border-obsidian/15" aria-hidden />
         <span className="absolute left-1/2 top-4 h-3 w-3 -translate-x-1/2 rounded-full bg-obsidian ring-2 ring-gold-dark/40" aria-hidden />
-        <p className="font-caps text-[0.58rem] tracking-[0.34em] text-gold-dark">Titi&apos;s Store</p>
-        <p className="mt-2 font-display text-[1.9rem] font-semibold leading-none">{role}</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold-dark">Titi&apos;s Store</p>
+        <p className="mt-2 font-display text-[1.45rem] font-extrabold leading-[1.05] tracking-[-0.03em]">{role}</p>
         <div className="my-5 border-t border-dashed border-obsidian/25" aria-hidden />
-        <dl className="space-y-2 text-[0.6rem] uppercase tracking-[0.2em]">
+        <dl className="space-y-2 text-[10px] font-medium uppercase tracking-[0.14em]">
           <div className="flex justify-between gap-3">
             <dt className="text-obsidian/55">Ficha nº</dt>
-            <dd className="font-medium">{file}</dd>
+            <dd className="font-bold tabular-nums">{file}</dd>
           </div>
           {since && (
             <div className="flex justify-between gap-3">
               <dt className="text-obsidian/55">Desde</dt>
-              <dd className="font-medium">{since}</dd>
+              <dd className="font-bold">{since}</dd>
             </div>
           )}
           <div className="flex justify-between gap-3">
             <dt className="text-obsidian/55">Estação</dt>
-            <dd className="text-right font-medium">{season ?? 'A definir'}</dd>
+            <dd className="text-right font-bold">{season ?? 'A definir'}</dd>
           </div>
         </dl>
       </div>
@@ -88,9 +90,10 @@ function HangTag({ role, file, since, season }: { role: string; file: string; si
 export function AccountDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, profile, loading, isAdmin, isVip, signOut } = useSession();
+  const { user, profile, loading, isAdmin, hasAccess, signOut } = useSession();
   const { diagnosis } = useDiagnosis();
-  const { openOverlay, toast } = useUI();
+  const { toast } = useUI();
+  const consulting = useConsultingLink();
   const [leaving, setLeaving] = useState(false);
   const [visited, setVisited] = useState<TabId[]>([]);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -136,7 +139,7 @@ export function AccountDashboard() {
   };
 
   const name = firstName(profile?.full_name, profile?.email ?? user.email);
-  const roleLabel = isAdmin ? 'Administração' : isVip ? 'Membro do Clube' : 'Cliente';
+  const roleLabel = isAdmin ? 'Administração' : hasAccess ? (getPlan(profile?.plan)?.name ?? 'Assinante') : 'Cliente';
   const isMounted = (id: TabId) => id === tab || visited.includes(id);
 
   return (
@@ -144,7 +147,7 @@ export function AccountDashboard() {
       <section className="relative overflow-hidden border-b border-line" aria-labelledby="conta-titulo">
         <span className="glow-gold pointer-events-none absolute -right-40 -top-40 h-[34rem] w-[34rem]" aria-hidden />
         <span
-          className="vertical-text pointer-events-none absolute bottom-16 left-3 hidden font-caps text-[0.58rem] tracking-[0.5em] text-smoke xl:block"
+          className="vertical-text pointer-events-none absolute bottom-16 left-3 hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-smoke xl:block"
           aria-hidden
         >
           Ficha do cliente
@@ -163,15 +166,18 @@ export function AccountDashboard() {
                 <span className="stitch w-10" aria-hidden />
                 <span className="eyebrow">Minha conta</span>
               </div>
-              <h1 id="conta-titulo" className="mt-6 font-display text-[clamp(3rem,9vw,7rem)] leading-[0.95] text-ivory">
-                Olá, <em className="italic text-foil">{name}</em>.
+              <h1
+                id="conta-titulo"
+                className="mt-6 font-display text-[clamp(2.5rem,7.4vw,5.6rem)] font-extrabold leading-[1.0] tracking-[-0.03em] text-ivory"
+              >
+                Olá, <span className="text-foil">{name}</span>.
               </h1>
               <p className="mt-6 max-w-xl text-base leading-relaxed text-mist md:text-lg">
-                Sua cartela, os looks que você salvou e o andamento dos pedidos, reunidos em uma só ficha.
+                Seu plano, sua cartela, os looks que você salvou e o andamento dos pedidos, reunidos em uma só ficha.
               </p>
               <div className="mt-10 flex flex-wrap items-center gap-3">
-                <Button href="/#atelier">Nova consultoria</Button>
-                <Button variant="outline" onClick={() => openOverlay({ type: 'scanner' })}>
+                <Button href={consulting.href}>Nova consultoria</Button>
+                <Button variant="outline" href={consulting.href}>
                   <ScanFace className="h-4 w-4" strokeWidth={1.5} aria-hidden />
                   Nova leitura por foto
                 </Button>
@@ -193,6 +199,8 @@ export function AccountDashboard() {
               />
             </div>
           </div>
+
+          <PlanStatusCard className="mt-12 lg:mt-14" />
         </div>
         <div className="tape opacity-25" aria-hidden />
       </section>
@@ -221,12 +229,17 @@ export function AccountDashboard() {
                 onClick={() => selectTab(t.id)}
                 className="group relative flex shrink-0 items-baseline gap-2.5 px-4 py-5 sm:px-6"
               >
-                <span className={cn('numeral text-[0.6rem] transition-colors', active ? 'text-gold' : 'text-smoke group-hover:text-gold-dark')}>
+                <span
+                  className={cn(
+                    'numeral text-[11px] font-semibold tracking-[0.14em] transition-colors',
+                    active ? 'text-gold' : 'text-smoke group-hover:text-gold-dark',
+                  )}
+                >
                   {toRoman(i + 1)}
                 </span>
                 <span
                   className={cn(
-                    'text-[0.72rem] font-medium uppercase tracking-[0.2em] transition-colors duration-500',
+                    'text-[12px] font-semibold uppercase tracking-[0.14em] transition-colors duration-500',
                     active ? 'text-ivory' : 'text-mist group-hover:text-ivory',
                   )}
                 >

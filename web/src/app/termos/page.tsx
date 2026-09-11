@@ -184,7 +184,7 @@ export default function TermsPage() {
           eyebrow="Condições de uso"
           title={
             <>
-              Termos de <em className="italic text-foil">Uso</em>
+              Termos de <span className="text-foil">Uso</span>
             </>
           }
           updated="Atualizado em setembro de 2026"

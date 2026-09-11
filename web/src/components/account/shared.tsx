@@ -60,7 +60,9 @@ export function TabIntro({
           <span className="stitch w-8" aria-hidden />
           <span className="eyebrow">{eyebrow}</span>
         </div>
-        <h2 className="mt-4 font-display text-[clamp(1.9rem,4vw,2.9rem)] leading-[1.05] text-ivory">{title}</h2>
+        <h2 className="mt-4 font-display text-[clamp(1.6rem,3.3vw,2.4rem)] font-extrabold leading-[1.08] tracking-[-0.03em] text-ivory">
+          {title}
+        </h2>
         {lead && <p className="mt-3 text-[0.95rem] leading-relaxed text-mist">{lead}</p>}
       </div>
       {aside && <div className="shrink-0">{aside}</div>}
@@ -89,7 +91,12 @@ export function StatePanel({
     >
       <span className="stitch absolute inset-x-6 top-4" aria-hidden />
       <span className="stitch absolute inset-x-6 bottom-4" aria-hidden />
-      <h3 className={cn('font-display text-[clamp(1.6rem,3.4vw,2.3rem)] leading-tight', tone === 'error' ? 'text-parchment' : 'text-ivory')}>
+      <h3
+        className={cn(
+          'font-display text-[clamp(1.35rem,2.8vw,1.9rem)] font-extrabold leading-[1.12] tracking-[-0.02em]',
+          tone === 'error' ? 'text-parchment' : 'text-ivory',
+        )}
+      >
         {title}
       </h3>
       {children && <div className="mx-auto mt-3 max-w-md text-[0.95rem] leading-relaxed text-mist">{children}</div>}
@@ -126,7 +133,7 @@ export function Tag({ children, className }: { children: React.ReactNode; classN
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 border border-line px-2.5 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-mist',
+        'inline-flex items-center gap-1.5 border border-line px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-mist',
         className,
       )}
     >

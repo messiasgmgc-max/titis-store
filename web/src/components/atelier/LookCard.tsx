@@ -9,7 +9,7 @@ import { useUI } from '@/providers/UIProvider';
 import { useCart, type CartInput } from '@/providers/CartProvider';
 import { Button } from '@/components/ui/Button';
 import { ColorDot, Swatch } from '@/components/ui/Swatch';
-import { cn, readableOn } from '@/lib/format';
+import { cn, formatBRL, readableOn } from '@/lib/format';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 const SLOT_WEIGHT: Record<PieceSlot, number> = { sobreposicao: 3, superior: 2.4, inferior: 2.2, calcado: 1.3, acessorio: 1 };
@@ -167,6 +167,14 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
   const productEntries = entries.filter((e): e is ProductEntry => !!e.product);
   const numeral = ROMAN[index] ?? String(index + 1);
   const harmony = Math.round(Math.min(100, Math.max(0, look.harmony)));
+  const inStore = productEntries.length > 0;
+
+  const uniqueProducts = Array.from(new Map(productEntries.map((e) => [e.product.id, e.product])).values());
+  const pricedTotal = uniqueProducts.reduce((sum, p) => sum + (p.price_cents ?? 0), 0);
+  const hasUnpriced = uniqueProducts.some((p) => p.price_cents === null);
+  const countLabel = `${uniqueProducts.length} ${uniqueProducts.length === 1 ? 'peça deste look' : 'peças deste look'} na loja`;
+  const storeLine =
+    pricedTotal > 0 ? `${countLabel} · ${formatBRL(pricedTotal)}${hasUnpriced ? ' + itens sob consulta' : ''}` : countLabel;
 
   const takeFromAcervo = () => {
     const unique = new Map<string, CartInput>();
@@ -201,20 +209,20 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
       priceCents: null,
       lookTitle: look.title,
     });
-    toast('Look adicionado à sacola', 'success');
+    toast('Look na sacola. Finalize a compra com o Titi pelo WhatsApp.', 'success');
   };
 
   return (
     <article className="flex h-full flex-col border border-line bg-surface transition-colors duration-500 hover:border-line-gold">
       <div className="relative aspect-[4/3] w-full overflow-hidden border-b border-line">
         {productEntries.length > 0 ? <FlatLay entries={entries} /> : <FabricBoard pieces={look.pieces} />}
-        <span className="absolute left-0 top-0 z-[2] bg-obsidian/85 px-3 py-2 font-caps text-[0.62rem] tracking-[0.28em] text-gold">
+        <span className="absolute left-0 top-0 z-[2] bg-obsidian/85 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
           Look {numeral}
         </span>
       </div>
 
       <div className="flex flex-1 flex-col p-6 sm:p-7">
-        <h3 className="font-display text-2xl leading-tight text-ivory sm:text-[1.9rem]">{look.title}</h3>
+        <h3 className="text-2xl font-extrabold leading-tight tracking-[-0.03em] text-ivory sm:text-[1.75rem]">{look.title}</h3>
         {look.tagline && <p className="mt-2 text-sm leading-relaxed text-mist">{look.tagline}</p>}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-y border-line py-3">
@@ -290,8 +298,8 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
         {look.tip && (
           <>
             <div className="stitch mt-6" aria-hidden />
-            <p className="mt-5 font-display text-lg italic leading-snug text-parchment">
-              <span className="mb-1.5 block font-sans text-[0.58rem] not-italic uppercase tracking-[0.24em] text-gold">
+            <p className="mt-5 text-base font-semibold leading-snug text-parchment">
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
                 Detalhe de alfaiate
               </span>
               {look.tip}
@@ -299,22 +307,27 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
           </>
         )}
 
-        <div className="mt-auto flex flex-col gap-2.5 pt-7">
-          <Button variant="outline" onClick={() => openOverlay({ type: 'tryon', look })} className="w-full whitespace-normal">
+        <div className="mt-auto pt-7">
+          <div className="border border-line-gold bg-gold/[0.04] p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
+              {inStore ? 'Disponível na loja' : 'Look sob consulta'}
+            </p>
+            <p className="mt-1.5 text-sm leading-snug text-parchment">
+              {inStore ? storeLine : 'Peça o look completo e finalize a compra com o Titi pelo WhatsApp.'}
+            </p>
+            <Button onClick={inStore ? takeFromAcervo : requestLook} className="mt-4 w-full whitespace-normal">
+              <ShoppingBag className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
+              {inStore ? 'Levar peças do acervo' : 'Comprar peças com o Titi'}
+            </Button>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => openOverlay({ type: 'tryon', look })}
+            className="mt-2.5 w-full whitespace-normal"
+          >
             <ScanFace className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
             Provar com meu rosto
           </Button>
-          {productEntries.length > 0 ? (
-            <Button onClick={takeFromAcervo} className="w-full whitespace-normal">
-              <ShoppingBag className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
-              Levar peças do acervo
-            </Button>
-          ) : (
-            <Button onClick={requestLook} className="w-full whitespace-normal">
-              <ShoppingBag className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
-              Pedir este look
-            </Button>
-          )}
         </div>
       </div>
     </article>

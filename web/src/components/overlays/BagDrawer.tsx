@@ -244,14 +244,14 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
           <div className="flex flex-1 flex-col items-center justify-center px-8 pb-20 pt-14 text-center">
             <Medallion size={72} />
             <span className="stitch mt-8 w-16" aria-hidden />
-            <p className="mt-8 font-display text-[2rem] leading-tight text-ivory">
-              Sua sacola está <em className="italic text-foil">vazia</em>
+            <p className="mt-8 font-display text-[1.7rem] font-extrabold leading-[1.1] tracking-[-0.03em] text-ivory">
+              Sua sacola está <span className="text-foil">vazia</span>
             </p>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-mist">
-              As peças do acervo e os looks do Atelier que você escolher aparecem aqui.
+              As peças da loja e dos looks da consultoria que você escolher aparecem aqui.
             </p>
-            <Button href="/#colecao" onClick={onClose} className="mt-9">
-              Explorar a coleção
+            <Button href="/colecao" onClick={onClose} className="mt-9">
+              Explorar a loja
             </Button>
           </div>
         ) : (
@@ -274,11 +274,13 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           {item.detail && (
-                            <p className="truncate text-[0.6rem] font-medium uppercase tracking-[0.22em] text-smoke">
+                            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-smoke">
                               {item.detail}
                             </p>
                           )}
-                          <h3 className="mt-1 font-display text-[1.3rem] leading-tight text-ivory">{item.name}</h3>
+                          <h3 className="mt-1 font-display text-[1.1rem] font-bold leading-[1.15] tracking-[-0.02em] text-ivory">
+                            {item.name}
+                          </h3>
                         </div>
                         <button
                           type="button"
@@ -333,8 +335,10 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
                         </div>
                         <p
                           className={cn(
-                            'text-right font-display leading-none',
-                            item.priceCents === null ? 'text-base italic text-mist' : 'text-xl text-gold-light',
+                            'text-right leading-none',
+                            item.priceCents === null
+                              ? 'text-sm font-semibold text-mist'
+                              : 'text-lg font-extrabold tabular-nums text-gold-light',
                           )}
                         >
                           {lineTotal(item)}
@@ -428,7 +432,9 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
             <div className="sticky bottom-0 z-10 mt-auto border-t border-line-gold bg-surface px-6 pb-6 pt-5 shadow-[0_-18px_40px_-24px_rgba(0,0,0,0.9)] sm:px-8">
               <div className="flex items-baseline justify-between gap-4">
                 <span className="kicker">Subtotal</span>
-                <span className="font-display text-[1.9rem] leading-none text-ivory">{subtotalLabel}</span>
+                <span className="text-[1.6rem] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-ivory">
+                  {subtotalLabel}
+                </span>
               </div>
               {hasUnpriced && (
                 <p className="mt-2 text-right text-xs text-mist">Itens sob consulta serão orçados no atendimento</p>

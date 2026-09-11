@@ -24,11 +24,11 @@ export default function ResetPasswordPage() {
             <span className="eyebrow">Segurança da conta</span>
             <span className="stitch w-10" aria-hidden />
           </div>
-          <h1 className="mt-5 text-center font-display text-[clamp(2.5rem,5vw,3.75rem)] leading-[1.02] text-ivory">
-            Redefinir <em className="italic text-foil">senha</em>
+          <h1 className="mt-5 text-center font-display text-[clamp(2.1rem,4.2vw,3.1rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-ivory">
+            Redefinir <span className="text-foil">senha</span>
           </h1>
           <p className="mt-4 max-w-md text-center text-base leading-relaxed text-mist">
-            Crie uma nova senha para voltar ao seu Atelier.
+            Crie uma nova senha para voltar à sua conta.
           </p>
 
           <div className="panel relative mt-10 w-full max-w-md p-6 sm:p-8">

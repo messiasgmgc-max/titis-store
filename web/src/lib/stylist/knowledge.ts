@@ -215,7 +215,7 @@ export const OCCASIONS: OccasionInfo[] = [
   { id: 'jantar', title: 'Jantar especial', description: 'Restaurantes, encontros e noites marcantes', formality: [3, 4] },
   { id: 'festa', title: 'Casamento & gala', description: 'Casamentos, formaturas e celebrações', formality: [4, 5] },
   { id: 'esporte', title: 'Esporte fino', description: 'Clubes, eventos ao ar livre e hípica', formality: [2, 4] },
-  { id: 'outro', title: 'Outro lugar', description: 'Descreva o evento e o Atelier interpreta', formality: [2, 4] },
+  { id: 'outro', title: 'Outro lugar', description: 'Descreva o evento e a consultoria interpreta', formality: [2, 4] },
 ];
 
 export const TIMES_OF_DAY: { id: TimeOfDayId; title: string; range: string }[] = [

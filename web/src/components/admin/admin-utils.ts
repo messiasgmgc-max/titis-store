@@ -2,9 +2,11 @@
 import { supabase } from '@/lib/supabaseClient';
 import { ApiRequestError } from '@/lib/api';
 import { fileToBlob } from '@/lib/image';
-import { formatPhoneBR, slugify } from '@/lib/format';
+import { formatDateBR, formatPhoneBR, slugify } from '@/lib/format';
 import { normalizeProduct, slotForCategory, sortProducts } from '@/lib/products';
 import { OCCASIONS, isSkinToneId } from '@/lib/stylist/knowledge';
+import { hasConsultingAccess } from '@/lib/access';
+import { getPlan } from '@/lib/site';
 import {
   PIECE_SLOTS,
   PRODUCT_CATEGORIES,
@@ -13,7 +15,10 @@ import {
   type OccasionId,
   type OrderRow,
   type OrderStatus,
+  type PaymentRow,
+  type PaymentStatus,
   type PieceSlot,
+  type PlanId,
   type Product,
   type ProductCategory,
   type ProductVisionSuggestion,
@@ -43,7 +48,75 @@ export const ROLE_OPTIONS: { id: Role; label: string; plural: string }[] = [
   { id: 'admin', label: 'Admin', plural: 'Admin' },
 ];
 
-export type ClientProfile = Pick<Profile, 'id' | 'full_name' | 'email' | 'phone' | 'role' | 'seasonal_palette' | 'created_at'>;
+export type ClientProfile = Pick<
+  Profile,
+  'id' | 'full_name' | 'email' | 'phone' | 'role' | 'seasonal_palette' | 'plan' | 'access_until' | 'created_at'
+>;
+
+/** Linha de public.payments vista pelo painel (applied_at = acesso já liberado). */
+export type AdminPayment = PaymentRow & { applied_at: string | null };
+
+export const PAYMENT_STATUSES: { id: PaymentStatus; label: string; plural: string }[] = [
+  { id: 'approved', label: 'Aprovado', plural: 'Aprovados' },
+  { id: 'pending', label: 'Pendente', plural: 'Pendentes' },
+  { id: 'rejected', label: 'Recusado', plural: 'Recusados' },
+  { id: 'cancelled', label: 'Cancelado', plural: 'Cancelados' },
+  { id: 'refunded', label: 'Estornado', plural: 'Estornados' },
+];
+
+export const PAYMENT_PROVIDERS: Record<AdminPayment['provider'], string> = {
+  mercadopago: 'Mercado Pago',
+  whatsapp: 'WhatsApp',
+  manual: 'Manual',
+};
+
+// ------------------------------------------------------------
+// Acesso à consultoria digital
+// ------------------------------------------------------------
+export type AccessKind = 'admin' | 'active' | 'expired' | 'none';
+
+export interface AccessState {
+  kind: AccessKind;
+  label: string;
+  detail: string | null;
+}
+
+const shortDate = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
+const shortDateYear = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+/** "dd/mm" no ano corrente; "dd/mm/aaaa" nos demais. */
+export function formatShortDateBR(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return (date.getFullYear() === now.getFullYear() ? shortDate : shortDateYear).format(date);
+}
+
+/** Situação do acesso para a tabela de clientes (mesma regra de src/lib/access.ts). */
+export function accessStateOf(c: Pick<ClientProfile, 'role' | 'plan' | 'access_until'>, now: Date = new Date()): AccessState {
+  const planName = getPlan(c.plan)?.name ?? null;
+  if (c.role === 'admin') return { kind: 'admin', label: 'Admin', detail: 'Acesso total' };
+  if (hasConsultingAccess(c, now)) {
+    return c.access_until
+      ? { kind: 'active', label: `Ativo até ${formatShortDateBR(c.access_until, now)}`, detail: planName }
+      : { kind: 'active', label: 'Ativo · sem prazo', detail: planName };
+  }
+  if (c.access_until && (c.role === 'vip' || c.plan)) {
+    return {
+      kind: 'expired',
+      label: 'Expirado',
+      detail: `Desde ${formatShortDateBR(c.access_until, now)}${planName ? ` · ${planName}` : ''}`,
+    };
+  }
+  return { kind: 'none', label: 'Sem plano', detail: c.role === 'client' && planName ? `Último: ${planName}` : null };
+}
+
+/** Prazo resultante de uma liberação: greatest(agora, prazo atual) + dias (espelha grant_consulting_access). */
+export function grantPreview(currentUntil: string | null, days: number | null): string {
+  if (days === null) return 'Sem prazo';
+  const current = currentUntil ? new Date(currentUntil).getTime() : Number.NaN;
+  const base = Math.max(Date.now(), Number.isFinite(current) ? current : 0);
+  return `Até ${formatDateBR(new Date(base + days * 86_400_000).toISOString())}`;
+}
 
 export type ImageSet = Pick<Product, 'image_url' | 'gallery'>;
 
@@ -88,6 +161,9 @@ export function describeError(err: unknown, fallback: string): string {
   }
   if (code === '42501' || statusCode === '403' || /row-level security|permission denied/.test(text)) {
     return 'Permissão negada pelo banco. Confirme que sua conta tem papel de administração e que o SQL do Supabase foi executado.';
+  }
+  if (code === 'PGRST202' || /could not find the function/.test(text)) {
+    return 'Função não encontrada no banco. Execute novamente o SQL do Supabase (supabase/schema.sql).';
   }
   if (code === '42P01' || code === 'PGRST205' || /relation .* does not exist|could not find the table/.test(text)) {
     return 'Tabela não encontrada. Execute o SQL do Supabase (supabase/schema.sql).';
@@ -410,6 +486,7 @@ export async function fetchAdminOrders(): Promise<OrderRow[]> {
 }
 
 const ROLE_IDS = new Set<string>(['client', 'vip', 'admin']);
+const PLAN_IDS = new Set<string>(['passe', 'clube', 'presencial']);
 
 function normalizeClient(row: Record<string, unknown>): ClientProfile {
   const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -420,14 +497,44 @@ function normalizeClient(row: Record<string, unknown>): ClientProfile {
     phone: str(row.phone),
     role: ROLE_IDS.has(String(row.role)) ? (row.role as Role) : 'client',
     seasonal_palette: str(row.seasonal_palette),
+    plan: PLAN_IDS.has(String(row.plan)) ? (row.plan as PlanId) : null,
+    access_until: str(row.access_until),
     created_at: typeof row.created_at === 'string' ? row.created_at : undefined,
   };
+}
+
+const PAYMENT_STATUS_IDS = new Set<string>(PAYMENT_STATUSES.map((s) => s.id));
+
+function normalizePayment(row: Record<string, unknown>): AdminPayment {
+  const provider = String(row.provider);
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    plan: PLAN_IDS.has(String(row.plan)) ? (row.plan as PlanId) : 'passe',
+    amount_cents: typeof row.amount_cents === 'number' ? row.amount_cents : 0,
+    provider: provider === 'mercadopago' || provider === 'whatsapp' ? provider : 'manual',
+    provider_payment_id: typeof row.provider_payment_id === 'string' && row.provider_payment_id ? row.provider_payment_id : null,
+    status: PAYMENT_STATUS_IDS.has(String(row.status)) ? (row.status as PaymentStatus) : 'pending',
+    applied_at: typeof row.applied_at === 'string' && row.applied_at ? row.applied_at : null,
+    created_at: typeof row.created_at === 'string' ? row.created_at : '',
+    updated_at: typeof row.updated_at === 'string' ? row.updated_at : undefined,
+  };
+}
+
+export async function fetchAdminPayments(): Promise<AdminPayment[]> {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('id, user_id, plan, amount_cents, provider, provider_payment_id, status, applied_at, created_at, updated_at')
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []).map((row) => normalizePayment(row as Record<string, unknown>));
 }
 
 export async function fetchAdminProfiles(): Promise<ClientProfile[]> {
   const primary = await supabase
     .from('profiles')
-    .select('id, full_name, email, phone, role, seasonal_palette, created_at')
+    .select('id, full_name, email, phone, role, seasonal_palette, plan, access_until, created_at')
     .order('created_at', { ascending: false })
     .limit(1000);
 

@@ -11,19 +11,22 @@ import { Button } from '@/components/ui/Button';
 import { AccountLoader } from '@/components/account/AccountLoader';
 import { useSession } from '@/providers/SessionProvider';
 import { cn } from '@/lib/format';
+import { hasConsultingAccess } from '@/lib/access';
 import { ProductManager, type ProductStatusFilter } from './ProductManager';
 import { OrdersBoard } from './OrdersBoard';
 import { ClientsTable } from './ClientsTable';
-import { useAdminClients, useAdminOrders, useAdminProducts } from './useAdminData';
+import { PaymentsBoard } from './PaymentsBoard';
+import { useAdminClients, useAdminOrders, useAdminPayments, useAdminProducts } from './useAdminData';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-type TabId = 'acervo' | 'pedidos' | 'clientes';
+type TabId = 'acervo' | 'pedidos' | 'clientes' | 'pagamentos';
 
 const TABS: { id: TabId; label: string; numeral: string }[] = [
   { id: 'acervo', label: 'Acervo', numeral: 'I' },
   { id: 'pedidos', label: 'Pedidos', numeral: 'II' },
   { id: 'clientes', label: 'Clientes', numeral: 'III' },
+  { id: 'pagamentos', label: 'Pagamentos', numeral: 'IV' },
 ];
 
 function tabFromHash(): TabId {
@@ -107,6 +110,7 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
   const products = useAdminProducts();
   const orders = useAdminOrders();
   const clients = useAdminClients();
+  const payments = useAdminPayments();
 
   const [tab, setTab] = useState<TabId>(tabFromHash);
   const [productStatus, setProductStatus] = useState<ProductStatusFilter>('all');
@@ -116,7 +120,7 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
     const active = products.data.filter((p) => p.is_active).length;
     const fresh = orders.data.filter((o) => o.status === 'novo').length;
     const inProgress = orders.data.filter((o) => o.status === 'em_atendimento').length;
-    const vip = clients.data.filter((c) => c.role === 'vip').length;
+    const vip = clients.data.filter((c) => c.role !== 'admin' && hasConsultingAccess(c)).length;
     return {
       active,
       drafts: products.data.length - active,
@@ -186,7 +190,7 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
       numeral: 'IV',
       label: 'Clientes',
       value: valueOf(clients.loading, clients.error, stats.clients),
-      detail: stats.vip > 0 ? `${stats.vip} ${stats.vip === 1 ? 'membro' : 'membros'} VIP` : 'Contas cadastradas',
+      detail: stats.vip > 0 ? `${stats.vip} com acesso ativo` : 'Contas cadastradas',
       onClick: () => selectTab('clientes'),
     },
   ];
@@ -195,6 +199,7 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
     acervo: products.loading ? null : products.data.length,
     pedidos: orders.loading ? null : stats.fresh,
     clientes: clients.loading ? null : clients.data.length,
+    pagamentos: payments.loading ? null : payments.data.length,
   };
 
   const firstName = (adminName ?? '').trim().split(/[\s@]+/)[0];
@@ -315,7 +320,10 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
         <div role="tabpanel" id={`admin-painel-${tab}`} aria-labelledby={`admin-aba-${tab}`} className="pt-10 sm:pt-12">
           {tab === 'acervo' && <ProductManager resource={products} status={productStatus} onStatusChange={setProductStatus} />}
           {tab === 'pedidos' && <OrdersBoard resource={orders} />}
-          {tab === 'clientes' && <ClientsTable resource={clients} currentUserId={userId} />}
+          {tab === 'clientes' && (
+            <ClientsTable resource={clients} currentUserId={userId} onAccessChanged={() => void payments.reload()} />
+          )}
+          {tab === 'pagamentos' && <PaymentsBoard resource={payments} clients={clients.data} />}
         </div>
       </div>
     </>

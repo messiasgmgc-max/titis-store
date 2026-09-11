@@ -36,11 +36,9 @@ export function ComposingState({ seasonName }: { seasonName?: string }) {
       <div className="glow-gold pointer-events-none absolute left-1/2 top-1/3 h-72 w-[36rem] max-w-full -translate-x-1/2" aria-hidden />
 
       <div className="relative mx-auto flex max-w-2xl flex-col items-center text-center">
-        <div className="flex items-center gap-4" aria-hidden>
-          <span className="numeral text-xs">III</span>
-          <span className="stitch w-10" />
-          <span className="eyebrow">Na mesa de corte</span>
-        </div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold" aria-hidden>
+          Na mesa de corte
+        </p>
 
         <svg viewBox="0 0 640 170" className="mt-10 w-full max-w-xl overflow-visible" aria-hidden>
           <defs>
@@ -119,7 +117,7 @@ export function ComposingState({ seasonName }: { seasonName?: string }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.5, ease: EASE }}
-              className="font-display text-2xl italic text-parchment sm:text-3xl"
+              className="text-2xl font-bold tracking-[-0.02em] text-parchment sm:text-3xl"
             >
               {PHRASES[index]}
             </motion.p>

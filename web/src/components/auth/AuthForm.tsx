@@ -285,9 +285,9 @@ function SentPanel({
       <span className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-line-gold text-gold">
         <Mail className="h-5 w-5" strokeWidth={1.5} aria-hidden />
       </span>
-      <p className="mt-6 font-display text-[1.75rem] leading-tight text-ivory">
+      <p className="mt-6 font-display text-[1.5rem] font-extrabold leading-[1.1] tracking-[-0.02em] text-ivory">
         {kind === 'confirm' ? 'Confirme seu ' : 'Verifique seu '}
-        <em className="italic text-foil">e-mail</em>
+        <span className="text-foil">e-mail</span>
       </p>
       <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-mist">
         {kind === 'confirm' ? (
@@ -421,7 +421,10 @@ export function AuthForm({
           password,
           options: {
             data: { full_name: name.trim(), phone: digits ? formatPhoneBR(digits) : null },
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            // Quem se cadastra no fluxo de compra volta para a mesma página (com o plano escolhido).
+            emailRedirectTo: /^\/(assinar|consultoria)(\/|$)/.test(window.location.pathname)
+              ? `${window.location.origin}${window.location.pathname}${window.location.search}`
+              : `${window.location.origin}/dashboard`,
           },
         });
         if (error) throw error;
@@ -475,7 +478,7 @@ export function AuthForm({
                 tabIndex={active ? 0 : -1}
                 onClick={() => !active && switchMode(tab.mode)}
                 className={cn(
-                  'pb-3.5 pt-1 text-[0.72rem] font-medium uppercase tracking-[0.26em] transition-colors duration-500',
+                  'pb-3.5 pt-1 text-[12px] font-semibold uppercase tracking-[0.16em] transition-colors duration-500',
                   active ? 'text-ivory' : 'text-smoke hover:text-mist',
                 )}
               >
@@ -496,7 +499,7 @@ export function AuthForm({
           <button
             type="button"
             onClick={() => switchMode('login')}
-            className="-ml-1 inline-flex items-center gap-1.5 py-1 text-[0.68rem] font-medium uppercase tracking-[0.22em] text-mist transition-colors hover:text-gold-light"
+            className="-ml-1 inline-flex items-center gap-1.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-mist transition-colors hover:text-gold-light"
           >
             <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
             Voltar para entrar
@@ -801,8 +804,8 @@ export function ResetPasswordPanel() {
         <span className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-success/40 text-success">
           <CircleCheck className="h-6 w-6" strokeWidth={1.5} aria-hidden />
         </span>
-        <p className="mt-6 font-display text-3xl leading-tight text-ivory">
-          Senha <em className="italic text-foil">atualizada</em>
+        <p className="mt-6 font-display text-[1.6rem] font-extrabold leading-[1.1] tracking-[-0.02em] text-ivory">
+          Senha <span className="text-foil">atualizada</span>
         </p>
         <p className="mt-3 text-sm text-mist">Sua nova senha já está valendo.</p>
         <div className="mt-8 flex flex-col items-center gap-5">
@@ -824,14 +827,14 @@ export function ResetPasswordPanel() {
           <span className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-line-gold text-gold">
             <KeyRound className="h-5 w-5" strokeWidth={1.5} aria-hidden />
           </span>
-          <p className="mt-6 font-display text-[1.75rem] leading-tight text-ivory">
+          <p className="mt-6 font-display text-[1.5rem] font-extrabold leading-[1.1] tracking-[-0.02em] text-ivory">
             {expired ? (
               <>
-                Link <em className="italic text-foil">expirado</em> ou já utilizado
+                Link <span className="text-foil">expirado</span> ou já utilizado
               </>
             ) : (
               <>
-                Solicite um <em className="italic text-foil">novo link</em>
+                Solicite um <span className="text-foil">novo link</span>
               </>
             )}
           </p>

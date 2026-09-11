@@ -1,27 +1,14 @@
 import type { Metadata, Viewport } from 'next';
-import { Cinzel, Cormorant_Garamond, Jost } from 'next/font/google';
+import { Urbanist } from 'next/font/google';
 import { Providers } from '@/providers/Providers';
 import { SITE } from '@/lib/site';
 import './globals.css';
 
-const cormorant = Cormorant_Garamond({
-  variable: '--font-cormorant',
+// Tipografia única da marca: geométrica e arredondada, peso alto nos títulos.
+const urbanist = Urbanist({
+  variable: '--font-urbanist',
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
   style: ['normal', 'italic'],
-  display: 'swap',
-});
-
-const jost = Jost({
-  variable: '--font-jost',
-  subsets: ['latin'],
-  display: 'swap',
-});
-
-const cinzel = Cinzel({
-  variable: '--font-cinzel',
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
   display: 'swap',
 });
 
@@ -72,7 +59,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html
       lang="pt-BR"
       data-scroll-behavior="smooth"
-      className={`${cormorant.variable} ${jost.variable} ${cinzel.variable}`}
+      className={urbanist.variable}
     >
       <body className="min-h-dvh bg-obsidian font-sans text-ivory antialiased">
         <a

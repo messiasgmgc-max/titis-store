@@ -235,7 +235,7 @@ export default function PrivacyPage() {
           eyebrow="Privacidade · LGPD"
           title={
             <>
-              Política de <em className="italic text-foil">Privacidade</em>
+              Política de <span className="text-foil">Privacidade</span>
             </>
           }
           updated="Atualizado em setembro de 2026"

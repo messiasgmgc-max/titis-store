@@ -48,14 +48,14 @@ export function LogoFull({ size = 220, className, priority }: { size?: number; c
   );
 }
 
-/** Assinatura horizontal: medalhão + nome em capitulares. */
+/** Assinatura horizontal: medalhão + nome em Urbanist (TITI'S extrabold dourado, STORE espaçado). */
 export function Wordmark({ className, compact = false }: { className?: string; compact?: boolean }) {
   return (
     <Link href="/" className={cn('group inline-flex items-center gap-3', className)} aria-label="Titi's Store — início">
       <Medallion size={compact ? 36 : 42} className="transition-transform duration-700 group-hover:rotate-[8deg]" />
       <span className="flex flex-col leading-none">
-        <span className="font-caps text-[1.05rem] font-semibold tracking-[0.18em] text-foil sm:text-[1.15rem]">TITI&apos;S</span>
-        <span className="mt-1 text-[0.56rem] font-medium tracking-[0.5em] text-mist">STORE</span>
+        <span className="font-display text-[1.15rem] font-extrabold tracking-[0.02em] text-foil sm:text-[1.25rem]">TITI&apos;S</span>
+        <span className="mt-1 text-[0.56rem] font-semibold tracking-[0.42em] text-mist">STORE</span>
       </span>
     </Link>
   );
@@ -81,7 +81,10 @@ export function RotatingSeal({
           <path id={pathId} d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0" />
         </defs>
         <circle cx="100" cy="100" r="97" fill="rgba(11,12,16,0.72)" stroke="rgba(212,175,55,0.35)" strokeWidth="1" />
-        <text fill="#D4AF37" style={{ fontFamily: 'var(--font-cinzel), serif', fontSize: 13.2, letterSpacing: 3.4 }}>
+        <text
+          fill="#D4AF37"
+          style={{ fontFamily: 'var(--font-urbanist), sans-serif', fontWeight: 700, fontSize: 12, letterSpacing: 2.6 }}
+        >
           <textPath href={`#${pathId}`}>{text}</textPath>
         </text>
       </svg>

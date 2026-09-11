@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { CircleAlert } from 'lucide-react';
 import type {
@@ -25,7 +26,12 @@ import { diagnosisFromChoice, useDiagnosis } from '@/providers/DiagnosisProvider
 import { useSession } from '@/providers/SessionProvider';
 import { useUI } from '@/providers/UIProvider';
 import { Button } from '@/components/ui/Button';
-import { SectionHeading } from '@/components/ui/SectionHeading';
+import {
+  isConsultingLockError,
+  lockReason,
+  lockToastMessage,
+  plansHref,
+} from '@/components/consulting/shared';
 import { TapeMeasure } from '@/components/ui/TapeMeasure';
 import { StepTone } from './StepTone';
 import { StepContext } from './StepContext';
@@ -66,13 +72,17 @@ function isUsableResponse(r: unknown): r is LooksResponse {
   );
 }
 
-/** Looks do servidor quando disponíveis; o motor local do Atelier garante o resultado em qualquer falha. */
+/**
+ * Looks do servidor quando disponíveis; o motor local do Atelier cobre falhas técnicas.
+ * 401/402 (sem login ou sem plano) nunca caem no motor local: a trava da consultoria vale aqui também.
+ */
 async function composeLooks(request: StyleRequest, products: Product[]): Promise<LooksResponse> {
   try {
     const remote = await requestLooks(request);
     if (isUsableResponse(remote)) return remote;
-  } catch {
-    // segue para o motor local
+  } catch (err) {
+    if (isConsultingLockError(err)) throw err;
+    // demais falhas seguem para o motor local
   }
   const catalog = products.length > 0 ? products : (await fetchCatalog()).products;
   return generateLooks(request, catalog);
@@ -87,8 +97,9 @@ function seasonNameFor(request: StyleRequest, diagnosis: Diagnosis | null) {
 
 export function Atelier() {
   const { diagnosis, setDiagnosis } = useDiagnosis();
-  const { user } = useSession();
+  const { user, profile, refreshProfile } = useSession();
   const { openOverlay, toast } = useUI();
+  const router = useRouter();
   const { products } = useCatalog();
   const reduceMotion = useReducedMotion();
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -186,8 +197,17 @@ export function Atelier() {
       const [response] = await Promise.all([composeLooks(request, products), wait(MIN_COMPOSE_MS)]);
       if (run !== runRef.current) return;
       setResult({ response, request, seasonName: seasonNameFor(request, diagnosis) });
-    } catch {
+    } catch (err) {
       if (run !== runRef.current) return;
+      if (isConsultingLockError(err)) {
+        toast(lockToastMessage(lockReason(err)), 'info');
+        setDirection(-1);
+        setStep(1);
+        setMaxStep(1);
+        void refreshProfile();
+        router.push(plansHref(profile?.plan));
+        return;
+      }
       setError('Não conseguimos compor os looks agora. Tente novamente em instantes.');
     } finally {
       if (run === runRef.current) setComposing(false);
@@ -291,7 +311,7 @@ export function Atelier() {
     view = (
       <div className="panel px-6 py-14 text-center sm:px-12" role="alert">
         <CircleAlert className="mx-auto h-6 w-6 text-danger" strokeWidth={1.5} aria-hidden />
-        <p className="mt-4 font-display text-2xl text-ivory sm:text-3xl">A composição foi interrompida.</p>
+        <p className="mt-4 text-2xl font-extrabold tracking-[-0.03em] text-ivory sm:text-3xl">A composição foi interrompida.</p>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-mist">{error}</p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <Button onClick={() => void compose()}>Tentar novamente</Button>
@@ -320,33 +340,35 @@ export function Atelier() {
   }
 
   return (
-    <section id="atelier" aria-label="O Atelier" className="relative overflow-x-clip border-t border-line py-24 sm:py-32">
-      <div className="glow-gold pointer-events-none absolute -left-40 top-16 h-[28rem] w-[28rem] opacity-70" aria-hidden />
+    <section id="atelier" aria-labelledby="atelier-title" className="relative overflow-x-clip py-10 sm:py-14">
+      <div className="glow-gold pointer-events-none absolute -left-40 top-10 h-[24rem] w-[24rem] opacity-60" aria-hidden />
 
       <div className="container-luxe relative">
-        <div className="grid gap-10 lg:grid-cols-12 lg:items-end">
-          <SectionHeading
-            className="lg:col-span-8"
-            numeral="II"
-            eyebrow="O Atelier"
-            title={
-              <>
-                Sua cartela, seu contexto, <em className="italic text-foil">seus looks</em>.
-              </>
-            }
-            lead="Escolha sua pele e subtom, ou faça a leitura por foto. Conte onde vai estar e receba três looks montados com critério de alfaiate e peças do nosso acervo."
-          />
-          <dl className="grid grid-cols-3 gap-4 border-l border-line-gold pl-6 lg:col-span-4 lg:justify-self-end">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <header className="max-w-2xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Consultoria online</p>
+            <h2
+              id="atelier-title"
+              className="mt-3 text-[clamp(1.6rem,3vw,2.3rem)] font-extrabold leading-[1.08] tracking-[-0.03em] text-ivory"
+            >
+              Sua cartela, seu contexto, <span className="text-foil">seus looks</span>
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-mist sm:text-base">
+              Confirme sua pele e subtom (ou faça a leitura por foto), conte onde vai estar e receba três looks montados
+              com peças da loja.
+            </p>
+          </header>
+          <dl className="grid shrink-0 grid-cols-3 gap-5 border-l border-line-gold pl-5">
             {FACTS.map((f) => (
               <div key={f.label} className="flex flex-col-reverse">
-                <dt className="mt-1 text-[0.6rem] uppercase leading-snug tracking-[0.2em] text-mist">{f.label}</dt>
-                <dd className="font-display text-4xl leading-none text-gold-light">{f.value}</dd>
+                <dt className="mt-1 text-[10px] font-semibold uppercase leading-snug tracking-[0.14em] text-mist">{f.label}</dt>
+                <dd className="text-3xl font-extrabold leading-none tracking-[-0.03em] text-gold-light">{f.value}</dd>
               </div>
             ))}
           </dl>
         </div>
 
-        <div ref={anchorRef} className="mt-16">
+        <div ref={anchorRef} className="mt-10">
           <TapeMeasure steps={STEPS} current={step} onStepClick={goTo} canVisit={canVisit} />
         </div>
 

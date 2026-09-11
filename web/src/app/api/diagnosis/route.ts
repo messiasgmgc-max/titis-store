@@ -1,12 +1,12 @@
 // POST /api/diagnosis — leitura de colorimetria pessoal a partir de uma foto do rosto.
 // Sem GEMINI_API_KEY responde 503 e o cliente usa a leitura local (ITA°).
+import { requireConsultingAccess } from '@/lib/server/access';
 import { generateGeminiJson, geminiConfigured, imagePart } from '@/lib/server/gemini';
 import {
   AiError,
   HttpError,
   TEN_MINUTES,
   cleanText,
-  clientIp,
   enforceRateLimit,
   errorResponse,
   foldText,
@@ -113,11 +113,15 @@ function toDiagnosis(raw: unknown): Diagnosis {
 }
 
 export async function POST(req: Request) {
+  // Consultoria paga: sessão válida e plano ativo antes de qualquer processamento.
+  const access = await requireConsultingAccess(req);
+  if (access instanceof Response) return access;
+
   if (!geminiConfigured()) {
     return jsonError(503, 'not_configured', 'A leitura por foto não está disponível no momento.');
   }
   try {
-    enforceRateLimit(`diagnosis:${clientIp(req)}`, 12, TEN_MINUTES);
+    enforceRateLimit(`diagnosis:${access.user.id}`, 12, TEN_MINUTES);
     const body = await readJson(req, MAX_BODY_BYTES);
     const image = parseImageDataUrl(body.image);
 

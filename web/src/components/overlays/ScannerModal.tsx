@@ -10,6 +10,9 @@ import { analyzeFaceImage } from '@/lib/colorimetry';
 import { fileToDataUrl, loadImage } from '@/lib/image';
 import { useDiagnosis } from '@/providers/DiagnosisProvider';
 import { useUI } from '@/providers/UIProvider';
+import { useSession } from '@/providers/SessionProvider';
+import { ConsultingLock } from '@/components/consulting/ConsultingLock';
+import { isConsultingLockError, lockReason, lockToastMessage } from '@/components/consulting/shared';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Swatch } from '@/components/ui/Swatch';
@@ -97,9 +100,50 @@ function cameraMessage(err: unknown): string {
   }
 }
 
+type LockReason = 'unauthorized' | 'payment_required';
+
+const LOCK_COPY: Record<LockReason, { title: string; description: string }> = {
+  unauthorized: {
+    title: 'Entre para fazer a leitura por foto',
+    description: 'A leitura por foto faz parte da consultoria e fica guardada na sua conta.',
+  },
+  payment_required: {
+    title: 'A leitura por foto faz parte da consultoria',
+    description: 'Com um plano ativo, uma selfie revela pele, subtom e contraste e monta a sua cartela completa.',
+  },
+};
+
+function LockedScanner({ reason, onClose }: { reason: LockReason; onClose: () => void }) {
+  return (
+    <Modal title="Leitura de colorimetria" size="md" onClose={onClose}>
+      <ConsultingLock title={LOCK_COPY[reason].title} description={LOCK_COPY[reason].description} onClose={onClose} />
+    </Modal>
+  );
+}
+
+/** Leitura por foto: exclusiva para quem tem a consultoria ativa (sem análise local para quem não tem). */
 export function ScannerModal({ onClose }: { onClose: () => void }) {
+  const { hasAccess, loading, user } = useSession();
+
+  if (loading) {
+    return (
+      <Modal title="Leitura de colorimetria" size="sm" onClose={onClose}>
+        <div role="status" className="flex items-center justify-center gap-3 px-6 py-16 text-sm text-mist">
+          <LoaderCircle className="h-4 w-4 animate-spin text-gold" aria-hidden />
+          Conferindo seu acesso…
+        </div>
+      </Modal>
+    );
+  }
+  if (!hasAccess) return <LockedScanner reason={user ? 'payment_required' : 'unauthorized'} onClose={onClose} />;
+  return <ScannerStudio onClose={onClose} />;
+}
+
+function ScannerStudio({ onClose }: { onClose: () => void }) {
   const { setDiagnosis, setFaceImage } = useDiagnosis();
   const { toast } = useUI();
+  const { refreshProfile } = useSession();
+  const [locked, setLocked] = useState<LockReason | null>(null);
 
   const [phase, setPhase] = useState<Phase>('intro');
   const [photo, setPhoto] = useState<string | null>(null);
@@ -157,13 +201,25 @@ export function ScannerModal({ onClose }: { onClose: () => void }) {
 
     let reading: Diagnosis | null = null;
     let failure: string | null = null;
+    let blocked: LockReason | null = null;
     try {
       const { diagnosis } = await requestDiagnosis(image);
       reading = normalizeRemote(diagnosis);
     } catch (err) {
-      if (err instanceof ApiRequestError && err.code === 'bad_request') {
+      if (isConsultingLockError(err)) {
+        blocked = lockReason(err);
+      } else if (err instanceof ApiRequestError && err.code === 'bad_request') {
         failure = err.message || 'Não encontramos um rosto nítido nesta foto. Tente outra imagem, de frente e com boa luz.';
       }
+    }
+    // 401/402: sem leitura local — a leitura por foto é exclusiva da consultoria.
+    if (blocked) {
+      if (!aliveRef.current || run !== runRef.current) return;
+      setLocked(blocked);
+      setPhase('intro');
+      toast(lockToastMessage(blocked), 'info');
+      void refreshProfile();
+      return;
     }
     if (!reading && !failure) {
       try {
@@ -288,6 +344,8 @@ export function ScannerModal({ onClose }: { onClose: () => void }) {
       document.getElementById('atelier')?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
     }, 650);
   };
+
+  if (locked) return <LockedScanner reason={locked} onClose={onClose} />;
 
   const stage = phase === 'analyzing' ? 1 : phase === 'result' ? 2 : 0;
   const subtoneName = result ? (SUBTONES.find((s) => s.id === result.subtone)?.name ?? result.subtone) : '';
@@ -450,7 +508,7 @@ export function ScannerModal({ onClose }: { onClose: () => void }) {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
                       transition={{ duration: 0.45, ease: EASE }}
-                      className="font-display text-2xl italic text-parchment"
+                      className="text-2xl font-bold tracking-[-0.02em] text-parchment"
                     >
                       {PHRASES[phraseIndex]}
                     </motion.p>
@@ -475,7 +533,7 @@ export function ScannerModal({ onClose }: { onClose: () => void }) {
                   </div>
 
                   <div>
-                    <p className="eyebrow">Sua estação</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Sua estação</p>
                     <h3 className="mt-3 font-display text-5xl leading-none text-ivory sm:text-6xl">
                       <SeasonName name={result.season} />
                     </h3>
@@ -487,7 +545,7 @@ export function ScannerModal({ onClose }: { onClose: () => void }) {
                       ].map((item, i) => (
                         <div key={item.k} className={cn('py-3', i > 0 && 'border-l border-line pl-4')}>
                           <dt className="text-[0.58rem] uppercase tracking-[0.22em] text-smoke">{item.k}</dt>
-                          <dd className="mt-1 font-display text-lg leading-tight text-ivory">{item.v}</dd>
+                          <dd className="mt-1 text-lg font-bold leading-tight text-ivory">{item.v}</dd>
                         </div>
                       ))}
                     </dl>

@@ -40,7 +40,7 @@ export function buildLooksMessage(result: LooksResponse, request: StyleRequest, 
   const subtone = SUBTONES.find((s) => s.id === request.subtone)?.name ?? request.subtone;
   const contrast = CONTRASTS.find((c) => c.id === request.contrast)?.name ?? request.contrast;
   const lines = [
-    "Olá, Titi! Montei meus looks no Atelier da Titi's Store e gostaria da sua curadoria.",
+    "Olá, Titi! Montei meus looks na consultoria online da Titi's Store e gostaria da sua curadoria.",
     '',
     `*Cartela:* ${seasonName} (pele ${skinToneName(request.skinTone).toLowerCase()}, subtom ${subtone.toLowerCase()}, contraste ${contrast.toLowerCase()})`,
     `*Contexto:* ${occasionTitle(request.occasion)} · ${timeTitle(request.timeOfDay)} · clima ${climateTitle(request.climate).toLowerCase()} · estilo ${styleTitle(request.style).toLowerCase()}`,
@@ -73,14 +73,14 @@ export function StepLooks({ result, request, seasonName, products, saving, saved
     <div>
       <div className="grid gap-8 lg:grid-cols-12 lg:items-end lg:gap-12">
         <div className="lg:col-span-8">
-          <p className="eyebrow">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
             {result.looks.length === 1 ? 'Uma proposta' : `${result.looks.length === 3 ? 'Três' : result.looks.length} propostas`}
             <span className="mx-3 text-smoke">·</span>
-            <span className="font-display text-sm normal-case tracking-normal text-parchment">
+            <span className="text-sm font-bold normal-case tracking-normal text-parchment">
               <SeasonName name={seasonName} />
             </span>
           </p>
-          <p className="mt-4 font-display text-[clamp(1.6rem,3vw,2.35rem)] leading-tight text-ivory">{summary}</p>
+          <p className="mt-4 text-[clamp(1.4rem,2.6vw,2rem)] font-extrabold leading-tight tracking-[-0.03em] text-ivory">{summary}</p>
           <dl className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs">
             {context.map((c) => (
               <div key={c.label} className="flex items-baseline gap-2">
@@ -126,7 +126,7 @@ export function StepLooks({ result, request, seasonName, products, saving, saved
         </div>
       ) : (
         <div className="panel mt-12 px-6 py-14 text-center">
-          <p className="font-display text-2xl text-ivory">Nenhuma combinação para este contexto.</p>
+          <p className="text-2xl font-extrabold tracking-[-0.03em] text-ivory">Nenhuma combinação para este contexto.</p>
           <p className="mx-auto mt-3 max-w-md text-sm text-mist">Ajuste a ocasião ou o clima e componha novamente.</p>
         </div>
       )}

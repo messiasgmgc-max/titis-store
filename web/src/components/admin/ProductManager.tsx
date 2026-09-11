@@ -373,7 +373,7 @@ export function ProductManager({ resource, status, onStatusChange }: ProductMana
             Peças da <em className="italic text-gold-light">casa</em>
           </h2>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-mist">
-            Somente as peças publicadas aparecem na coleção e alimentam as sugestões do Atelier.
+            Somente as peças publicadas aparecem na coleção e alimentam as sugestões da consultoria.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -447,7 +447,7 @@ export function ProductManager({ resource, status, onStatusChange }: ProductMana
             onCancel={cancelDelete}
           >
             <p>
-              <span className="text-ivory">“{toDelete.name}”</span> será removida do acervo, da coleção e das sugestões do Atelier.
+              <span className="text-ivory">“{toDelete.name}”</span> será removida do acervo, da coleção e das sugestões da consultoria.
             </p>
             <p className="mt-3">
               As fotos enviadas ao Storage também serão apagadas, exceto as usadas por outras peças. Esta ação não pode ser

@@ -8,6 +8,7 @@ import { useUI } from '@/providers/UIProvider';
 import { formatDateBR } from '@/lib/format';
 import { CONTRASTS, SUBTONES, getSeason, skinToneName } from '@/lib/stylist/knowledge';
 import type { Diagnosis } from '@/lib/types';
+import { useConsultingLink } from './PlanStatusCard';
 import { SkeletonList, StatePanel, TabIntro } from './shared';
 
 const METAL_LABEL = { ouro: 'Ouro', prata: 'Prata', ambos: 'Ouro e prata' } as const;
@@ -19,7 +20,7 @@ const METAL_FINISH = {
 const SOURCE_LABEL: Record<Diagnosis['source'], string> = {
   ai: 'Leitura por foto',
   local: 'Leitura por foto',
-  manual: 'Escolha no Atelier',
+  manual: 'Escolha na consultoria',
 };
 
 function MetalDot({ metal }: { metal: 'ouro' | 'prata' }) {
@@ -49,7 +50,7 @@ function SeasonTitle({ name }: { name: string }) {
       {rest.length > 0 && (
         <>
           {' '}
-          <em className="italic text-foil">{rest.join(' ')}</em>
+          <span className="text-foil">{rest.join(' ')}</span>
         </>
       )}
     </>
@@ -59,6 +60,7 @@ function SeasonTitle({ name }: { name: string }) {
 export function PaletteTab() {
   const { diagnosis, ready } = useDiagnosis();
   const { openOverlay } = useUI();
+  const consulting = useConsultingLink();
   const openScanner = () => openOverlay({ type: 'scanner' });
 
   if (!ready) return <SkeletonList rows={2} label="Carregando sua cartela" />;
@@ -66,11 +68,11 @@ export function PaletteTab() {
   if (!diagnosis) {
     return (
       <section aria-label="Minha cartela" className="space-y-10">
-        <TabIntro numeral="I" eyebrow="Minha cartela" title={<>Sua cartela está <em className="italic text-gold-light">em branco</em></>} />
+        <TabIntro numeral="I" eyebrow="Minha cartela" title={<>Sua cartela está <span className="text-gold-light">em branco</span></>} />
         <StatePanel
           title={
             <>
-              Descubra as cores que <em className="italic text-foil">acendem</em> o seu rosto
+              Descubra as cores que <span className="text-foil">acendem</span> o seu rosto
             </>
           }
           actions={
@@ -79,8 +81,8 @@ export function PaletteTab() {
                 <ScanFace className="h-4 w-4" strokeWidth={1.5} aria-hidden />
                 Leitura por foto
               </Button>
-              <Button href="/#atelier" variant="outline">
-                Escolher no Atelier
+              <Button href={consulting.href} variant="outline">
+                {consulting.hasAccess ? 'Abrir a consultoria' : 'Ver planos'}
               </Button>
             </>
           }
@@ -98,7 +100,7 @@ export function PaletteTab() {
             ))}
           </div>
           <p>
-            Faça a leitura por foto ou indique seu tom de pele no Atelier. Sua estação cromática, as cores que
+            Faça a leitura por foto ou indique seu tom de pele na consultoria. Sua estação cromática, as cores que
             valorizam e as que convém evitar ficam guardadas aqui.
           </p>
         </StatePanel>
@@ -119,7 +121,7 @@ export function PaletteTab() {
         eyebrow="Minha cartela"
         title={
           <>
-            As cores que <em className="italic text-gold-light">vestem</em> você
+            As cores que <span className="text-gold-light">vestem</span> você
           </>
         }
         lead="Use a cartela como guia: as cores de destaque ficam perto do rosto; a base neutra sustenta calças, sapatos e sobreposições."
@@ -129,7 +131,7 @@ export function PaletteTab() {
               <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
               Refazer leitura
             </Button>
-            <Button href="/#atelier" size="sm">
+            <Button href={consulting.href} size="sm">
               Montar looks
             </Button>
           </div>
@@ -141,7 +143,7 @@ export function PaletteTab() {
           <div className="panel-gold frame relative overflow-hidden p-8 sm:p-10">
             <span className="glow-gold pointer-events-none absolute -right-16 -top-16 h-56 w-56" aria-hidden />
             <p className="kicker relative">Estação cromática · {season.family}</p>
-            <p className="relative mt-5 font-display text-[clamp(3rem,9vw,5.4rem)] leading-[0.92] text-ivory">
+            <p className="relative mt-5 font-display text-[clamp(2.5rem,7.4vw,4.4rem)] font-extrabold leading-[1.0] tracking-[-0.03em] text-ivory">
               <SeasonTitle name={diagnosis.season} />
             </p>
             <div className="stitch relative mt-8 w-full" aria-hidden />
@@ -205,7 +207,7 @@ export function PaletteTab() {
           {diagnosis.notes && (
             <div className="relative border-l border-line-gold pl-6">
               <h3 className="kicker">Parecer</h3>
-              <p className="mt-3 font-display text-[clamp(1.35rem,2.6vw,1.75rem)] italic leading-snug text-parchment">
+              <p className="mt-3 text-[clamp(1.05rem,2vw,1.3rem)] font-medium leading-relaxed text-parchment">
                 {diagnosis.notes}
               </p>
             </div>

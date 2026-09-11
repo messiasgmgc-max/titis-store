@@ -12,6 +12,9 @@ export type TimeOfDayId = 'manha' | 'tarde' | 'noite';
 export type ClimateId = 'frio' | 'ameno' | 'quente';
 export type StylePreference = 'classico' | 'contemporaneo' | 'ousado';
 export type Role = 'client' | 'vip' | 'admin';
+/** Planos pagos da consultoria. 'presencial' é agendado pelo WhatsApp (sem checkout). */
+export type PlanId = 'passe' | 'clube' | 'presencial';
+export type CheckoutProvider = 'whatsapp' | 'mercadopago';
 
 /** Posição da peça no corpo — usada para montar looks. */
 export type PieceSlot = 'sobreposicao' | 'superior' | 'inferior' | 'calcado' | 'acessorio';
@@ -169,8 +172,32 @@ export interface Profile {
   contrast_level: ContrastLevel | null;
   seasonal_palette: string | null;
   preferred_style: StylePreference | null;
+  /** Último plano contratado. */
+  plan: PlanId | null;
+  /** Fim do acesso VIP (null com role 'vip' = sem prazo). */
+  access_until: string | null;
   created_at?: string;
   updated_at?: string | null;
+}
+
+export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'refunded';
+
+/** Tabela public.payments — preenchida pelo webhook do Mercado Pago ou manualmente pelo admin. */
+export interface PaymentRow {
+  id: string;
+  user_id: string;
+  plan: PlanId;
+  amount_cents: number;
+  provider: CheckoutProvider | 'manual';
+  provider_payment_id: string | null;
+  status: PaymentStatus;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CheckoutResponse {
+  provider: 'mercadopago';
+  url: string;
 }
 
 export interface ConsultationRow {
@@ -225,5 +252,13 @@ export interface ProductVisionSuggestion {
 /** Formato padrão de erro devolvido pelas rotas /api/*. */
 export interface ApiError {
   error: string;
-  code: 'not_configured' | 'bad_request' | 'unauthorized' | 'forbidden' | 'upstream' | 'rate_limited' | 'internal';
+  code:
+    | 'not_configured'
+    | 'bad_request'
+    | 'unauthorized'
+    | 'forbidden'
+    | 'payment_required'
+    | 'upstream'
+    | 'rate_limited'
+    | 'internal';
 }

@@ -76,7 +76,7 @@ function Row({
         <span className="numeral text-xs" aria-hidden>
           {numeral}
         </span>
-        <h3 id={labelId} className="mt-2 font-display text-2xl leading-tight text-ivory sm:text-3xl">
+        <h3 id={labelId} className="mt-2 text-2xl font-extrabold leading-tight tracking-[-0.03em] text-ivory sm:text-[1.75rem]">
           {title}
         </h3>
         {help && <p className="mt-2 text-sm leading-relaxed text-mist">{help}</p>}
@@ -177,7 +177,7 @@ export function StepContext({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-12">
-      <Row numeral="i." title={<>A <em className="italic text-gold-light">ocasião</em></>} help="Para onde você vai? A formalidade parte daqui." labelId="atelier-occasion-label">
+      <Row numeral="i." title={<>A <span className="text-gold-light">ocasião</span></>} help="Para onde você vai? A formalidade parte daqui." labelId="atelier-occasion-label">
         <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4" role="group" aria-labelledby="atelier-occasion-label">
           {OCCASIONS.map((o) => {
             const Icon = OCCASION_ICONS[o.id];
@@ -196,7 +196,7 @@ export function StepContext({
                   strokeWidth={1.25}
                   aria-hidden
                 />
-                <span className="font-display text-lg leading-tight text-ivory sm:text-xl">{o.title}</span>
+                <span className="text-lg font-bold leading-tight tracking-[-0.02em] text-ivory sm:text-xl">{o.title}</span>
                 <span className="text-xs leading-snug text-mist">{o.description}</span>
               </button>
             );
@@ -248,14 +248,14 @@ export function StepContext({
         </div>
       </Row>
 
-      <Row numeral="ii." title={<>Horário e <em className="italic text-gold-light">clima</em></>} help="Luz e temperatura mudam tecido, cor e profundidade do look.">
+      <Row numeral="ii." title={<>Horário e <span className="text-gold-light">clima</span></>} help="Luz e temperatura mudam tecido, cor e profundidade do look.">
         <div className="grid gap-6 md:grid-cols-2">
           <Segmented label="Horário" options={TIMES_OF_DAY} value={timeOfDay} onChange={onTimeChange} icons={TIME_ICONS} />
           <Segmented label="Clima" options={CLIMATES} value={climate} onChange={onClimateChange} icons={CLIMATE_ICONS} />
         </div>
       </Row>
 
-      <Row numeral="iii." title={<>O seu <em className="italic text-gold-light">estilo</em></>} help="Como você quer ser lembrado ao chegar." labelId="atelier-style-label">
+      <Row numeral="iii." title={<>O seu <span className="text-gold-light">estilo</span></>} help="Como você quer ser lembrado ao chegar." labelId="atelier-style-label">
         <div className="grid gap-2 sm:grid-cols-3 sm:gap-3" role="group" aria-labelledby="atelier-style-label">
           {STYLES.map((s, i) => {
             const active = s.id === style;
@@ -271,7 +271,7 @@ export function StepContext({
                 <span className={cn('numeral text-[0.65rem] transition-colors', active ? 'text-gold' : 'text-smoke')} aria-hidden>
                   {ROMAN[i]}
                 </span>
-                <span className="font-display text-2xl leading-tight text-ivory">{s.title}</span>
+                <span className="text-2xl font-extrabold leading-tight tracking-[-0.03em] text-ivory">{s.title}</span>
                 <span className="text-xs leading-snug text-mist">{s.description}</span>
               </button>
             );

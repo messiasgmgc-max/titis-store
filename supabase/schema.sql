@@ -1,6 +1,6 @@
 -- =============================================================================
 --  TITI'S STORE · Schema do Supabase
---  Consultoria de imagem masculina · Atelier · Catálogo · Pedidos via WhatsApp
+--  Consultoria de imagem masculina online · Catálogo · Pedidos via WhatsApp
 -- -----------------------------------------------------------------------------
 --  Como usar
 --    Supabase → SQL Editor → New query → cole ESTE ARQUIVO INTEIRO → Run.
@@ -15,13 +15,15 @@
 --
 --  Seções
 --    0. Base ............... extensões, set_updated_at(), limpeza de políticas
---    1. Perfis ............. public.profiles, is_admin(), gatilhos de auth
+--    1. Perfis ............. public.profiles, is_admin(), has_consulting_access(),
+--                            gatilhos de auth
 --    2. Catálogo ........... public.products e acervo inicial
---    3. Consultorias ....... public.consultations
+--    3. Consultorias ....... public.consultations (exige plano ativo para salvar)
 --    4. Pedidos ............ public.orders
---    5. Storage ............ bucket "products"
---    6. Recarregar a API
---    Rodapé ................ comandos úteis (promover admin/VIP, verificações)
+--    5. Pagamentos ......... public.payments e grant_consulting_access()
+--    6. Storage ............ bucket "products"
+--    7. Recarregar a API
+--    Rodapé ................ comandos úteis (admin, liberar acesso, verificações)
 -- =============================================================================
 
 begin;
@@ -34,7 +36,7 @@ begin;
 -- gen_random_uuid() é nativa no Postgres 13+; pgcrypto mantém compatibilidade.
 create extension if not exists pgcrypto with schema extensions;
 
--- Carimba updated_at em todo UPDATE (usada por profiles, products e orders).
+-- Carimba updated_at em todo UPDATE (usada por profiles, products, orders e payments).
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -57,7 +59,7 @@ begin
     select schemaname, tablename, policyname
       from pg_catalog.pg_policies
      where schemaname = 'public'
-       and tablename in ('profiles', 'products', 'consultations', 'orders')
+       and tablename in ('profiles', 'products', 'consultations', 'orders', 'payments')
   loop
     execute format('drop policy if exists %I on %I.%I', pol.policyname, pol.schemaname, pol.tablename);
   end loop;
@@ -82,6 +84,8 @@ create table if not exists public.profiles (
   contrast_level      text,
   seasonal_palette    text,
   preferred_style     text,
+  plan                text,
+  access_until        timestamptz,
   created_at          timestamptz not null default now(),
   updated_at          timestamptz default now()
 );
@@ -97,6 +101,8 @@ alter table public.profiles
   add column if not exists contrast_level      text,
   add column if not exists seasonal_palette    text,
   add column if not exists preferred_style     text,
+  add column if not exists plan                text,
+  add column if not exists access_until        timestamptz,
   add column if not exists created_at          timestamptz not null default now(),
   add column if not exists updated_at          timestamptz default now();
 
@@ -104,7 +110,12 @@ alter table public.profiles
 alter table public.profiles alter column full_name drop not null;
 
 comment on table public.profiles is
-  'Perfil de cada conta (1:1 com auth.users). role: client | vip | admin.';
+  'Perfil de cada conta (1:1 com auth.users). role: client | vip | admin. plan/access_until: último plano e fim do acesso VIP (null = sem prazo).';
+
+comment on column public.profiles.plan is
+  'Último plano contratado: passe | clube | presencial. Alterado só por admin, service_role ou SQL Editor.';
+comment on column public.profiles.access_until is
+  'Fim do acesso à consultoria digital para role = vip (null = sem prazo). Alterado só por admin, service_role ou SQL Editor.';
 
 -- 1.2 Normalização de dados legados e CHECKs ----------------------------------
 -- Remove os CHECKs (inclusive os nomes automáticos da versão anterior) antes de
@@ -113,7 +124,18 @@ alter table public.profiles
   drop constraint if exists profiles_role_check,
   drop constraint if exists profiles_skin_subtone_check,
   drop constraint if exists profiles_contrast_level_check,
-  drop constraint if exists profiles_preferred_style_check;
+  drop constraint if exists profiles_preferred_style_check,
+  drop constraint if exists profiles_plan_check;
+
+update public.profiles
+   set plan = case lower(btrim(plan))
+                when 'passe'      then 'passe'
+                when 'clube'      then 'clube'
+                when 'presencial' then 'presencial'
+                else null
+              end
+ where plan is not null
+   and plan not in ('passe', 'clube', 'presencial');
 
 update public.profiles
    set role = case lower(btrim(coalesce(role, '')))
@@ -181,7 +203,9 @@ alter table public.profiles
   add constraint profiles_contrast_level_check
     check (contrast_level is null or contrast_level in ('alto', 'medio', 'baixo')),
   add constraint profiles_preferred_style_check
-    check (preferred_style is null or preferred_style in ('classico', 'contemporaneo', 'ousado'));
+    check (preferred_style is null or preferred_style in ('classico', 'contemporaneo', 'ousado')),
+  add constraint profiles_plan_check
+    check (plan is null or plan in ('passe', 'clube', 'presencial'));
 
 -- 1.3 is_admin() --------------------------------------------------------------
 -- Verdadeiro quando o usuário autenticado da requisição tem role = 'admin'.
@@ -207,6 +231,33 @@ comment on function public.is_admin() is
   'true quando auth.uid() pertence a um perfil com role = admin (SECURITY DEFINER, evita recursão de RLS).';
 
 grant execute on function public.is_admin() to anon, authenticated;
+
+-- 1.3b has_consulting_access() ------------------------------------------------
+-- Regra única de acesso à consultoria digital (espelha src/lib/access.ts):
+-- admin sempre; vip enquanto access_until for nulo (sem prazo) ou futuro.
+-- SECURITY DEFINER pelo mesmo motivo de is_admin(): pode ser usada em políticas.
+create or replace function public.has_consulting_access()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+      from public.profiles
+     where id = auth.uid()
+       and (
+             role = 'admin'
+          or (role = 'vip' and (access_until is null or access_until > now()))
+       )
+  );
+$$;
+
+comment on function public.has_consulting_access() is
+  'true quando auth.uid() é admin ou vip com access_until nulo ou futuro (SECURITY DEFINER).';
+
+grant execute on function public.has_consulting_access() to anon, authenticated;
 
 -- 1.4 RLS ---------------------------------------------------------------------
 alter table public.profiles enable row level security;
@@ -247,12 +298,17 @@ create policy "Perfis: exclusão apenas por admin"
   using ((select public.is_admin()));
 
 grant select, insert, update, delete on public.profiles to authenticated;
+-- O webhook do Mercado Pago (service_role) estende o acesso do cliente.
+grant select, update on public.profiles to service_role;
 
 -- 1.5 Proteção contra escalonamento de privilégio ------------------------------
 -- Requisições de usuários comuns (JWT anon ou authenticated, sem ser admin):
---   • INSERT: role é sempre 'client' e o e-mail vem de auth.users;
---   • UPDATE: trocar role ou id gera erro; e-mail e created_at são preservados
---     (o e-mail oficial é o da conta; ele é sincronizado pelo gatilho 1.7).
+--   • INSERT: role é sempre 'client', plan e access_until são nulos e o e-mail
+--     vem de auth.users;
+--   • UPDATE: trocar role ou id gera erro; plan, access_until, e-mail e
+--     created_at são preservados (um perfil salvo com valores antigos não
+--     falha, mas também não altera o acesso; o e-mail oficial é o da conta e é
+--     sincronizado pelo gatilho 1.7).
 -- Passam livremente: SQL Editor e processos internos do Supabase (sem JWT, como
 -- o cadastro feito pelo Auth e o handle_new_user), a service_role e admins.
 create or replace function public.protect_profile_privileges()
@@ -269,9 +325,11 @@ begin
   end if;
 
   if tg_op = 'INSERT' then
-    new.role       := 'client';
-    new.email      := (select u.email from auth.users u where u.id = new.id);
-    new.created_at := now();
+    new.role         := 'client';
+    new.plan         := null;
+    new.access_until := null;
+    new.email        := (select u.email from auth.users u where u.id = new.id);
+    new.created_at   := now();
     return new;
   end if;
 
@@ -285,8 +343,11 @@ begin
       using errcode = '42501';
   end if;
 
-  new.email      := old.email;
-  new.created_at := old.created_at;
+  -- Plano e prazo só mudam por admin, service_role (webhook) ou SQL Editor.
+  new.plan         := old.plan;
+  new.access_until := old.access_until;
+  new.email        := old.email;
+  new.created_at   := old.created_at;
   return new;
 end;
 $$;
@@ -834,7 +895,7 @@ alter table public.consultations
   add column if not exists created_at       timestamptz not null default now();
 
 comment on table public.consultations is
-  'Consultorias salvas pelos clientes: contexto informado e looks gerados no Atelier (results = Look[]).';
+  'Consultorias salvas pelos clientes: contexto informado e looks gerados na consultoria online (results = Look[]).';
 
 -- 3.2 Normalização, CHECK e índice --------------------------------------------
 alter table public.consultations
@@ -897,11 +958,15 @@ create policy "Consultorias: leitura do titular ou admin"
   to authenticated
   using (user_id = (select auth.uid()) or (select public.is_admin()));
 
+-- Salvar consultorias faz parte da consultoria paga: exige plano ativo.
 create policy "Consultorias: registro pelo titular"
   on public.consultations
   for insert
   to authenticated
-  with check (user_id = (select auth.uid()));
+  with check (
+    user_id = (select auth.uid())
+    and (select public.has_consulting_access())
+  );
 
 create policy "Consultorias: edição pelo titular"
   on public.consultations
@@ -1044,15 +1109,202 @@ grant select, update, delete on public.orders to authenticated;
 
 
 -- =============================================================================
--- 5. STORAGE · bucket "products"
+-- 5. PAGAMENTOS · public.payments
+-- =============================================================================
+-- Um registro por compra de plano. O checkout do Mercado Pago cria a linha
+-- 'pending' (service_role) e o webhook atualiza o status; applied_at marca que o
+-- acesso já foi liberado, para nunca somar o mesmo pagamento duas vezes.
+-- Liberações manuais do painel entram como provider 'manual'.
+
+-- 5.1 Tabela e colunas --------------------------------------------------------
+create table if not exists public.payments (
+  id                  uuid primary key default gen_random_uuid(),
+  user_id             uuid not null references auth.users (id) on delete cascade,
+  plan                text not null,
+  amount_cents        integer not null,
+  provider            text not null default 'manual',
+  provider_payment_id text,
+  status              text not null default 'pending',
+  applied_at          timestamptz,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
+);
+
+alter table public.payments
+  add column if not exists provider_payment_id text,
+  add column if not exists applied_at          timestamptz,
+  add column if not exists created_at          timestamptz not null default now(),
+  add column if not exists updated_at          timestamptz not null default now();
+
+comment on table public.payments is
+  'Pagamentos de planos da consultoria (Mercado Pago, WhatsApp ou manual). applied_at = acesso já liberado.';
+
+-- 5.2 CHECKs e índices --------------------------------------------------------
+alter table public.payments
+  drop constraint if exists payments_plan_check,
+  drop constraint if exists payments_amount_cents_check,
+  drop constraint if exists payments_provider_check,
+  drop constraint if exists payments_status_check;
+
+alter table public.payments
+  alter column id       set default gen_random_uuid(),
+  alter column provider set default 'manual',
+  alter column status   set default 'pending';
+
+alter table public.payments
+  add constraint payments_plan_check
+    check (plan in ('passe', 'clube', 'presencial')),
+  add constraint payments_amount_cents_check
+    check (amount_cents >= 0),
+  add constraint payments_provider_check
+    check (provider in ('whatsapp', 'mercadopago', 'manual')),
+  add constraint payments_status_check
+    check (status in ('pending', 'approved', 'rejected', 'cancelled', 'refunded'));
+
+create index if not exists payments_user_created_idx
+  on public.payments (user_id, created_at desc);
+
+create unique index if not exists payments_provider_payment_id_unique_idx
+  on public.payments (provider_payment_id)
+  where provider_payment_id is not null;
+
+-- 5.3 updated_at --------------------------------------------------------------
+drop trigger if exists payments_set_updated_at on public.payments;
+create trigger payments_set_updated_at
+  before update on public.payments
+  for each row
+  execute function public.set_updated_at();
+
+-- 5.4 RLS ---------------------------------------------------------------------
+-- A service_role (checkout e webhook) ignora o RLS.
+alter table public.payments enable row level security;
+
+drop policy if exists "Pagamentos: leitura do titular ou admin" on public.payments;
+drop policy if exists "Pagamentos: registro apenas por admin"   on public.payments;
+drop policy if exists "Pagamentos: edição apenas por admin"     on public.payments;
+drop policy if exists "Pagamentos: exclusão apenas por admin"   on public.payments;
+
+create policy "Pagamentos: leitura do titular ou admin"
+  on public.payments
+  for select
+  to authenticated
+  using (user_id = (select auth.uid()) or (select public.is_admin()));
+
+create policy "Pagamentos: registro apenas por admin"
+  on public.payments
+  for insert
+  to authenticated
+  with check ((select public.is_admin()));
+
+create policy "Pagamentos: edição apenas por admin"
+  on public.payments
+  for update
+  to authenticated
+  using ((select public.is_admin()))
+  with check ((select public.is_admin()));
+
+create policy "Pagamentos: exclusão apenas por admin"
+  on public.payments
+  for delete
+  to authenticated
+  using ((select public.is_admin()));
+
+grant select, insert, update, delete on public.payments to authenticated;
+grant select, insert, update, delete on public.payments to service_role;
+
+-- 5.5 grant_consulting_access() -----------------------------------------------
+-- Liberação manual do acesso (painel admin ou SQL Editor):
+--   • role vira 'vip' (admins continuam admin) e plan = p_plan;
+--   • p_days informado: access_until = greatest(now(), access_until) + p_days dias;
+--   • p_days nulo: sem prazo (access_until = null);
+--   • registra o pagamento como provider 'manual', status 'approved'.
+-- Só executa para administradores logados, service_role ou SQL Editor (sem JWT).
+create or replace function public.grant_consulting_access(
+  p_user uuid,
+  p_plan text,
+  p_days integer default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  jwt_role  text := coalesce(auth.jwt() ->> 'role', '');
+  v_current timestamptz;
+  v_role    text;
+  v_until   timestamptz;
+  v_amount  integer;
+begin
+  if not (jwt_role in ('', 'service_role') or public.is_admin()) then
+    raise exception 'Apenas administradores podem liberar acesso à consultoria.'
+      using errcode = '42501';
+  end if;
+
+  if p_user is null then
+    raise exception 'Informe o cliente.' using errcode = '22023';
+  end if;
+
+  if p_plan is null or p_plan not in ('passe', 'clube', 'presencial') then
+    raise exception 'Plano inválido: %.', coalesce(p_plan, 'nulo') using errcode = '22023';
+  end if;
+
+  if p_days is not null and (p_days < 1 or p_days > 3660) then
+    raise exception 'Duração inválida: informe de 1 a 3660 dias ou deixe sem prazo.' using errcode = '22023';
+  end if;
+
+  select p.role, p.access_until
+    into v_role, v_current
+    from public.profiles p
+   where p.id = p_user
+     for update;
+
+  if not found then
+    raise exception 'Perfil não encontrado para o cliente informado.' using errcode = 'P0002';
+  end if;
+
+  v_role  := case when v_role = 'admin' then 'admin' else 'vip' end;
+  v_until := case
+               when p_days is null then null
+               else greatest(now(), v_current) + make_interval(days => p_days)
+             end;
+  v_amount := case p_plan when 'passe' then 2990 when 'clube' then 4990 else 0 end;
+
+  update public.profiles
+     set role         = v_role,
+         plan         = p_plan,
+         access_until = v_until
+   where id = p_user;
+
+  insert into public.payments (user_id, plan, amount_cents, provider, status, applied_at)
+  values (p_user, p_plan, v_amount, 'manual', 'approved', now());
+
+  return jsonb_build_object(
+    'id',           p_user,
+    'role',         v_role,
+    'plan',         p_plan,
+    'access_until', v_until
+  );
+end;
+$$;
+
+comment on function public.grant_consulting_access(uuid, text, integer) is
+  'Admin: libera a consultoria digital (role vip, plano e prazo) e registra pagamento manual aprovado.';
+
+revoke all on function public.grant_consulting_access(uuid, text, integer) from public, anon;
+grant execute on function public.grant_consulting_access(uuid, text, integer) to authenticated, service_role;
+
+
+-- =============================================================================
+-- 6. STORAGE · bucket "products"
 -- =============================================================================
 -- Fotos das peças: leitura pública; envio, substituição e remoção só por admins.
 --
 -- O schema "storage" pertence ao Supabase. Se o papel do editor não tiver
 -- permissão sobre ele, cada bloco abaixo desfaz apenas a própria parte e
--- mostra um WARNING com a instrução — sem cancelar as seções 0 a 4.
+-- mostra um WARNING com a instrução — sem cancelar as seções 0 a 5.
 
--- 5.1 Bucket ------------------------------------------------------------------
+-- 6.1 Bucket ------------------------------------------------------------------
 do $$
 begin
   insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -1073,7 +1325,7 @@ exception
 end;
 $$;
 
--- 5.2 Políticas ---------------------------------------------------------------
+-- 6.2 Políticas ---------------------------------------------------------------
 do $$
 begin
   drop policy if exists "Produtos: leitura pública das imagens"       on storage.objects;
@@ -1113,7 +1365,7 @@ $$;
 
 
 -- =============================================================================
--- 6. RECARREGAR A API
+-- 7. RECARREGAR A API
 -- =============================================================================
 -- Faz o PostgREST enxergar colunas e funções novas assim que o COMMIT ocorrer.
 notify pgrst, 'reload schema';
@@ -1132,20 +1384,34 @@ commit;
 --   O e-mail do perfil é copiado de auth.users e não pode ser alterado por
 --   clientes, então o filtro por e-mail é seguro.
 --
--- Conceder acesso VIP (Clube / Passe) a um cliente:
+-- Liberar a consultoria digital por 30 dias (soma ao prazo atual, se ainda
+-- estiver ativo) e registrar o pagamento manual:
 --
---   update public.profiles set role = 'vip' where lower(email) = lower('EMAIL_DO_CLIENTE');
+--   select public.grant_consulting_access((select id from public.profiles where lower(email)=lower('EMAIL')), 'clube', 30);
 --
--- Voltar um cliente ao acesso padrão:
+--   Planos: 'passe' (R$ 29,90) · 'clube' (R$ 49,90) · 'presencial' (R$ 0).
+--   Sem prazo: troque 30 por null.
 --
---   update public.profiles set role = 'client' where lower(email) = lower('EMAIL_DO_CLIENTE');
+-- Revogar o acesso (volta a cliente comum; o histórico de pagamentos fica):
 --
--- Quem tem acesso especial:
+--   update public.profiles set role = 'client', access_until = null where lower(email) = lower('EMAIL');
 --
---   select email, full_name, role, updated_at
+-- Quem tem acesso e até quando:
+--
+--   select email, full_name, role, plan, access_until,
+--          (role = 'admin' or (role = 'vip' and (access_until is null or access_until > now()))) as ativo
 --     from public.profiles
---    where role <> 'client'
---    order by role, email;
+--    where role <> 'client' or plan is not null
+--    order by ativo desc, access_until nulls first, email;
+--
+-- Últimos pagamentos:
+--
+--   select pay.created_at, p.email, pay.plan, pay.amount_cents, pay.provider,
+--          pay.status, pay.provider_payment_id, pay.applied_at
+--     from public.payments pay
+--     left join public.profiles p on p.id = pay.user_id
+--    order by pay.created_at desc
+--    limit 50;
 --
 -- Políticas de segurança (RLS) aplicadas:
 --
@@ -1160,7 +1426,7 @@ commit;
 --   select relname, relrowsecurity
 --     from pg_class
 --    where relnamespace = 'public'::regnamespace
---      and relname in ('profiles', 'products', 'consultations', 'orders');
+--      and relname in ('profiles', 'products', 'consultations', 'orders', 'payments');
 --
 -- Produtos antigos com a foto embutida em base64 (deixam o catálogo pesado):
 --

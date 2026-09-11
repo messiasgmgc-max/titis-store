@@ -110,7 +110,7 @@ export function FabricSample({ hex, label, className }: { hex: string | null; la
         <span className="absolute inset-x-0 top-0 h-px bg-ivory/25" />
       </span>
       {label && (
-        <span aria-hidden className="absolute bottom-4 left-4 font-caps text-[0.6rem] tracking-[0.3em] text-mist">
+        <span aria-hidden className="absolute bottom-4 left-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-mist">
           {label}
         </span>
       )}
@@ -133,7 +133,7 @@ export function HangTag({ label, className }: { label: string; className?: strin
       <span className="relative z-[1] -mt-0.5 h-6 w-px bg-linear-to-b from-gold-dark via-gold to-gold-light" />
       <span className="relative -mt-2 bg-parchment px-2.5 pb-1.5 pt-4 [clip-path:polygon(22%_0,78%_0,100%_16%,100%_100%,0_100%,0_16%)]">
         <span className="absolute left-1/2 top-[5px] h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-obsidian/85" />
-        <span className="block max-w-[7.5rem] truncate font-caps text-[0.55rem] font-semibold tracking-[0.2em] text-obsidian">
+        <span className="block max-w-[7.5rem] truncate text-[10px] font-bold uppercase tracking-[0.14em] text-obsidian">
           {label}
         </span>
       </span>
@@ -276,8 +276,10 @@ export function ProductCard({ product, index, lead = false, className }: Product
       <div className={cn('flex flex-col pt-4 sm:pt-5', !lead && 'flex-1')}>
         <h3
           className={cn(
-            'font-display leading-[1.08] text-ivory',
-            lead ? 'text-2xl sm:text-3xl lg:text-[2.1rem]' : 'text-lg sm:text-xl lg:text-[1.45rem]',
+            'font-display text-ivory',
+            lead
+              ? 'text-xl font-extrabold leading-[1.08] tracking-[-0.03em] sm:text-2xl lg:text-[1.75rem]'
+              : 'text-base font-bold leading-[1.15] tracking-[-0.02em] sm:text-lg lg:text-[1.2rem]',
           )}
         >
           <button
@@ -307,7 +309,7 @@ export function ProductCard({ product, index, lead = false, className }: Product
         )}
 
         {inPalette && (
-          <p className="mt-2.5 inline-flex items-center gap-1.5 text-[0.6rem] font-medium uppercase tracking-[0.2em] text-gold-light">
+          <p className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-light">
             <Check className="h-3 w-3" strokeWidth={2} aria-hidden />
             Na sua cartela
           </p>
@@ -317,13 +319,15 @@ export function ProductCard({ product, index, lead = false, className }: Product
           <div className="mt-4 flex items-baseline justify-between gap-3 border-t border-line pt-3">
             <p
               className={
-                priced ? 'text-sm tabular-nums tracking-wide text-parchment' : 'font-display text-base italic text-mist'
+                priced
+                  ? 'text-[0.95rem] font-extrabold tabular-nums text-parchment'
+                  : 'text-sm font-semibold text-mist'
               }
             >
               {formatBRL(product.price_cents)}
             </p>
             {typeof index === 'number' && (
-              <span aria-hidden className="shrink-0 font-caps text-[0.6rem] tracking-[0.28em] text-smoke">
+              <span aria-hidden className="shrink-0 text-[11px] font-semibold tabular-nums tracking-[0.14em] text-smoke">
                 Nº {String(index + 1).padStart(2, '0')}
               </span>
             )}

@@ -18,13 +18,13 @@ const METALS: Record<SeasonProfile['metals'], { label: string; dots: string[] }>
   ambos: { label: 'Ouro e prata', dots: ['#D4AF37', '#C0C4CA'] },
 };
 
-/** Nome da estação com a segunda palavra em itálico dourado ("Outono *Quente*"). */
+/** Nome da estação com a segunda palavra em folha de ouro ("Outono Quente"). */
 export function SeasonName({ name }: { name: string }) {
   const [first, ...rest] = name.trim().split(/\s+/);
   if (rest.length === 0) return <>{first}</>;
   return (
     <>
-      {first} <em className="italic text-foil">{rest.join(' ')}</em>
+      {first} <span className="text-foil">{rest.join(' ')}</span>
     </>
   );
 }
@@ -145,7 +145,7 @@ export function StepTone({
                     <Check className="h-3.5 w-3.5" strokeWidth={2} />
                   </span>
                   <span className="absolute inset-x-0 bottom-0 z-[3] p-4 sm:p-5">
-                    <span className="block font-display text-xl leading-tight text-ivory sm:text-2xl">{t.name}</span>
+                    <span className="block text-xl font-extrabold leading-tight tracking-[-0.03em] text-ivory sm:text-2xl">{t.name}</span>
                     <span className="mt-1 block text-[0.7rem] leading-snug text-mist sm:text-xs">{t.subtitle}</span>
                   </span>
                 </span>
@@ -183,7 +183,7 @@ export function StepTone({
                       aria-hidden
                     />
                     <span>
-                      <span className="block font-display text-xl leading-tight text-ivory">{s.name}</span>
+                      <span className="block text-xl font-bold leading-tight tracking-[-0.02em] text-ivory">{s.name}</span>
                       <span className="mt-1 block text-xs leading-snug text-mist">{s.hint}</span>
                     </span>
                   </button>
@@ -217,7 +217,7 @@ export function StepTone({
         {/* Prévia viva da estação */}
         <aside className="panel-gold frame relative overflow-hidden p-7 sm:p-10 lg:col-span-7" aria-live="polite">
           <div className="flex items-center justify-between gap-4">
-            <span className="eyebrow">Sua estação</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Sua estação</span>
             <span className="kicker text-[0.62rem]">Família {season.family}</span>
           </div>
 

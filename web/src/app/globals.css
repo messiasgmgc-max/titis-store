@@ -22,9 +22,9 @@
   --color-success: #8cc49a;
   --color-danger: #e0816f;
 
-  --font-sans: var(--font-jost), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
-  --font-caps: var(--font-cinzel), "Cinzel", Georgia, serif;
+  --font-sans: var(--font-urbanist), "Urbanist", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-urbanist), "Urbanist", ui-sans-serif, system-ui, sans-serif;
+  --font-caps: var(--font-urbanist), "Urbanist", ui-sans-serif, system-ui, sans-serif;
 
   --ease-couture: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -87,8 +87,8 @@
 
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.01em;
+    font-weight: 800;
+    letter-spacing: -0.03em;
     text-wrap: balance;
   }
 
@@ -127,24 +127,24 @@
   /* Tipografia de apoio ---------------------------------------------------- */
   .eyebrow {
     font-family: var(--font-caps);
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.34em;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--color-gold);
   }
 
   .numeral {
     font-family: var(--font-caps);
-    font-weight: 500;
-    letter-spacing: 0.18em;
+    font-weight: 800;
+    letter-spacing: 0.06em;
     color: var(--color-gold);
   }
 
   .kicker {
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.24em;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--color-mist);
   }
@@ -174,13 +174,13 @@
     gap: 0.625rem;
     padding: 0.95rem 1.75rem;
     font-family: var(--font-sans);
-    font-size: 0.72rem;
-    font-weight: 500;
-    letter-spacing: 0.2em;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     line-height: 1;
     white-space: nowrap;
-    border-radius: 2px;
+    border-radius: 999px;
     overflow: hidden;
     isolation: isolate;
     transition: transform 0.5s var(--ease-couture), box-shadow 0.5s var(--ease-couture),
@@ -242,9 +242,9 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.72rem;
-    font-weight: 500;
-    letter-spacing: 0.2em;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--color-ivory);
     padding-bottom: 6px;
@@ -318,9 +318,9 @@
   .label {
     display: block;
     margin-bottom: 0.45rem;
-    font-size: 0.66rem;
-    font-weight: 500;
-    letter-spacing: 0.22em;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--color-mist);
   }
@@ -361,9 +361,9 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.55rem 1rem;
-    font-size: 0.68rem;
-    font-weight: 500;
-    letter-spacing: 0.16em;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--color-mist);
     border: 1px solid var(--color-line);

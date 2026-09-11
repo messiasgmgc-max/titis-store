@@ -36,7 +36,9 @@ export function LegalDocument({
             <span className="stitch w-10" aria-hidden />
             <span className="eyebrow">{eyebrow}</span>
           </div>
-          <h1 className="mt-6 font-display text-[clamp(2.6rem,7vw,4.8rem)] leading-[1] text-ivory">{title}</h1>
+          <h1 className="mt-6 font-display text-[clamp(2.15rem,5.8vw,3.9rem)] font-extrabold leading-[1.04] tracking-[-0.03em] text-ivory">
+            {title}
+          </h1>
           <p className="mt-5 kicker">{updated}</p>
           <div className="mt-8 text-lg leading-relaxed text-mist">{intro}</div>
         </header>
@@ -64,7 +66,8 @@ export function LegalDocument({
                 <span className="numeral text-sm">{toRoman(i + 1)}</span>
                 <span className="stitch w-8" aria-hidden />
               </div>
-              <h2 id={`${s.id}-title`} className="mt-4 font-display text-[clamp(1.7rem,3.6vw,2.4rem)] leading-tight text-ivory">
+              <h2 id={`${s.id}-title`} className="mt-4 font-display text-[clamp(1.4rem,3vw,1.95rem)] font-extrabold leading-[1.12] tracking-[-0.02em] text-ivory"
+              >
                 {s.title}
               </h2>
               <div className="prose-luxe mt-5 text-[1rem] leading-[1.8] text-mist">{s.body}</div>
@@ -74,8 +77,8 @@ export function LegalDocument({
 
         <aside className="panel-gold frame relative mt-10 p-8 sm:p-10">
           <p className="eyebrow">Contato</p>
-          <p className="mt-4 font-display text-[clamp(1.6rem,3.4vw,2.2rem)] leading-tight text-ivory">
-            Dúvidas sobre este documento? <em className="italic text-foil">Fale conosco.</em>
+          <p className="mt-4 font-display text-[clamp(1.35rem,2.8vw,1.8rem)] font-extrabold leading-[1.12] tracking-[-0.02em] text-ivory">
+            Dúvidas sobre este documento? <span className="text-foil">Fale conosco.</span>
           </p>
           <p className="mt-3 text-mist">
             Atendimento pelo WhatsApp oficial {SITE.whatsappDisplay}.

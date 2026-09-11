@@ -20,6 +20,9 @@ import { WhatsAppIcon } from '@/components/ui/icons';
 import { useCart, type CartInput } from '@/providers/CartProvider';
 import { useDiagnosis } from '@/providers/DiagnosisProvider';
 import { useUI } from '@/providers/UIProvider';
+import { useSession } from '@/providers/SessionProvider';
+import { ConsultingLock } from '@/components/consulting/ConsultingLock';
+import { isConsultingLockError, lockReason, lockToastMessage } from '@/components/consulting/shared';
 import { findProduct, useCatalog } from '@/lib/catalog';
 import { ApiRequestError, requestTryOn } from '@/lib/api';
 import { fileToDataUrl } from '@/lib/image';
@@ -95,7 +98,7 @@ function CompositionBoard({ pieces }: { pieces: PieceMatch[] }) {
         O provador com foto estará disponível em breve. Veja a composição do seu look:
       </p>
       <div className="stitch my-5" aria-hidden />
-      <p className="eyebrow">Composição das peças</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Composição das peças</p>
       <ul className="mt-4 grid grid-cols-2 gap-x-3 gap-y-5">
         {pieces.map(({ piece, product }, i) => {
           const wide = oddCount && i === 0;
@@ -108,7 +111,7 @@ function CompositionBoard({ pieces }: { pieces: PieceMatch[] }) {
                 </span>
               </div>
               <p className="mt-2.5 text-[0.58rem] font-medium uppercase tracking-[0.2em] text-smoke">{SLOT_LABELS[piece.slot]}</p>
-              <p className="mt-1 font-display text-[1.05rem] leading-tight text-ivory">{piece.name}</p>
+              <p className="mt-1 text-[1.05rem] font-bold leading-tight text-ivory">{piece.name}</p>
               <p className="mt-1 flex items-center gap-1.5 text-xs text-mist">
                 <ColorDot hex={piece.hex} size={9} />
                 {piece.color}
@@ -145,10 +148,44 @@ function RememberCheckbox({ id, checked, onChange }: { id: string; checked: bool
   );
 }
 
+type LockReason = 'unauthorized' | 'payment_required';
+
+function LockedTryOn({ reason, onClose }: { reason: LockReason; onClose: () => void }) {
+  return (
+    <Modal onClose={onClose} title="Provador virtual" size="md">
+      <ConsultingLock
+        title={reason === 'unauthorized' ? 'Entre para usar o provador virtual' : 'O provador virtual faz parte da consultoria'}
+        description="Com um plano ativo, você vê o look com o seu rosto antes de levar as peças."
+        onClose={onClose}
+      />
+    </Modal>
+  );
+}
+
+/** Provador virtual: exclusivo para quem tem a consultoria ativa. */
 export function TryOnModal({ look, onClose }: { look: Look; onClose: () => void }) {
+  const { hasAccess, loading, user } = useSession();
+
+  if (loading) {
+    return (
+      <Modal onClose={onClose} title="Provador virtual" size="sm">
+        <div role="status" className="flex items-center justify-center gap-3 px-6 py-16 text-sm text-mist">
+          <LoaderCircle className="h-4 w-4 animate-spin text-gold" aria-hidden />
+          Conferindo seu acesso…
+        </div>
+      </Modal>
+    );
+  }
+  if (!hasAccess) return <LockedTryOn reason={user ? 'payment_required' : 'unauthorized'} onClose={onClose} />;
+  return <TryOnStudio look={look} onClose={onClose} />;
+}
+
+function TryOnStudio({ look, onClose }: { look: Look; onClose: () => void }) {
   const { diagnosis, faceImage, setFaceImage } = useDiagnosis();
   const { addMany } = useCart();
   const { toast, openOverlay } = useUI();
+  const { refreshProfile } = useSession();
+  const [locked, setLocked] = useState<LockReason | null>(null);
   const { products, loading: catalogLoading } = useCatalog();
   const uid = useId();
 
@@ -217,6 +254,14 @@ export function TryOnModal({ look, onClose }: { look: Look; onClose: () => void 
       setPhase('result');
     } catch (err) {
       if (requestId !== requestRef.current) return;
+      if (isConsultingLockError(err)) {
+        const reason = lockReason(err);
+        setLocked(reason);
+        setPhase('idle');
+        toast(lockToastMessage(reason), 'info');
+        void refreshProfile();
+        return;
+      }
       if (err instanceof ApiRequestError && err.code === 'not_configured') {
         setPhase('fallback');
         return;
@@ -301,8 +346,10 @@ export function TryOnModal({ look, onClose }: { look: Look; onClose: () => void 
     );
   }
 
+  if (locked) return <LockedTryOn reason={locked} onClose={onClose} />;
+
   const orderText = [
-    `Olá, Titi! Quero pedir este look do Atelier: *${look.title}*`,
+    `Olá, Titi! Quero pedir este look da minha consultoria na Titi's Store: *${look.title}*`,
     '',
     ...pieces.map(({ piece }) => `- ${SLOT_LABELS[piece.slot]}: ${piece.name} — ${piece.color}${piece.fabric ? ` (${piece.fabric})` : ''}`),
     ...(diagnosis ? ['', `Minha estação: ${diagnosis.season}`] : []),
@@ -354,8 +401,8 @@ export function TryOnModal({ look, onClose }: { look: Look; onClose: () => void 
                           <ImagePlus className="h-6 w-6" strokeWidth={1.25} aria-hidden />
                         )}
                       </span>
-                      <span className="font-display text-[1.9rem] leading-tight text-ivory">
-                        Envie uma foto do <em className="italic text-foil">rosto</em>
+                      <span className="text-[1.7rem] font-extrabold leading-tight tracking-[-0.03em] text-ivory">
+                        Envie uma foto do <span className="text-foil">rosto</span>
                       </span>
                       <span className="max-w-[17rem] text-sm leading-relaxed text-mist">
                         De frente, com luz natural e sem óculos escuros. JPG, PNG ou WEBP.
@@ -378,7 +425,7 @@ export function TryOnModal({ look, onClose }: { look: Look; onClose: () => void 
                       <span className="sr-only">Gerando sua prova. Isso pode levar até um minuto.</span>
                       <div aria-hidden>
                         <div className="flex items-center justify-between">
-                          <span className="eyebrow">Na prova</span>
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Na prova</span>
                           <span className="font-caps text-xs tabular-nums tracking-[0.2em] text-gold-light">{clock}</span>
                         </div>
                         <div className="mt-3 h-9 overflow-hidden">
@@ -389,7 +436,7 @@ export function TryOnModal({ look, onClose }: { look: Look; onClose: () => void 
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -12 }}
                               transition={{ duration: 0.5, ease: EASE }}
-                              className="font-display text-[1.6rem] italic leading-9 text-ivory"
+                              className="text-[1.5rem] font-bold leading-9 tracking-[-0.02em] text-ivory"
                             >
                               {phrase}…
                             </motion.p>
@@ -427,7 +474,7 @@ export function TryOnModal({ look, onClose }: { look: Look; onClose: () => void 
                     <div aria-hidden className="absolute inset-0 bg-linear-to-t from-obsidian/90 via-obsidian/10 to-transparent" />
                     <div className="absolute inset-x-0 bottom-0 z-[3] flex items-end justify-between gap-4 p-6">
                       <div>
-                        <p className="eyebrow">Sua foto</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Sua foto</p>
                         <p className="mt-1.5 text-xs text-mist">Pronta para a prova</p>
                       </div>
                       <label className="link-luxe cursor-pointer text-parchment focus-within:text-gold-light">
@@ -508,11 +555,11 @@ export function TryOnModal({ look, onClose }: { look: Look; onClose: () => void 
         <div className="flex min-w-0 flex-col">
           <div className="flex items-center gap-3">
             <span className="stitch w-8" aria-hidden />
-            <span className="eyebrow">Look do Atelier</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Look da consultoria</span>
           </div>
           <h3 className="mt-4 font-display text-[clamp(2rem,3.2vw,2.75rem)] leading-[1.04] text-ivory">{look.title}</h3>
           {look.tagline && (
-            <p className="mt-2 font-display text-lg italic leading-snug text-gold-light/90">{look.tagline}</p>
+            <p className="mt-2 text-lg font-semibold leading-snug text-gold-light/90">{look.tagline}</p>
           )}
 
           {look.palette.length > 0 && (

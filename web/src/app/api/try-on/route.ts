@@ -1,4 +1,5 @@
 // POST /api/try-on — provador virtual: retrato editorial do cliente vestindo o look escolhido.
+import { requireConsultingAccess } from '@/lib/server/access';
 import { getActiveCatalog } from '@/lib/server/catalog';
 import { generateGeminiImage, geminiConfigured } from '@/lib/server/gemini';
 import {
@@ -6,7 +7,6 @@ import {
   HttpError,
   TEN_MINUTES,
   cleanText,
-  clientIp,
   enforceRateLimit,
   errorResponse,
   isRecord,
@@ -70,7 +70,7 @@ function parseLook(value: unknown): TryOnLook {
     });
   }
   if (pieces.length === 0) throw new HttpError(400, 'bad_request', 'O look precisa ter ao menos uma peça.');
-  return { title: cleanText(value.title, 80) ?? 'Look do Atelier', pieces };
+  return { title: cleanText(value.title, 80) ?? 'Look da consultoria', pieces };
 }
 
 const REFERENCE_MIME = new Set<string>(['image/jpeg', 'image/png', 'image/webp']);
@@ -163,11 +163,15 @@ function buildPrompt(look: TryOnLook, skinTone: SkinToneId, referenceNames: stri
 
 export async function POST(req: Request) {
   const startedAt = Date.now();
+  // Consultoria paga: sessão válida e plano ativo antes de gerar a imagem.
+  const access = await requireConsultingAccess(req);
+  if (access instanceof Response) return access;
+
   if (!geminiConfigured()) {
     return jsonError(503, 'not_configured', 'O provador virtual não está disponível no momento.');
   }
   try {
-    enforceRateLimit(`try-on:${clientIp(req)}`, 6, TEN_MINUTES);
+    enforceRateLimit(`try-on:${access.user.id}`, 6, TEN_MINUTES);
 
     const body = await readJson(req, MAX_BODY_BYTES);
     const face = parseImageDataUrl(body.face);

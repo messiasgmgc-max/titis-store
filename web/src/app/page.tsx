@@ -1,27 +1,23 @@
 import { Header } from '@/components/site/Header';
-import { Hero } from '@/components/site/Hero';
-import { Marquee } from '@/components/site/Marquee';
-import { MethodSection } from '@/components/site/MethodSection';
-import { Atelier } from '@/components/atelier/Atelier';
-import { Collection } from '@/components/collection/Collection';
-import { Manifesto } from '@/components/site/Manifesto';
-import { ClubSection } from '@/components/club/ClubSection';
-import { ContactSection } from '@/components/site/ContactSection';
 import { Footer } from '@/components/site/Footer';
+import { HomeHero } from '@/components/home/HomeHero';
+import { HowItWorks } from '@/components/home/HowItWorks';
+import { PlansSection } from '@/components/home/PlansSection';
+import { StoreStrip } from '@/components/home/StoreStrip';
+import { FaqSection } from '@/components/home/FaqSection';
+import { FinalCta } from '@/components/home/FinalCta';
 
 export default function HomePage() {
   return (
     <>
       <Header />
       <main id="conteudo">
-        <Hero />
-        <Marquee />
-        <MethodSection />
-        <Atelier />
-        <Collection />
-        <Manifesto />
-        <ClubSection />
-        <ContactSection />
+        <HomeHero />
+        <HowItWorks />
+        <PlansSection />
+        <StoreStrip />
+        <FaqSection />
+        <FinalCta />
       </main>
       <Footer />
     </>

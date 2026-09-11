@@ -12,6 +12,7 @@ import { SLOT_LABELS, climateTitle, occasionTitle, skinToneName, timeTitle } fro
 import type { ConsultationRow, Look, Product } from '@/lib/types';
 import { useCart, type CartInput } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
+import { useConsultingLink } from './PlanStatusCard';
 import { SkeletonList, StatePanel, TabIntro, Tag, toRoman } from './shared';
 
 type LoadState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; rows: ConsultationRow[] };
@@ -84,8 +85,8 @@ function LookDetail({
         <span className="stitch w-6" aria-hidden />
         {look.formality > 0 && <span className="kicker text-[0.58rem]">Formalidade {Math.round(look.formality)}/5</span>}
       </div>
-      <h4 className="mt-3 font-display text-2xl leading-tight text-ivory">{look.title}</h4>
-      {look.tagline && <p className="mt-1 font-display text-lg italic leading-snug text-mist">{look.tagline}</p>}
+      <h4 className="mt-3 font-display text-xl font-extrabold leading-[1.15] tracking-[-0.02em] text-ivory">{look.title}</h4>
+      {look.tagline && <p className="mt-1.5 text-[0.95rem] font-medium leading-snug text-parchment">{look.tagline}</p>}
 
       {look.palette.length > 0 && (
         <ul className="mt-5 flex flex-wrap gap-2" aria-label="Paleta do look">
@@ -104,7 +105,7 @@ function LookDetail({
             <li key={`${piece.slot}-${i}`} className="flex items-start gap-3 py-2.5">
               <ColorDot hex={piece.hex} size={11} className="mt-1" />
               <span className="min-w-0 text-sm leading-snug">
-                <span className="block text-[0.58rem] uppercase tracking-[0.2em] text-smoke">
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-smoke">
                   {SLOT_LABELS[piece.slot] ?? piece.slot}
                 </span>
                 <span className="text-parchment">{piece.name}</span>
@@ -193,12 +194,16 @@ function ConsultationCard({
 
       <div className="p-6 sm:p-8">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <span className="font-caps text-[0.7rem] tracking-[0.24em] text-gold">Nº {String(number).padStart(2, '0')}</span>
+          <span className="text-[11px] font-semibold uppercase tabular-nums tracking-[0.16em] text-gold">
+            Nº {String(number).padStart(2, '0')}
+          </span>
           <time dateTime={row.created_at} className="text-xs text-smoke">
             {formatDateBR(row.created_at)}
           </time>
         </div>
-        <h3 className="mt-3 font-display text-[clamp(1.6rem,3vw,2.2rem)] leading-tight text-ivory">{title}</h3>
+        <h3 className="mt-3 font-display text-[clamp(1.35rem,2.5vw,1.8rem)] font-extrabold leading-[1.1] tracking-[-0.02em] text-ivory">
+          {title}
+        </h3>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {row.seasonal_palette && <Tag className="border-line-gold text-gold-light">{row.seasonal_palette}</Tag>}
@@ -233,7 +238,7 @@ function ConsultationCard({
 
           <div className="min-h-9 flex items-center">
             {confirming ? (
-              <span className="inline-flex items-center gap-4 text-[0.72rem] font-medium uppercase tracking-[0.2em]" role="group" aria-label="Confirmar exclusão">
+              <span className="inline-flex items-center gap-4 text-[12px] font-semibold uppercase tracking-[0.14em]" role="group" aria-label="Confirmar exclusão">
                 <span className="text-parchment">Excluir?</span>
                 <button
                   type="button"
@@ -257,7 +262,7 @@ function ConsultationCard({
               <button
                 type="button"
                 onClick={() => setConfirming(true)}
-                className="inline-flex items-center gap-2 text-[0.68rem] uppercase tracking-[0.2em] text-smoke transition-colors hover:text-danger"
+                className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-smoke transition-colors hover:text-danger"
                 aria-label={`Excluir consultoria ${title}`}
               >
                 <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
@@ -304,6 +309,7 @@ export function SavedLooksTab({ userId }: { userId: string }) {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const { products, loading: catalogLoading } = useCatalog();
+  const consulting = useConsultingLink();
 
   useEffect(() => {
     let active = true;
@@ -343,12 +349,12 @@ export function SavedLooksTab({ userId }: { userId: string }) {
         eyebrow="Looks salvos"
         title={
           <>
-            Seu <em className="italic text-gold-light">guarda-roupa</em> de ocasiões
+            Seu <span className="text-gold-light">guarda-roupa</span> de ocasiões
           </>
         }
         lead="Cada consultoria salva guarda o contexto e os looks montados para ele. Prove, leve as peças do acervo ou refaça quando quiser."
         aside={
-          <Button href="/#atelier" size="sm">
+          <Button href={consulting.href} size="sm">
             Nova consultoria
           </Button>
         }
@@ -374,12 +380,14 @@ export function SavedLooksTab({ userId }: { userId: string }) {
         <StatePanel
           title={
             <>
-              Nenhum look <em className="italic text-foil">salvo</em> ainda
+              Nenhum look <span className="text-foil">salvo</span> ainda
             </>
           }
-          actions={<Button href="/#atelier">Ir ao Atelier</Button>}
+          actions={
+            <Button href={consulting.href}>{consulting.hasAccess ? 'Abrir a consultoria' : 'Ver planos'}</Button>
+          }
         >
-          Monte looks para a sua próxima ocasião no Atelier e salve a consultoria para encontrá-la aqui.
+          Monte looks para a sua próxima ocasião na consultoria e salve para encontrá-los aqui.
         </StatePanel>
       )}
 

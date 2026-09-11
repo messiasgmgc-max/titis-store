@@ -4,31 +4,47 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'framer-motion';
-import { ArrowUpRight, LayoutDashboard, LogOut, ShieldCheck, ShoppingBag, User, X } from 'lucide-react';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  LayoutDashboard,
+  LogOut,
+  Palette,
+  ShieldCheck,
+  ShoppingBag,
+  User,
+  X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Medallion, Wordmark } from '@/components/ui/Logo';
 import { WhatsAppIcon } from '@/components/ui/icons';
+import { DEFAULT_PLAN_HREF, DOUBT_TEXT } from '@/components/home/links';
 import { cn, whatsappLink } from '@/lib/format';
-import { NAV_LINKS, SITE } from '@/lib/site';
+import { CONSULTING_PATH, NAV_LINKS, SITE } from '@/lib/site';
 import { useCart } from '@/providers/CartProvider';
 import { useSession } from '@/providers/SessionProvider';
 import { useUI } from '@/providers/UIProvider';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'] as const;
-const SCHEDULE_TEXT = 'Olá, Titi! Gostaria de agendar um atendimento.';
 const FOCUSABLE = 'a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])';
 const SECTION_IDS = NAV_LINKS.map((link) => link.href.split('#')[1] ?? '').filter(Boolean);
-const PRIVATE_AREAS = ['/dashboard', '/admin'];
+const PRIVATE_AREAS = ['/dashboard', '/admin', CONSULTING_PATH];
+/** Páginas com a barra fixa de CTA no mobile. */
+const MOBILE_CTA_PAGES = ['/', '/colecao'];
 
 const ICON_BUTTON =
-  'relative grid h-11 w-11 place-items-center text-parchment transition-colors duration-500 hover:text-gold-light';
+  'relative grid h-11 w-11 place-items-center text-parchment transition-colors duration-300 hover:text-gold-light';
 
 const MENU_ITEM =
-  'flex w-full items-center gap-3 px-3 py-2.5 text-left text-[0.7rem] font-medium uppercase tracking-[0.18em] text-parchment transition-colors duration-300 hover:bg-gold/[0.07] hover:text-gold-light focus-visible:bg-gold/[0.07] focus-visible:text-gold-light';
+  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[0.92rem] font-semibold text-parchment transition-colors duration-300 hover:bg-gold/[0.07] hover:text-gold-light focus-visible:bg-gold/[0.07] focus-visible:text-gold-light';
 
 function sectionOf(href: string): string {
   return href.split('#')[1] ?? '';
+}
+
+function isLinkActive(href: string, pathname: string, activeSection: string | null): boolean {
+  const section = sectionOf(href);
+  return section ? section === activeSection : pathname === href;
 }
 
 /** Destaca no menu a seção visível (somente na home). */
@@ -60,14 +76,42 @@ function useActiveSection(enabled: boolean): string | null {
   return enabled ? active : null;
 }
 
+/** true enquanto algum bloco marcado com data-hide-mobile-cta (hero, planos, CTA final) estiver na tela. */
+function useCtaBlocked(enabled: boolean): boolean {
+  const [blocked, setBlocked] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || typeof IntersectionObserver === 'undefined') return;
+    const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-hide-mobile-cta]'));
+    if (targets.length === 0) return;
+
+    const visible = new Set<Element>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target);
+          else visible.delete(entry.target);
+        }
+        setBlocked(visible.size > 0);
+      },
+      { threshold: 0 },
+    );
+    targets.forEach((target) => observer.observe(target));
+    return () => observer.disconnect();
+  }, [enabled]);
+
+  return enabled && blocked;
+}
+
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, loading, isAdmin, isVip, signOut } = useSession();
+  const { user, profile, loading, isAdmin, isVip, hasAccess, signOut } = useSession();
   const { count, lastAddedAt } = useCart();
   const { openOverlay, toast } = useUI();
 
   const [scrolled, setScrolled] = useState(false);
+  const [pastTop, setPastTop] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -83,6 +127,8 @@ export function Header() {
   const accountLabelId = useId();
 
   const activeSection = useActiveSection(pathname === '/');
+  const mobileCtaEnabled = !loading && !hasAccess && MOBILE_CTA_PAGES.includes(pathname);
+  const ctaBlocked = useCtaBlocked(mobileCtaEnabled);
 
   // Transparente no topo; sólido após 24px. Esconde ao descer e volta ao subir.
   const { scrollY } = useScroll();
@@ -94,6 +140,7 @@ export function Header() {
       scrollAnchor.current = previous;
     }
     setScrolled(y > 24);
+    setPastTop(y > 320);
     if (y < 120) setHidden(false);
     else if (direction === 1 && y - scrollAnchor.current > 64) setHidden(true);
     else if (direction === -1 && scrollAnchor.current - y > 12) setHidden(false);
@@ -143,10 +190,14 @@ export function Header() {
   }, [accountOpen]);
 
   const displayName = profile?.full_name?.trim() || user?.email?.split('@')[0] || 'Sua conta';
-  const roleLabel = isAdmin ? 'Administração' : isVip ? "Membro do Clube Titi's" : 'Cliente da casa';
+  const roleLabel = isAdmin ? 'Administração' : isVip ? "Membro do Clube Titi's Store" : hasAccess ? 'Consultoria ativa' : 'Cliente';
   const bagLabel = count > 0 ? `Abrir sacola, ${count} ${count === 1 ? 'item' : 'itens'}` : 'Abrir sacola, vazia';
   const solid = scrolled || menuOpen;
   const concealed = hidden && !menuOpen && !accountOpen;
+  const cta = hasAccess
+    ? { href: CONSULTING_PATH, label: 'Minha consultoria' }
+    : { href: DEFAULT_PLAN_HREF, label: 'Começar consultoria' };
+  const showMobileCta = mobileCtaEnabled && pastTop && !ctaBlocked && !menuOpen;
 
   function handleAccountClick() {
     if (user) {
@@ -221,20 +272,20 @@ export function Header() {
           </div>
 
           <nav aria-label="Principal" className="hidden lg:block">
-            <ul className="flex items-center gap-9 xl:gap-11">
+            <ul className="flex items-center gap-8 xl:gap-10">
               {NAV_LINKS.map((link) => {
-                const active = sectionOf(link.href) === activeSection;
+                const active = isLinkActive(link.href, pathname, activeSection);
                 return (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      aria-current={active ? 'true' : undefined}
+                      aria-current={active ? (sectionOf(link.href) ? 'true' : 'page') : undefined}
                       className={cn(
-                        'relative block py-2 text-[0.68rem] font-medium uppercase tracking-[0.26em] transition-colors duration-500',
-                        'after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:bg-gold after:transition-transform after:duration-700 after:ease-[var(--ease-couture)]',
+                        'relative block py-2 text-[0.94rem] font-semibold tracking-[-0.005em] transition-colors duration-300',
+                        'after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:bg-gold after:transition-transform after:duration-500 after:ease-[var(--ease-couture)]',
                         active
                           ? 'text-gold-light after:scale-x-100'
-                          : 'text-parchment/75 after:scale-x-0 hover:text-gold-light hover:after:scale-x-100',
+                          : 'text-parchment/80 after:scale-x-0 hover:text-gold-light hover:after:scale-x-100',
                       )}
                     >
                       {link.label}
@@ -259,7 +310,7 @@ export function Header() {
                 aria-busy={!user && loading ? true : undefined}
                 className={ICON_BUTTON}
               >
-                <User className="h-[18px] w-[18px]" strokeWidth={1.4} aria-hidden />
+                <User className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden />
                 {user && (
                   <span
                     aria-hidden
@@ -272,19 +323,21 @@ export function Header() {
                 {user && accountOpen && (
                   <motion.div
                     key="account-menu"
-                    className="absolute right-0 top-full z-10 mt-2 w-72 border border-line-gold bg-surface shadow-[0_32px_64px_-24px_rgba(0,0,0,0.85)] lg:mt-3"
+                    className="absolute right-0 top-full z-10 mt-2 w-72 overflow-hidden rounded-2xl border border-line-gold bg-surface shadow-[0_32px_64px_-24px_rgba(0,0,0,0.85)] lg:mt-3"
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.35, ease: EASE }}
+                    transition={{ duration: 0.3, ease: EASE }}
                   >
-                    <span aria-hidden className="absolute -top-px right-4 h-px w-8 bg-gold" />
                     <div className="px-5 pb-4 pt-5">
-                      <p className="eyebrow text-[0.58rem]">Boas-vindas</p>
-                      <p id={accountLabelId} className="mt-2 truncate font-display text-[1.6rem] leading-tight text-ivory">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Boas-vindas</p>
+                      <p
+                        id={accountLabelId}
+                        className="mt-2 truncate text-[1.35rem] font-extrabold leading-tight tracking-[-0.02em] text-ivory"
+                      >
                         {displayName}
                       </p>
-                      <p className="mt-1 text-[0.6rem] font-medium uppercase tracking-[0.22em] text-gold-light/80">{roleLabel}</p>
+                      <p className="mt-1 text-xs font-medium text-gold-light/80">{roleLabel}</p>
                     </div>
                     <div aria-hidden className="stitch mx-5 opacity-70" />
                     <div
@@ -295,18 +348,24 @@ export function Header() {
                       onKeyDown={handleMenuKeyDown}
                       className="p-2"
                     >
+                      {hasAccess && (
+                        <Link role="menuitem" href={CONSULTING_PATH} onClick={() => setAccountOpen(false)} className={MENU_ITEM}>
+                          <Palette className="h-4 w-4 text-gold/80" strokeWidth={1.6} aria-hidden />
+                          Minha consultoria
+                        </Link>
+                      )}
                       <Link role="menuitem" href="/dashboard" onClick={() => setAccountOpen(false)} className={MENU_ITEM}>
-                        <LayoutDashboard className="h-4 w-4 text-gold/80" strokeWidth={1.3} aria-hidden />
+                        <LayoutDashboard className="h-4 w-4 text-gold/80" strokeWidth={1.6} aria-hidden />
                         Minha conta
                       </Link>
                       {isAdmin && (
                         <Link role="menuitem" href="/admin" onClick={() => setAccountOpen(false)} className={MENU_ITEM}>
-                          <ShieldCheck className="h-4 w-4 text-gold/80" strokeWidth={1.3} aria-hidden />
+                          <ShieldCheck className="h-4 w-4 text-gold/80" strokeWidth={1.6} aria-hidden />
                           Administração
                         </Link>
                       )}
                       <button role="menuitem" type="button" onClick={() => void handleSignOut()} className={MENU_ITEM}>
-                        <LogOut className="h-4 w-4 text-gold/80" strokeWidth={1.3} aria-hidden />
+                        <LogOut className="h-4 w-4 text-gold/80" strokeWidth={1.6} aria-hidden />
                         Sair
                       </button>
                     </div>
@@ -324,7 +383,7 @@ export function Header() {
                 animate={lastAddedAt ? { y: [0, -7, 0, -2, 0], rotate: [0, -10, 6, -2, 0] } : undefined}
                 transition={{ duration: 0.75, ease: 'easeOut' }}
               >
-                <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={1.4} />
+                <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={1.6} />
               </motion.span>
               <AnimatePresence>
                 {count > 0 && (
@@ -343,9 +402,10 @@ export function Header() {
               </AnimatePresence>
             </button>
 
-            <Button href={whatsappLink(SCHEDULE_TEXT)} external size="sm" className="ml-3 hidden md:inline-flex">
-              <WhatsAppIcon className="h-3.5 w-3.5" />
-              Agendar
+            {/* CTA principal (no celular, a barra fixa inferior assume) */}
+            <Button href={cta.href} size="sm" className="ml-2 hidden sm:inline-flex">
+              {cta.label}
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden />
             </Button>
 
             {/* Menu móvel */}
@@ -359,13 +419,32 @@ export function Header() {
               className="-mr-2 ml-1 grid h-11 w-11 place-items-center lg:hidden"
             >
               <span aria-hidden className="flex w-6 flex-col items-end gap-[7px]">
-                <span className="block h-px w-6 bg-ivory" />
-                <span className="block h-px w-4 bg-gold" />
+                <span className="block h-0.5 w-6 rounded-full bg-ivory" />
+                <span className="block h-0.5 w-4 rounded-full bg-gold" />
               </span>
             </button>
           </div>
         </div>
       </motion.header>
+
+      {/* Barra fixa de conversão no mobile: some sobre o hero, os planos e o CTA final. */}
+      <AnimatePresence>
+        {showMobileCta && (
+          <motion.div
+            key="mobile-cta"
+            className="fixed bottom-5 left-4 right-[92px] z-[55] sm:bottom-7 sm:left-7 sm:right-[100px] sm:max-w-sm lg:hidden"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ duration: 0.35, ease: EASE }}
+          >
+            <Link href={DEFAULT_PLAN_HREF} className="btn btn-gold h-14 w-full">
+              Quero minha consultoria
+              <ArrowRight className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+            </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {menuOpen && (
@@ -373,11 +452,13 @@ export function Header() {
             key="mobile-menu"
             id={menuId}
             onClose={closeMenu}
+            pathname={pathname}
             activeSection={activeSection}
             signedIn={Boolean(user)}
             isAdmin={isAdmin}
             displayName={displayName}
             count={count}
+            cta={cta}
             onAuth={openAuth}
             onBag={openBag}
             onSignOut={() => void handleSignOut()}
@@ -391,11 +472,13 @@ export function Header() {
 interface MobileMenuProps {
   id: string;
   onClose: () => void;
+  pathname: string;
   activeSection: string | null;
   signedIn: boolean;
   isAdmin: boolean;
   displayName: string;
   count: number;
+  cta: { href: string; label: string };
   onAuth: (mode: 'login' | 'register') => void;
   onBag: () => void;
   onSignOut: () => void;
@@ -403,15 +486,17 @@ interface MobileMenuProps {
 
 const MOBILE_ACTION = '[&:last-child:nth-child(odd)]:col-span-2';
 
-/** Menu de tela cheia (mobile): links numerados, conta e WhatsApp. */
+/** Menu de tela cheia (mobile): links, CTA da consultoria, conta e WhatsApp. */
 function MobileMenu({
   id,
   onClose,
+  pathname,
   activeSection,
   signedIn,
   isAdmin,
   displayName,
   count,
+  cta,
   onAuth,
   onBag,
   onSignOut,
@@ -467,14 +552,14 @@ function MobileMenu({
       initial={{ opacity: 0, clipPath: 'inset(0% 0% 100% 0%)' }}
       animate={{ opacity: 1, clipPath: 'inset(0% 0% 0% 0%)' }}
       exit={{ opacity: 0, clipPath: 'inset(0% 0% 100% 0%)' }}
-      transition={{ duration: 0.65, ease: EASE }}
+      transition={{ duration: 0.55, ease: EASE }}
     >
       <div aria-hidden className="glow-gold pointer-events-none absolute -right-1/3 -top-24 aspect-square w-[120vw] opacity-60" />
 
       <div className="container-luxe relative flex h-[72px] shrink-0 items-center justify-between">
         <Link href="/" onClick={onClose} className="flex items-center gap-3" aria-label="Titi's Store — início">
           <Medallion size={38} />
-          <span aria-hidden className="font-caps text-[0.62rem] tracking-[0.4em] text-mist">
+          <span aria-hidden className="text-[11px] font-semibold uppercase tracking-[0.18em] text-mist">
             Menu
           </span>
         </Link>
@@ -485,61 +570,74 @@ function MobileMenu({
           aria-label="Fechar menu"
           className="-mr-2 grid h-11 w-11 place-items-center text-parchment transition-colors hover:text-gold-light"
         >
-          <X className="h-5 w-5" strokeWidth={1.3} aria-hidden />
+          <X className="h-5 w-5" strokeWidth={1.6} aria-hidden />
         </button>
       </div>
       <div aria-hidden className="container-luxe">
         <div className="stitch opacity-60" />
       </div>
 
-      <nav aria-label="Principal" className="container-luxe relative flex-1 pb-10 pt-4">
+      <nav aria-label="Principal" className="container-luxe relative flex-1 pb-8 pt-3">
         <ol>
           {NAV_LINKS.map((link, index) => {
-            const active = sectionOf(link.href) === activeSection;
+            const active = isLinkActive(link.href, pathname, activeSection);
             return (
               <motion.li
                 key={link.href}
                 className="border-b border-line"
-                initial={{ opacity: 0, y: 28 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.15 + index * 0.06, ease: EASE }}
+                transition={{ duration: 0.6, delay: 0.12 + index * 0.05, ease: EASE }}
               >
                 <Link
                   href={link.href}
                   onClick={onClose}
-                  aria-current={active ? 'true' : undefined}
+                  aria-current={active ? (sectionOf(link.href) ? 'true' : 'page') : undefined}
                   className="group flex items-center gap-5 py-5"
                 >
-                  <span aria-hidden className="numeral w-9 shrink-0 text-[0.7rem] text-gold/80">
-                    {NUMERALS[index]}
+                  <span aria-hidden className="w-7 shrink-0 text-xs font-semibold tabular-nums text-gold/80">
+                    {String(index + 1).padStart(2, '0')}
                   </span>
                   <span
                     className={cn(
-                      'font-display text-[clamp(2.3rem,10vw,3.2rem)] leading-none transition-colors duration-500',
-                      active ? 'italic text-gold-light' : 'text-ivory group-hover:text-gold-light',
+                      'text-[clamp(2rem,9vw,2.8rem)] font-extrabold leading-none tracking-[-0.03em] transition-colors duration-300',
+                      active ? 'text-gold-light' : 'text-ivory group-hover:text-gold-light',
                     )}
                   >
                     {link.label}
                   </span>
                   <ArrowUpRight
                     aria-hidden
-                    strokeWidth={1.2}
-                    className="ml-auto h-5 w-5 shrink-0 text-smoke transition-[color,translate] duration-500 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-gold"
+                    strokeWidth={1.6}
+                    className="ml-auto h-5 w-5 shrink-0 text-smoke transition-[color,translate] duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-gold"
                   />
                 </Link>
               </motion.li>
             );
           })}
         </ol>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.35, ease: EASE }}
+        >
+          <Button href={cta.href} size="lg" onClick={onClose} className="mt-8 w-full">
+            {cta.label}
+            <ArrowRight className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+          </Button>
+        </motion.div>
       </nav>
 
       <motion.div
         className="container-luxe relative pb-10"
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.5, ease: EASE }}
+        transition={{ duration: 0.6, delay: 0.45, ease: EASE }}
       >
-        <p className="kicker truncate text-[0.6rem]">{signedIn ? `Boas-vindas, ${displayName}` : 'Sua conta'}</p>
+        <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-mist">
+          {signedIn ? `Boas-vindas, ${displayName}` : 'Sua conta'}
+        </p>
         <div className="mt-4 grid grid-cols-2 gap-3">
           {signedIn ? (
             <>
@@ -573,11 +671,11 @@ function MobileMenu({
           )}
         </div>
 
-        <Button href={whatsappLink(SCHEDULE_TEXT)} external className="mt-6 w-full">
-          <WhatsAppIcon className="h-4 w-4" />
-          Agendar pelo WhatsApp
+        <Button href={whatsappLink(DOUBT_TEXT)} external variant="ghost" className="mt-5 w-full">
+          <WhatsAppIcon className="h-4 w-4 text-gold" />
+          Falar com o Titi
         </Button>
-        <p className="mt-4 flex items-center justify-center gap-3 text-xs tracking-[0.18em] text-smoke">
+        <p className="mt-4 flex items-center justify-center gap-3 text-xs text-smoke">
           <span aria-hidden className="stitch w-6" />
           {SITE.whatsappDisplay}
           <span aria-hidden className="stitch w-6" />

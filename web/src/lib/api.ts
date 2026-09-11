@@ -1,7 +1,11 @@
 // Cliente tipado das rotas internas /api/* (as chaves de IA ficam só no servidor).
+// Rotas da consultoria paga enviam o token da sessão; o servidor confere o plano ativo.
+import { supabase } from './supabaseClient';
 import type {
   ApiError,
   ChatMessage,
+  CheckoutResponse,
+  PlanId,
   ConciergeResponse,
   Diagnosis,
   Look,
@@ -22,7 +26,21 @@ export class ApiRequestError extends Error {
   }
 }
 
-async function post<T>(url: string, body: unknown, opts: { timeoutMs: number; token?: string | null }): Promise<T> {
+async function sessionToken(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function post<T>(
+  url: string,
+  body: unknown,
+  opts: { timeoutMs: number; token?: string | null; auth?: boolean },
+): Promise<T> {
+  if (opts.auth && !opts.token) opts = { ...opts, token: await sessionToken() };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
   try {
@@ -57,12 +75,12 @@ async function post<T>(url: string, body: unknown, opts: { timeoutMs: number; to
 
 /** Leitura de colorimetria por IA a partir de uma foto (data URL). */
 export function requestDiagnosis(image: string) {
-  return post<{ diagnosis: Diagnosis }>('/api/diagnosis', { image }, { timeoutMs: 45_000 });
+  return post<{ diagnosis: Diagnosis }>('/api/diagnosis', { image }, { timeoutMs: 45_000, auth: true });
 }
 
 /** Composição de looks (IA quando configurada; motor do Atelier como garantia). */
 export function requestLooks(request: StyleRequest) {
-  return post<LooksResponse>('/api/looks', request, { timeoutMs: 40_000 });
+  return post<LooksResponse>('/api/looks', request, { timeoutMs: 40_000, auth: true });
 }
 
 /** Provador virtual: gera uma imagem editorial com o rosto do cliente vestindo o look. */
@@ -71,7 +89,12 @@ export function requestTryOn(input: {
   skinTone: SkinToneId;
   look: Pick<Look, 'title' | 'pieces' | 'palette'>;
 }) {
-  return post<TryOnResponse>('/api/try-on', input, { timeoutMs: 95_000 });
+  return post<TryOnResponse>('/api/try-on', input, { timeoutMs: 95_000, auth: true });
+}
+
+/** Cria o checkout do Mercado Pago para um plano e devolve a URL de pagamento. */
+export function startCheckout(plan: PlanId, accessToken: string) {
+  return post<CheckoutResponse>('/api/checkout', { plan }, { timeoutMs: 20_000, token: accessToken });
 }
 
 /** Concierge de estilo (chat com histórico). */

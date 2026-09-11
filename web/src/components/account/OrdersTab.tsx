@@ -7,6 +7,7 @@ import { WhatsAppIcon } from '@/components/ui/icons';
 import { supabase } from '@/lib/supabaseClient';
 import { cn, formatBRL, formatDateBR, whatsappLink } from '@/lib/format';
 import type { OrderRow, OrderStatus } from '@/lib/types';
+import { useConsultingLink } from './PlanStatusCard';
 import { SkeletonList, StatePanel, TabIntro } from './shared';
 
 type LoadState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; orders: OrderRow[] };
@@ -27,7 +28,7 @@ function isStatus(v: unknown): v is OrderStatus {
 function StatusBadge({ status }: { status: OrderStatus }) {
   const s = STATUS[status];
   return (
-    <span className={cn('inline-flex items-center gap-2 text-[0.68rem] font-medium uppercase tracking-[0.2em]', s.text)}>
+    <span className={cn('inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]', s.text)}>
       <span className="relative flex h-2 w-2">
         {status === 'em_atendimento' && (
           <span className={cn('absolute inset-0 animate-ping rounded-full opacity-60', s.dot)} aria-hidden />
@@ -66,6 +67,7 @@ function StatusTrack({ status }: { status: OrderStatus }) {
 export function OrdersTab({ userId }: { userId: string }) {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const consulting = useConsultingLink();
 
   useEffect(() => {
     let active = true;
@@ -103,7 +105,7 @@ export function OrdersTab({ userId }: { userId: string }) {
       eyebrow="Pedidos"
       title={
         <>
-          Seu histórico de <em className="italic text-gold-light">encomendas</em>
+          Seu histórico de <span className="text-gold-light">encomendas</span>
         </>
       }
       lead="Preços, tamanhos e prazos são confirmados no atendimento. Retome qualquer pedido pelo WhatsApp."
@@ -134,13 +136,13 @@ export function OrdersTab({ userId }: { userId: string }) {
         <StatePanel
           title={
             <>
-              Nenhum pedido <em className="italic text-foil">por aqui</em>
+              Nenhum pedido <span className="text-foil">por aqui</span>
             </>
           }
           actions={
             <>
-              <Button href="/#colecao">Explorar a coleção</Button>
-              <Button href="/#atelier" variant="outline">
+              <Button href="/colecao">Explorar a loja</Button>
+              <Button href={consulting.href} variant="outline">
                 Montar um look
               </Button>
             </>
@@ -164,7 +166,7 @@ export function OrdersTab({ userId }: { userId: string }) {
                   <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                        <h3 className="font-caps text-sm tracking-[0.2em] text-ivory">Pedido #{ref}</h3>
+                        <h3 className="text-sm font-bold uppercase tabular-nums tracking-[0.12em] text-ivory">Pedido #{ref}</h3>
                         <time dateTime={order.created_at} className="text-xs text-smoke">
                           {formatDateBR(order.created_at)}
                         </time>
@@ -201,7 +203,9 @@ export function OrdersTab({ userId }: { userId: string }) {
                         <p className="kicker text-[0.6rem]">
                           Total · {units} {units === 1 ? 'peça' : 'peças'}
                         </p>
-                        <p className="mt-1.5 font-display text-3xl leading-none text-ivory">{formatBRL(order.total_cents)}</p>
+                        <p className="mt-1.5 text-[1.75rem] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-ivory">
+                          {formatBRL(order.total_cents)}
+                        </p>
                       </div>
                       <a
                         href={whatsappLink(`Olá! Gostaria de retomar o Pedido #${ref}.`)}

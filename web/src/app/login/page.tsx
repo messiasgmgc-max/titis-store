@@ -9,7 +9,7 @@ import { whatsappLink } from '@/lib/format';
 
 export const metadata: Metadata = {
   title: 'Entrar',
-  description: "Acesse sua conta na Titi's Store: cartela de cores, looks do Atelier e histórico de pedidos.",
+  description: "Acesse sua conta na Titi's Store: plano de consultoria, cartela de cores, looks salvos e histórico de pedidos.",
   robots: { index: false, follow: true },
 };
 
@@ -57,9 +57,9 @@ export default function LoginPage() {
               <div aria-hidden className="absolute inset-0 bg-linear-to-t from-obsidian via-obsidian/35 to-obsidian/10" />
               <span
                 aria-hidden
-                className="vertical-text absolute right-7 top-8 z-[3] font-caps text-[0.6rem] tracking-[0.5em] text-gold/70"
+                className="vertical-text absolute right-7 top-8 z-[3] text-[11px] font-semibold uppercase tracking-[0.18em] text-gold/70"
               >
-                Atelier · Est. 2023
+                Titi&apos;s Store · Est. 2023
               </span>
               <figcaption className="absolute inset-x-0 bottom-0 z-[3] p-8 sm:p-10">
                 <div className="flex items-center gap-4">
@@ -67,8 +67,8 @@ export default function LoginPage() {
                   <span className="stitch w-10" aria-hidden />
                   <span className="eyebrow">Consultoria de imagem</span>
                 </div>
-                <p className="mt-5 max-w-md font-display text-[clamp(2rem,3.6vw,3.1rem)] leading-[1.04] text-ivory">
-                  A elegância começa pela <em className="italic text-foil">precisão</em>.
+                <p className="mt-5 max-w-md font-display text-[clamp(1.7rem,3vw,2.5rem)] font-extrabold leading-[1.08] tracking-[-0.03em] text-ivory">
+                  A elegância começa pela <span className="text-foil">precisão</span>.
                 </p>
                 <div className="tape mt-8 opacity-50" aria-hidden />
               </figcaption>
@@ -82,11 +82,14 @@ export default function LoginPage() {
                 <span className="stitch w-10" aria-hidden />
                 <span className="eyebrow">Área do cliente</span>
               </div>
-              <h1 id="login-title" className="mt-6 font-display text-[clamp(2.5rem,5vw,3.9rem)] leading-[1.02] text-ivory">
-                Entre no <em className="italic text-foil">Atelier</em>
+              <h1
+                id="login-title"
+                className="mt-6 font-display text-[clamp(2.1rem,4.2vw,3.2rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-ivory"
+              >
+                Entre na <span className="text-foil">sua conta</span>
               </h1>
               <p className="mt-5 text-base leading-relaxed text-mist">
-                Acesse sua cartela de cores, os looks salvos e o histórico dos seus pedidos.
+                Acesse seu plano, sua cartela de cores, os looks salvos e o histórico dos seus pedidos.
               </p>
 
               <div className="panel relative mt-10 p-6 sm:p-8">

@@ -507,7 +507,7 @@ export function ProductForm({ product, products, onClose, onSaved }: ProductForm
             <p>
               {product?.created_at
                 ? `Cadastrada em ${formatDateBR(product.created_at)}`
-                : 'Fotos, medidas e curadoria do Atelier em uma única ficha.'}
+                : 'Fotos, medidas e curadoria da consultoria em uma única ficha.'}
             </p>
             <p className="mt-1 truncate font-mono text-xs text-smoke" title="Endereço da peça">
               /{slugPreview}
@@ -711,8 +711,8 @@ export function ProductForm({ product, products, onClose, onSaved }: ProductForm
             </section>
 
             {/* IV · Curadoria do Atelier */}
-            <section className="space-y-6" aria-label="Curadoria do Atelier">
-              <SectionLabel numeral="IV">Curadoria do Atelier</SectionLabel>
+            <section className="space-y-6" aria-label="Curadoria da consultoria">
+              <SectionLabel numeral="IV">Curadoria da consultoria</SectionLabel>
 
               <div>
                 <span id={`${ids}-formality-label`} className="label">
@@ -772,7 +772,7 @@ export function ProductForm({ product, products, onClose, onSaved }: ProductForm
               <div className="grid gap-px border border-line bg-line sm:grid-cols-3">
                 <ToggleCell
                   title="Publicado"
-                  text="Visível na coleção e no Atelier"
+                  text="Visível na coleção e na consultoria"
                   checked={form.is_active}
                   onChange={(v) => setField('is_active', v)}
                 />

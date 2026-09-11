@@ -1,28 +1,39 @@
 // ============================================================
-// Configuração da marca — edite aqui textos e contatos oficiais.
+// Configuração da marca — edite aqui textos, contatos, planos e preços.
 // ============================================================
+import type { CheckoutProvider, PlanId } from './types';
 
 export const SITE = {
   name: "Titi's Store",
   legalName: "Titi's Store",
-  tagline: 'Consultoria de Imagem Masculina',
+  tagline: 'Consultoria de Imagem Masculina Online',
   established: 2023,
   description:
-    'Consultoria de imagem masculina e alfaiataria: diagnóstico de colorimetria, looks sob medida para cada ocasião e curadoria de peças com atendimento direto pelo WhatsApp.',
+    'Consultoria de imagem masculina online: descubra sua cartela de cores, receba looks montados para cada ocasião e compre as peças certas com atendimento direto do Titi.',
   whatsapp: '5531996000213',
   whatsappDisplay: '+55 31 99600-0213',
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || '',
 } as const;
 
+/**
+ * Como a compra dos planos é concluída.
+ * 'whatsapp' (padrão): o cliente fala com o Titi e o acesso é liberado no painel admin.
+ * 'mercadopago': checkout Pix/cartão com liberação automática (exige variáveis do servidor).
+ */
+export const CHECKOUT_PROVIDER: CheckoutProvider =
+  process.env.NEXT_PUBLIC_CHECKOUT_PROVIDER === 'mercadopago' ? 'mercadopago' : 'whatsapp';
+
 export const NAV_LINKS = [
-  { label: 'O Método', href: '/#metodo' },
-  { label: 'Atelier', href: '/#atelier' },
-  { label: 'Coleção', href: '/#colecao' },
-  { label: 'Clube', href: '/#clube' },
-  { label: 'Contato', href: '/#contato' },
+  { label: 'Como funciona', href: '/#como-funciona' },
+  { label: 'Planos', href: '/#planos' },
+  { label: 'Loja', href: '/colecao' },
+  { label: 'Dúvidas', href: '/#duvidas' },
 ] as const;
 
-/** Tecidos e ofícios exibidos no letreiro (marquee). */
+/** Página do app de consultoria (área paga). */
+export const CONSULTING_PATH = '/consultoria';
+
+/** Tecidos e ofícios (usado em detalhes decorativos). */
 export const ATELIER_WORDS = [
   'Lã fria Super 120s',
   'Cashmere',
@@ -37,11 +48,15 @@ export const ATELIER_WORDS = [
 ] as const;
 
 export interface ClubPlan {
-  id: string;
+  id: PlanId;
   kicker: string;
   name: string;
   priceLabel: string;
+  /** Valor cobrado no checkout; null = sob consulta (sem checkout). */
+  priceCents: number | null;
   cadence: string;
+  /** Dias de acesso liberados por pagamento; null = não libera acesso digital. */
+  accessDays: number | null;
   description: string;
   features: string[];
   cta: string;
@@ -52,41 +67,56 @@ export interface ClubPlan {
 export const CLUB_PLANS: ClubPlan[] = [
   {
     id: 'passe',
-    kicker: 'Acesso essencial',
+    kicker: 'Para começar',
     name: 'Passe Digital',
     priceLabel: 'R$ 29,90',
-    cadence: 'acesso único',
-    description: 'Para descobrir sua cartela e montar os primeiros looks com precisão.',
-    features: ['Leitura de colorimetria por foto', 'Cartela da sua estação cromática', 'Até 3 looks sob medida'],
-    cta: 'Ativar passe',
-    whatsappText: "Olá, Titi! Quero ativar o *Passe Digital (R$ 29,90)* da Titi's Store.",
+    priceCents: 2990,
+    cadence: '30 dias de acesso',
+    accessDays: 30,
+    description: 'Descubra sua cartela e monte os looks do próximo compromisso com precisão.',
+    features: [
+      'Leitura de colorimetria por foto',
+      'Sua cartela completa: cores, neutros e o que evitar',
+      'Looks montados por ocasião, horário e clima',
+      'Provador virtual com o seu rosto',
+    ],
+    cta: 'Quero o Passe Digital',
+    whatsappText: "Olá, Titi! Quero ativar o *Passe Digital (R$ 29,90 · 30 dias)* da Titi's Store.",
   },
   {
     id: 'clube',
-    kicker: 'Experiência completa',
-    name: "Clube Titi's",
+    kicker: 'Mais escolhido',
+    name: "Clube Titi's Store",
     priceLabel: 'R$ 49,90',
+    priceCents: 4990,
     cadence: 'por mês',
-    description: 'Consultoria contínua, provador virtual e curadoria direta com o Titi.',
+    accessDays: 30,
+    description: 'Consultoria contínua com o Titi ao seu lado a cada evento, compra e dúvida.',
     features: [
-      'Consultorias ilimitadas no Atelier',
-      'Provador virtual com o seu rosto',
-      'Linha direta no WhatsApp',
-      'Acervo de looks salvo na sua conta',
+      'Tudo do Passe Digital, sem limite de uso',
+      'Linha direta com o Titi no WhatsApp',
+      'Acervo com todos os seus looks salvos',
+      'Curadoria de peças da loja para a sua cartela',
     ],
-    cta: 'Entrar para o clube',
+    cta: 'Entrar para o Clube',
     featured: true,
-    whatsappText: "Olá, Titi! Quero assinar o *Clube Titi's (R$ 49,90/mês)*.",
+    whatsappText: "Olá, Titi! Quero assinar o *Clube Titi's Store (R$ 49,90/mês)*.",
   },
   {
     id: 'presencial',
-    kicker: 'Atendimento privado',
+    kicker: 'Atendimento exclusivo',
     name: 'Consultoria Presencial',
     priceLabel: 'Sob consulta',
+    priceCents: null,
     cadence: 'sessão individual',
+    accessDays: null,
     description: 'Uma sessão com o Titi para renovar o guarda-roupa do zero.',
     features: ['Análise do seu armário', 'Personal shopper dedicado', 'Plano de compras por prioridade'],
     cta: 'Agendar sessão',
     whatsappText: "Olá, Titi! Gostaria de agendar uma *Consultoria Presencial*.",
   },
 ];
+
+export function getPlan(id: string | null | undefined): ClubPlan | undefined {
+  return CLUB_PLANS.find((p) => p.id === id);
+}
