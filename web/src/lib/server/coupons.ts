@@ -37,7 +37,7 @@ export async function quoteCoupon(
     // Banco ainda sem a função (SQL não aplicado): responde como cupom indisponível, sem erro 500.
     const missing = error.code === '42883' || error.code === 'PGRST202' || /quote_coupon/.test(error.message);
     if (missing) return { ok: false, message: 'Os cupons ainda não estão disponíveis. Fale com o Titi pelo WhatsApp.' };
-    throw new Error();
+    throw new Error(`quote_coupon: ${error.message}`);
   }
 
   const r = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
