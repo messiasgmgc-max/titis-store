@@ -34,7 +34,7 @@ export const CONSULTING_BENEFITS: { title: string; description: string; icon: Ic
 /** Lista do que a consultoria libera. */
 export function BenefitList({ className, compact = false }: { className?: string; compact?: boolean }) {
   return (
-    <ul className={cn('grid gap-px overflow-hidden border border-line bg-line', className)}>
+    <ul className={cn('grid gap-px overflow-hidden rounded-3xl border border-line bg-line', className)}>
       {CONSULTING_BENEFITS.map(({ title, description, icon: Icon }) => (
         <li key={title} className={cn('flex items-start gap-4 bg-surface', compact ? 'px-4 py-3.5' : 'px-5 py-4')}>
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-line-gold text-gold">

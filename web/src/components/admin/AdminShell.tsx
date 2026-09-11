@@ -12,21 +12,33 @@ import { AccountLoader } from '@/components/account/AccountLoader';
 import { useSession } from '@/providers/SessionProvider';
 import { cn } from '@/lib/format';
 import { hasConsultingAccess } from '@/lib/access';
+import { couponStatus } from '@/lib/coupons';
 import { ProductManager, type ProductStatusFilter } from './ProductManager';
 import { OrdersBoard } from './OrdersBoard';
 import { ClientsTable } from './ClientsTable';
 import { PaymentsBoard } from './PaymentsBoard';
-import { useAdminClients, useAdminOrders, useAdminPayments, useAdminProducts } from './useAdminData';
+import { CouponsBoard } from './CouponsBoard';
+import { SettingsPanel } from './SettingsPanel';
+import {
+  useAdminClients,
+  useAdminCoupons,
+  useAdminOrders,
+  useAdminPayments,
+  useAdminProducts,
+  useAdminSettings,
+} from './useAdminData';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-type TabId = 'acervo' | 'pedidos' | 'clientes' | 'pagamentos';
+type TabId = 'acervo' | 'pedidos' | 'clientes' | 'pagamentos' | 'cupons' | 'configuracoes';
 
 const TABS: { id: TabId; label: string; numeral: string }[] = [
   { id: 'acervo', label: 'Acervo', numeral: 'I' },
   { id: 'pedidos', label: 'Pedidos', numeral: 'II' },
   { id: 'clientes', label: 'Clientes', numeral: 'III' },
   { id: 'pagamentos', label: 'Pagamentos', numeral: 'IV' },
+  { id: 'cupons', label: 'Cupons', numeral: 'V' },
+  { id: 'configuracoes', label: 'Configurações', numeral: 'VI' },
 ];
 
 function tabFromHash(): TabId {
@@ -111,6 +123,8 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
   const orders = useAdminOrders();
   const clients = useAdminClients();
   const payments = useAdminPayments();
+  const coupons = useAdminCoupons();
+  const settings = useAdminSettings();
 
   const [tab, setTab] = useState<TabId>(tabFromHash);
   const [productStatus, setProductStatus] = useState<ProductStatusFilter>('all');
@@ -121,6 +135,8 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
     const fresh = orders.data.filter((o) => o.status === 'novo').length;
     const inProgress = orders.data.filter((o) => o.status === 'em_atendimento').length;
     const vip = clients.data.filter((c) => c.role !== 'admin' && hasConsultingAccess(c)).length;
+    const blocked = clients.data.filter((c) => c.role !== 'admin' && c.is_blocked).length;
+    const activeCoupons = coupons.data.filter((c) => couponStatus(c) === 'active').length;
     return {
       active,
       drafts: products.data.length - active,
@@ -130,8 +146,10 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
       inProgress,
       clients: clients.data.length,
       vip,
+      blocked,
+      activeCoupons,
     };
-  }, [products.data, orders.data, clients.data]);
+  }, [products.data, orders.data, clients.data, coupons.data]);
 
   const selectTab = (id: TabId) => {
     setTab(id);
@@ -190,7 +208,12 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
       numeral: 'IV',
       label: 'Clientes',
       value: valueOf(clients.loading, clients.error, stats.clients),
-      detail: stats.vip > 0 ? `${stats.vip} com acesso ativo` : 'Contas cadastradas',
+      detail:
+        stats.vip > 0
+          ? `${stats.vip} com acesso ativo${stats.blocked > 0 ? ` · ${stats.blocked} ${stats.blocked === 1 ? 'bloqueado' : 'bloqueados'}` : ''}`
+          : stats.blocked > 0
+            ? `${stats.blocked} ${stats.blocked === 1 ? 'bloqueado' : 'bloqueados'}`
+            : 'Contas cadastradas',
       onClick: () => selectTab('clientes'),
     },
   ];
@@ -200,6 +223,8 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
     pedidos: orders.loading ? null : stats.fresh,
     clientes: clients.loading ? null : clients.data.length,
     pagamentos: payments.loading ? null : payments.data.length,
+    cupons: coupons.loading ? null : stats.activeCoupons,
+    configuracoes: null,
   };
 
   const firstName = (adminName ?? '').trim().split(/[\s@]+/)[0];
@@ -297,8 +322,12 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
                 {count !== null && count > 0 && (
                   <span
                     className={cn(
-                      'tabular-nums text-[0.62rem] tracking-[0.1em]',
-                      t.id === 'pedidos' ? 'text-gold-light' : active ? 'text-gold' : 'text-smoke',
+                      'rounded-full border px-1.5 py-0.5 tabular-nums text-[0.58rem] leading-none tracking-[0.08em]',
+                      t.id === 'pedidos'
+                        ? 'border-gold/60 bg-gold/10 text-gold-light'
+                        : active
+                          ? 'border-line-gold text-gold'
+                          : 'border-line text-smoke',
                     )}
                   >
                     {t.id === 'pedidos' ? `${count} ${count === 1 ? 'novo' : 'novos'}` : count}
@@ -307,7 +336,7 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
                 {active && (
                   <motion.span
                     layoutId="admin-tab-underline"
-                    className="absolute inset-x-0 -bottom-px h-px bg-gold"
+                    className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-gold"
                     transition={{ duration: 0.5, ease: EASE }}
                     aria-hidden
                   />
@@ -321,9 +350,16 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
           {tab === 'acervo' && <ProductManager resource={products} status={productStatus} onStatusChange={setProductStatus} />}
           {tab === 'pedidos' && <OrdersBoard resource={orders} />}
           {tab === 'clientes' && (
-            <ClientsTable resource={clients} currentUserId={userId} onAccessChanged={() => void payments.reload()} />
+            <ClientsTable
+              resource={clients}
+              payments={payments.data}
+              currentUserId={userId}
+              onAccessChanged={() => void payments.reload()}
+            />
           )}
           {tab === 'pagamentos' && <PaymentsBoard resource={payments} clients={clients.data} />}
+          {tab === 'cupons' && <CouponsBoard resource={coupons} />}
+          {tab === 'configuracoes' && <SettingsPanel resource={settings} />}
         </div>
       </div>
     </>

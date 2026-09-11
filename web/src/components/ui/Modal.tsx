@@ -132,8 +132,12 @@ export function Modal({
           className={cn(
             'pointer-events-auto relative flex flex-col bg-surface text-ivory outline-none',
             variant === 'center' &&
-              cn('max-h-[92dvh] w-full overflow-y-auto border border-line-gold sm:max-h-[88vh]', sizeClass[size]),
-            variant === 'drawer' && 'h-full w-full max-w-md overflow-y-auto border-l border-line-gold',
+              cn(
+                'max-h-[92dvh] w-full overflow-y-auto rounded-t-[var(--radius-panel)] border border-line-gold sm:max-h-[88vh] sm:rounded-[var(--radius-panel)]',
+                sizeClass[size],
+              ),
+            variant === 'drawer' &&
+              'h-full w-full max-w-md overflow-y-auto border-l border-line-gold sm:rounded-l-[var(--radius-panel)]',
             variant === 'fullscreen' && 'h-full w-full overflow-y-auto',
             className,
           )}
@@ -145,7 +149,7 @@ export function Modal({
             <button
               type="button"
               onClick={onClose}
-              className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center text-mist transition-colors hover:text-gold-light"
+              className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full text-mist transition-colors hover:bg-ivory/[0.05] hover:text-gold-light"
               aria-label="Fechar"
             >
               <X className="h-5 w-5" strokeWidth={1.5} />

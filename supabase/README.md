@@ -8,7 +8,9 @@ Banco de dados, autenticação e armazenamento de fotos do site. Tudo o que o ap
 | `products` | Catálogo da loja | Público lê as peças ativas; só administradores cadastram, editam e removem |
 | `consultations` | Consultorias e looks salvos na consultoria online | O próprio cliente; administradores podem ler e remover |
 | `orders` | Pedidos enviados pela sacola antes do atendimento no WhatsApp | Visitantes e clientes criam; o cliente lê os próprios; só administradores alteram |
-| `payments` | Compras dos planos da consultoria (Mercado Pago, WhatsApp ou liberação manual) | O cliente lê os próprios; administradores veem todos; o servidor (service role) registra os do Mercado Pago |
+| `payments` | Compras dos planos da consultoria (Mercado Pago, WhatsApp ou liberação manual), com desconto e cupom | O cliente lê os próprios; administradores veem todos; o servidor (service role) registra os do Mercado Pago |
+| `coupons` | Cupons de desconto do checkout | Só administradores; o site consulta um código pela função `quote_coupon()` |
+| `settings` | Configurações do site: WhatsApp, provedor de checkout, planos e aviso | Leitura pública; só administradores alteram |
 | Storage `products` | Fotos das peças (público, até 5 MB, JPEG, PNG, WebP ou AVIF) | Leitura pública; envio apenas por administradores |
 
 ---
@@ -65,9 +67,9 @@ Para liberar a consultoria para clientes, veja a seção 3.
 A consultoria digital (leitura de colorimetria, looks sob medida, provador virtual e consultorias salvas) é **paga**. Quem pode usar:
 
 - `role = 'admin'`: sempre;
-- `role = 'vip'` com `access_until` vazio (sem prazo) ou no futuro.
+- `role = 'vip'` **não bloqueado** (`is_blocked = false`) com `access_until` vazio (sem prazo) ou no futuro.
 
-A regra existe em dois lugares idênticos: `public.has_consulting_access()` no banco (usada pela política de INSERT de `consultations`) e `hasConsultingAccess()` em `web/src/lib/access.ts` (usada pelas rotas `/api/diagnosis`, `/api/looks` e `/api/try-on`, que respondem **401** sem login e **402** sem plano ativo).
+A regra existe em dois lugares idênticos: `public.has_consulting_access()` no banco (usada pela política de INSERT de `consultations`) e `hasConsultingAccess()` em `web/src/lib/access.ts` (usada pelas rotas `/api/diagnosis`, `/api/looks` e `/api/try-on`, que respondem **401** sem login e **402** sem plano ativo ou bloqueado).
 
 | Plano | Valor | Acesso liberado |
 | --- | --- | --- |
@@ -94,7 +96,88 @@ update public.profiles set role = 'client', access_until = null where lower(emai
 select email, role, plan, access_until from public.profiles where lower(email) = lower('EMAIL');
 ```
 
-`grant_consulting_access` só executa para administradores logados, para a `service_role` ou no SQL Editor. Ela registra o pagamento manual com o valor do plano (R$ 29,90, R$ 49,90 ou R$ 0 no presencial).
+`grant_consulting_access` só executa para administradores logados, para a `service_role` ou no SQL Editor. Ela registra o pagamento manual com o valor do plano (R$ 29,90, R$ 49,90 ou R$ 0 no presencial). Dois parâmetros opcionais registram um desconto combinado fora do site: `p_discount_cents` (centavos) e `p_coupon_code`:
+
+```sql
+-- Clube por 30 dias com R$ 10,00 de desconto pelo cupom BEMVINDO
+select public.grant_consulting_access((select id from public.profiles where lower(email)=lower('EMAIL')), 'clube', 30, 1000, 'BEMVINDO');
+```
+
+### Ficha do cliente: mudar plano, validade, bloquear e anotar
+
+Pelo painel: **Admin → Clientes → clique no cliente** (ou em **Ficha**). O painel lateral mostra os dados, a situação do acesso, o histórico de pagamentos e permite:
+
+- **Plano**: Passe, Clube ou nenhum;
+- **Validade**: data livre ou atalhos +30, +90, +365 dias e "sem prazo" (os atalhos somam ao prazo atual quando ele ainda está ativo);
+- **Bloqueio**: interruptor que derruba o acesso na hora, mesmo com plano vigente (o motivo fica nas observações);
+- **Observações internas**: texto livre que só a administração vê;
+- **Admin**: promover ou remover da administração, sempre com confirmação.
+
+Tudo isso chama a função `public.set_client_access`, que **não registra pagamento** (para pagamento, use "Liberar acesso"). Pelo SQL Editor:
+
+```sql
+-- set_client_access(p_user, p_plan, p_access_until, p_role, p_blocked, p_notes)
+-- p_plan: 'passe' | 'clube' | 'presencial' | null (sem plano)
+-- p_access_until: fim do acesso; null = sem prazo (quando há plano)
+-- p_role: null = automático (vip com plano, client sem plano; admin continua admin)
+-- p_blocked: null = mantém; true/false = liga/desliga o bloqueio
+-- p_notes: null = mantém; texto = substitui; '' = apaga
+
+-- Clube até uma data, desbloqueado, com observação
+select public.set_client_access(
+  (select id from public.profiles where lower(email)=lower('EMAIL')),
+  'clube', '2026-12-31 23:59:59-03', null, false, 'Combinado pelo WhatsApp.');
+
+-- Bloquear mantendo plano e prazo
+select public.set_client_access((select id from public.profiles where lower(email)=lower('EMAIL')), 'clube', null, null, true, 'Chargeback em análise.');
+
+-- Desbloquear
+select public.set_client_access((select id from public.profiles where lower(email)=lower('EMAIL')), 'clube', null, null, false);
+
+-- Remover o plano (volta a cliente comum)
+select public.set_client_access((select id from public.profiles where lower(email)=lower('EMAIL')), null, null);
+```
+
+Regras da função: só administradores logados, `service_role` ou SQL Editor; um admin não altera a própria conta por ela; administradores nunca são rebaixados nem promovidos sem `p_role` explícito. Clientes comuns não conseguem mudar `is_blocked` nem `admin_notes` do próprio perfil (o gatilho `profiles_protect_privileges` preserva os valores antigos).
+
+### Cupons de desconto
+
+Pelo painel: **Admin → Cupons** lista, cria, edita e desativa cupons e copia o código. Cada cupom tem:
+
+| Campo | Regra |
+| --- | --- |
+| `code` | 3 a 24 caracteres: letras, números, `_` e `-`. Guardado sempre em caixa-alta e único |
+| `percent_off` **ou** `amount_off_cents` | Exatamente um dos dois: percentual (1 a 100) ou valor fixo em centavos |
+| `plans` | Planos aceitos (`passe`, `clube`); lista vazia = todos os planos com checkout |
+| `max_uses` / `used_count` | Limite de usos (vazio = ilimitado) e usos já registrados |
+| `expires_at` | Validade (vazio = sem validade) |
+| `is_active` | Desativar mantém o histórico e impede novos usos |
+
+Como o site usa: `POST /api/coupon-quote` com `{ plan, code }` chama `public.quote_coupon(code, plan, valor)` e devolve `{ quote: { code, originalCents, discountCents, finalCents } }` ou `400` com a mensagem ("Cupom não encontrado ou inativo.", "Este cupom expirou.", "Este cupom atingiu o limite de usos.", "Este cupom não vale para o plano escolhido."). `POST /api/checkout` aceita `{ plan, coupon }`, **recalcula o desconto no servidor**, grava `payments.discount_cents`/`coupon_code` e cobra o valor final no Mercado Pago. Quando o webhook aprova o pagamento, o servidor chama `public.redeem_coupon(code)` uma única vez (`used_count + 1`). Um cupom de 100% libera o acesso na hora, sem passar pelo Mercado Pago.
+
+A tabela `coupons` só é lida por administradores; `quote_coupon` é `SECURITY DEFINER` e devolve apenas o resultado do cálculo, então visitantes nunca veem a lista de cupons.
+
+```sql
+-- Criar, testar e conferir pelo SQL Editor
+insert into public.coupons (code, description, percent_off, plans, max_uses, expires_at)
+values ('BEMVINDO', '20% na primeira compra', 20, '{}', 100, now() + interval '90 days');
+
+select public.quote_coupon('BEMVINDO', 'clube', 4990);
+select code, percent_off, amount_off_cents, plans, used_count, max_uses, expires_at, is_active from public.coupons;
+```
+
+### Configurações do site
+
+**Admin → Configurações** edita a tabela `public.settings` (uma linha por chave, valor em JSON):
+
+| Chave | Valor | Uso |
+| --- | --- | --- |
+| `whatsapp` | `{"number": "5531996000213"}` | Número da loja (só dígitos, com DDI) |
+| `checkout` | `{"provider": "whatsapp"}` ou `"mercadopago"` | Como a compra é concluída. O Mercado Pago só funciona com as variáveis da seção "Ativar o Mercado Pago"; sem elas o painel mostra um aviso |
+| `plans` | `{"passe": {"price_cents": 2990, "access_days": 30, "active": true}, "clube": {...}, "presencial": {"active": true}}` | Preço, dias de acesso e se o plano aparece |
+| `announcement` | `{"text": "", "active": false}` | Aviso no topo do site |
+
+O script insere os valores iniciais só quando a chave não existe (nunca sobrescreve o que o painel salvou). Leitura pública (o site lê no servidor com cache de até 5 minutos, em `web/src/lib/server/settings.ts`); escrita só por administradores.
 
 ### Ativar o Mercado Pago (liberação automática)
 
@@ -118,7 +201,7 @@ select email, role, plan, access_until from public.profiles where lower(email) =
 6. Faça **Redeploy** e rode o `schema.sql` atualizado, se ainda não rodou.
 7. **Teste**: compre um plano com uma conta de teste. O pagamento aparece em **Admin → Pagamentos** como `Pendente` e, após a aprovação, `Aprovado · Acesso liberado`; a conta passa a `vip` com o prazo somado. Em **Webhooks → Simular notificação**, uma resposta `401` indica assinatura secreta incorreta.
 
-Como funciona: `POST /api/checkout` exige login, cria a linha `pending` em `payments` e a preferência do Checkout Pro com `external_reference` igual ao id da linha. O Mercado Pago chama `/api/webhooks/mercadopago`; a rota valida o cabeçalho `x-signature` (HMAC-SHA256 com a assinatura secreta; sem ela, **toda** notificação é recusada), consulta o pagamento na API, atualiza o status e, quando aprovado com o valor correto, libera o acesso uma única vez.
+Como funciona: `POST /api/checkout` exige login, aplica o cupom (se enviado) recalculando o desconto no banco, cria a linha `pending` em `payments` com o valor final e a preferência do Checkout Pro com `external_reference` igual ao id da linha. O Mercado Pago chama `/api/webhooks/mercadopago`; a rota valida o cabeçalho `x-signature` (HMAC-SHA256 com a assinatura secreta; sem ela, **toda** notificação é recusada), consulta o pagamento na API, atualiza o status e, quando aprovado com valor pago maior ou igual ao valor final da linha, libera o acesso uma única vez e registra o uso do cupom.
 
 > `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET` e `SUPABASE_SERVICE_ROLE_KEY` são **somente servidor**: nunca use o prefixo `NEXT_PUBLIC_`. A service role ignora todas as regras de RLS.
 >
@@ -223,7 +306,7 @@ Peças inativas continuam visíveis para administradores. Se nenhuma peça ativa
 select relname, relrowsecurity
   from pg_class
  where relnamespace = 'public'::regnamespace
-   and relname in ('profiles', 'products', 'consultations', 'orders', 'payments');
+   and relname in ('profiles', 'products', 'consultations', 'orders', 'payments', 'coupons', 'settings');
 
 -- Políticas aplicadas
 select schemaname, tablename, policyname, cmd, roles
@@ -252,9 +335,12 @@ Roteiro rápido no site:
 
 - **RLS em todas as tabelas.** Nenhuma leitura ou escrita acontece fora das políticas do script.
 - **`public.is_admin()`** é a única verificação de administrador, usada pelas políticas das tabelas e do Storage.
-- **Gatilho `profiles_protect_privileges`**: clientes não escolhem o próprio nível, não trocam o `id`, não mudam o e-mail do perfil e não alteram `plan` nem `access_until` (no cadastro eles ficam vazios; em edições, os valores atuais são mantidos). O SQL Editor, os processos internos do Supabase (como o cadastro), a `service_role` e administradores não são afetados.
-- **`public.has_consulting_access()`**: regra da consultoria paga no banco; salvar consultorias exige plano ativo.
-- **Pagamentos**: o cliente só lê os próprios; criação e alteração apenas por administradores ou pelo servidor (`service_role`). O webhook do Mercado Pago só é aceito com assinatura válida e nunca aplica o mesmo pagamento duas vezes (`applied_at`).
+- **Gatilho `profiles_protect_privileges`**: clientes não escolhem o próprio nível, não trocam o `id`, não mudam o e-mail do perfil e não alteram `plan`, `access_until`, `is_blocked` nem `admin_notes` (no cadastro eles ficam vazios; em edições, os valores atuais são mantidos). O SQL Editor, os processos internos do Supabase (como o cadastro), a `service_role` e administradores não são afetados.
+- **`public.has_consulting_access()`**: regra da consultoria paga no banco (inclui o bloqueio); salvar consultorias exige plano ativo.
+- **`public.set_client_access()` e `public.grant_consulting_access()`**: só administradores, `service_role` ou SQL Editor; um admin não altera a própria conta por elas.
+- **Pagamentos**: o cliente só lê os próprios; criação e alteração apenas por administradores ou pelo servidor (`service_role`). O webhook do Mercado Pago só é aceito com assinatura válida e nunca aplica o mesmo pagamento duas vezes (`applied_at`). O desconto do cupom é sempre recalculado no servidor: o navegador nunca envia valores.
+- **Cupons**: tabela visível só para administradores; `quote_coupon()` devolve apenas o resultado do cálculo e `redeem_coupon()` só executa pelo servidor ou por admin.
+- **Configurações**: leitura pública (o site precisa delas) e escrita só por administradores.
 - **Gatilhos em `auth.users`**: `on_auth_user_created` cria o perfil no cadastro sem nunca bloqueá-lo; `on_auth_user_email_changed` mantém o e-mail do perfil igual ao da conta.
 - **Pedidos**: visitantes só criam pedidos com `status = 'novo'` e sem vínculo com outra conta; não podem ler pedidos. Os limites de tamanho (nome, telefone, observações, até 60 itens) evitam abuso do formulário.
 - **Storage**: leitura pública das fotos; envio, substituição e remoção apenas por administradores.
@@ -276,5 +362,10 @@ Roteiro rápido no site:
 | `Sua consultoria precisa de um plano ativo.` (HTTP 402) | A conta não é `vip` ou o `access_until` venceu. Libere o acesso (seção 3). |
 | `new row violates row-level security policy for table "consultations"` | O cliente tentou salvar uma consultoria sem plano ativo. |
 | `Apenas administradores podem liberar acesso à consultoria.` | `grant_consulting_access` foi chamada por uma conta que não é admin. |
+| `Apenas administradores podem alterar o acesso de clientes.` | `set_client_access` foi chamada por uma conta que não é admin. |
+| `A própria conta não pode ser alterada por aqui.` | Um admin tentou mudar a própria ficha. Use o SQL Editor. |
+| Cliente com plano vigente recebe `402` / "plano ativo" | Confira `is_blocked` na ficha do cliente (Admin → Clientes) e desbloqueie. |
+| `Cupom não encontrado ou inativo.` no checkout | O código não existe, está desativado, ou o `schema.sql` desta versão ainda não foi executado (tabela `coupons` ausente). |
+| Aba Cupons ou Configurações mostra "Tabela não encontrada" | Rode o `schema.sql` atual: ele cria `coupons` e `settings`. |
 | Pagamento aprovado no Mercado Pago, mas o acesso não foi liberado | Veja **Webhooks → notificações** no Mercado Pago: `401` = `MERCADOPAGO_WEBHOOK_SECRET` incorreta; `503` = variáveis ausentes na Vercel; `500` = veja os logs da função. O pagamento também não é aplicado se o valor pago for menor que o do plano. |
 | Colunas novas não aparecem na API | O script já recarrega o cache do PostgREST. Se necessário, rode `notify pgrst, 'reload schema';`. |

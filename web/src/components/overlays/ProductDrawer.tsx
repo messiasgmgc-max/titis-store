@@ -198,8 +198,8 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
                   aria-label={`Ver foto ${i + 1} de ${total}`}
                   aria-current={i === current ? 'true' : undefined}
                   className={cn(
-                    'relative aspect-[4/5] w-14 shrink-0 overflow-hidden border transition-[border-color,opacity] duration-500',
-                    i === current ? 'border-gold' : 'border-line opacity-55 hover:opacity-100',
+                    'relative aspect-[4/5] w-14 shrink-0 overflow-hidden rounded-xl border transition-[border-color,opacity,box-shadow] duration-500',
+                    i === current ? 'border-gold shadow-[0_0_0_1px_rgb(212_175_55/0.35)]' : 'border-line opacity-55 hover:opacity-100',
                   )}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -264,7 +264,7 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
                 {product.occasions.length > 0 ? (
                   <ul className="flex flex-wrap gap-1.5">
                     {product.occasions.map((o) => (
-                      <li key={o} className="border border-line px-2 py-1 text-xs text-parchment">
+                      <li key={o} className="rounded-full border border-line px-2.5 py-1 text-xs text-parchment">
                         {occasionTitle(o)}
                       </li>
                     ))}
@@ -316,7 +316,7 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
                     </p>
                     <div className="mt-2.5 flex gap-1" aria-hidden>
                       {[0, 1, 2].map((i) => (
-                        <span key={i} className={cn('h-0.5 w-6', i < FIT_COPY[fit.level].bars ? 'bg-gold' : 'bg-line')} />
+                        <span key={i} className={cn('h-1 w-6 rounded-full', i < FIT_COPY[fit.level].bars ? 'bg-gold' : 'bg-line')} />
                       ))}
                     </div>
                     <p className="mt-2 font-mono text-[0.6rem] uppercase tracking-wider text-smoke">
@@ -329,7 +329,7 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
             )}
 
             {!diagnosis && hex && (
-              <div className="mt-8 flex flex-col gap-3 border border-line p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-line bg-ivory/[0.015] p-5 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm leading-relaxed text-mist">Quer saber se esta cor valoriza o seu tom?</p>
                 <button
                   type="button"
@@ -375,7 +375,7 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
                 </p>
               </fieldset>
             ) : (
-              <div className="mt-9 flex items-start gap-3 border border-line-gold bg-gold/[0.04] p-4">
+              <div className="mt-9 flex items-start gap-3 rounded-2xl border border-line-gold bg-gold/[0.04] p-4">
                 <Ruler className="mt-0.5 h-4 w-4 shrink-0 text-gold" strokeWidth={1.5} aria-hidden />
                 <p className="text-sm leading-relaxed text-parchment">Sob medida — informe suas medidas no atendimento</p>
               </div>
@@ -386,13 +386,13 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
         {/* Rodapé fixo ----------------------------------------------------- */}
         <div className="sticky bottom-0 z-20 mt-auto border-t border-line-gold bg-surface/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-md sm:px-8 sm:pb-6 sm:pt-5">
           <div className="flex items-stretch gap-3">
-            <div className="flex shrink-0 items-stretch border border-line" role="group" aria-label="Quantidade">
+            <div className="flex shrink-0 items-stretch rounded-full border border-line bg-ivory/[0.02] p-0.5" role="group" aria-label="Quantidade">
               <button
                 type="button"
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                 disabled={quantity <= 1}
                 aria-label="Diminuir quantidade"
-                className="grid w-10 place-items-center text-mist transition-colors hover:text-gold-light disabled:cursor-default disabled:opacity-35"
+                className="grid w-10 place-items-center rounded-full text-mist transition-colors hover:bg-ivory/[0.06] hover:text-gold-light disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent"
               >
                 <Minus className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
               </button>
@@ -404,7 +404,7 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
                 onClick={() => setQuantity((q) => Math.min(MAX_QUANTITY, q + 1))}
                 disabled={quantity >= MAX_QUANTITY}
                 aria-label="Aumentar quantidade"
-                className="grid w-10 place-items-center text-mist transition-colors hover:text-gold-light disabled:cursor-default disabled:opacity-35"
+                className="grid w-10 place-items-center rounded-full text-mist transition-colors hover:bg-ivory/[0.06] hover:text-gold-light disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent"
               >
                 <Plus className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
               </button>

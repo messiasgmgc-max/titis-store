@@ -102,7 +102,7 @@ function Thumbnail({ item }: { item: CartItem }) {
 
   if (item.image && !failed) {
     return (
-      <span className="relative block h-28 w-[5.25rem] shrink-0 overflow-hidden bg-coal">
+      <span className="relative block h-28 w-[5.25rem] shrink-0 overflow-hidden rounded-2xl bg-coal">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={item.image}
@@ -111,7 +111,7 @@ function Thumbnail({ item }: { item: CartItem }) {
           onError={() => setFailed(true)}
           className="img-editorial h-full w-full object-cover"
         />
-        <span aria-hidden className="absolute inset-0 ring-1 ring-inset ring-line" />
+        <span aria-hidden className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-line" />
       </span>
     );
   }
@@ -119,7 +119,7 @@ function Thumbnail({ item }: { item: CartItem }) {
   return (
     <span
       aria-hidden
-      className="pinked relative block h-28 w-[5.25rem] shrink-0 overflow-hidden"
+      className="pinked relative block h-28 w-[5.25rem] shrink-0 overflow-hidden rounded-t-xl"
       style={{ backgroundColor: item.hex || '#181b24' }}
     >
       <span
@@ -237,7 +237,7 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
           <p className="kicker mt-2" aria-live="polite">
             {empty ? 'Nenhuma peça' : `${count} ${count === 1 ? 'peça selecionada' : 'peças selecionadas'}`}
           </p>
-          <div className="tape mt-5 opacity-30" aria-hidden />
+          <div className="tape mt-5 rounded-full opacity-30" aria-hidden />
         </div>
 
         {empty ? (
@@ -256,7 +256,7 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <>
-            <ul className="divide-y divide-line px-6 sm:px-8" aria-label="Peças na sacola">
+            <ul className="mt-5 space-y-3 px-6 sm:px-8" aria-label="Peças na sacola">
               <AnimatePresence initial={false}>
                 {items.map((item) => (
                   <motion.li
@@ -266,7 +266,7 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: 28 }}
                     transition={{ duration: 0.4, ease: EASE }}
-                    className="flex gap-4 py-5"
+                    className="flex gap-4 rounded-2xl border border-line bg-ivory/[0.015] p-3.5 transition-colors duration-500 hover:border-ivory/15 sm:p-4"
                   >
                     <Thumbnail item={item} />
 
@@ -286,7 +286,7 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
                           type="button"
                           onClick={() => remove(item.key)}
                           aria-label={`Remover ${item.name} da sacola`}
-                          className="-mr-2 -mt-1.5 grid h-9 w-9 shrink-0 place-items-center text-smoke transition-colors hover:text-danger"
+                          className="-mr-2 -mt-1.5 grid h-9 w-9 shrink-0 place-items-center rounded-full text-smoke transition-colors hover:bg-danger/10 hover:text-danger"
                         >
                           <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                         </button>
@@ -310,17 +310,17 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
                         <div
                           role="group"
                           aria-label={`Quantidade de ${item.name}`}
-                          className="inline-flex h-9 items-stretch border border-line"
+                          className="inline-flex h-9 items-stretch rounded-full border border-line bg-ivory/[0.02] p-0.5"
                         >
                           <button
                             type="button"
                             onClick={() => setQuantity(item.key, item.quantity - 1)}
                             aria-label={item.quantity === 1 ? `Remover ${item.name}` : 'Diminuir quantidade'}
-                            className="grid w-9 place-items-center text-mist transition-colors hover:text-gold-light"
+                            className="grid w-8 place-items-center rounded-full text-mist transition-colors hover:bg-ivory/[0.06] hover:text-gold-light"
                           >
                             <Minus className="h-3.5 w-3.5" strokeWidth={1.5} />
                           </button>
-                          <span className="grid min-w-9 place-items-center border-x border-line px-2 text-sm tabular-nums text-ivory">
+                          <span className="grid min-w-8 place-items-center px-1.5 text-sm tabular-nums text-ivory">
                             {item.quantity}
                           </span>
                           <button
@@ -328,7 +328,7 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
                             onClick={() => setQuantity(item.key, item.quantity + 1)}
                             disabled={item.quantity >= MAX_QUANTITY}
                             aria-label="Aumentar quantidade"
-                            className="grid w-9 place-items-center text-mist transition-colors hover:text-gold-light disabled:opacity-30"
+                            className="grid w-8 place-items-center rounded-full text-mist transition-colors hover:bg-ivory/[0.06] hover:text-gold-light disabled:opacity-30 disabled:hover:bg-transparent"
                           >
                             <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
                           </button>
@@ -354,7 +354,7 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
               id={formId}
               noValidate
               onSubmit={handleSubmit}
-              className="mx-6 mb-8 mt-4 border-t border-line pt-7 sm:mx-8"
+              className="mx-6 mb-8 mt-7 border-t border-line pt-7 sm:mx-8"
               aria-labelledby={`${uid}-checkout-title`}
             >
               <div className="flex items-center gap-3">

@@ -1,4 +1,9 @@
 // POST /api/checkout — cria o pagamento de um plano no Mercado Pago e devolve a URL do checkout.
+// Corpo: { plan: 'passe' | 'clube', coupon?: string }
+// Resposta: { provider: 'mercadopago', url, quote? } — quote presente quando um cupom foi aplicado.
+// O desconto é recalculado no servidor (public.quote_coupon); o valor final vai para
+// public.payments (amount_cents, discount_cents, coupon_code) e para a preferência do MP.
+// Cupom de 100%: o acesso é liberado na hora, sem passar pelo Mercado Pago.
 // Ativo apenas com MERCADOPAGO_ACCESS_TOKEN e SUPABASE_SERVICE_ROLE_KEY; sem eles responde 503
 // e o site segue com a compra pelo WhatsApp.
 import { getPlan } from '@/lib/site';
@@ -11,14 +16,16 @@ import {
   jsonOk,
   readJson,
 } from '@/lib/server/http';
+import { quoteCoupon, readCouponCode } from '@/lib/server/coupons';
 import {
   MercadoPagoError,
   createPreference,
   createServiceSupabase,
   mercadoPagoConfigured,
 } from '@/lib/server/mercadopago';
+import { PAYMENT_COLUMNS, applyPaymentAccess, type PaymentRecord } from '@/lib/server/payments';
 import { bearerToken, createServerSupabase } from '@/lib/server/supabase-server';
-import type { CheckoutResponse } from '@/lib/types';
+import type { CheckoutResponse, CouponQuote } from '@/lib/types';
 
 export const maxDuration = 30;
 
@@ -46,18 +53,56 @@ export async function POST(req: Request) {
     if (!plan || plan.priceCents === null || plan.priceCents <= 0 || plan.accessDays === null) {
       return jsonError(400, 'bad_request', 'Este plano não está disponível para pagamento online.');
     }
+    const couponCode = readCouponCode(body.coupon);
 
     if (!mercadoPagoConfigured()) {
       return jsonError(503, 'not_configured', 'Pagamento online indisponível. Finalize pelo WhatsApp.');
     }
 
     const service = createServiceSupabase();
+
+    // Cupom: o banco decide validade e valor; o navegador só manda o código.
+    let quote: CouponQuote | undefined;
+    if (couponCode) {
+      const result = await quoteCoupon(service, couponCode, plan.id, plan.priceCents);
+      if (!result.ok) return jsonError(400, 'bad_request', result.message);
+      quote = result.quote;
+    }
+    const amountCents = quote?.finalCents ?? plan.priceCents;
+    const discountCents = quote?.discountCents ?? 0;
+
+    // Cupom de 100%: nada a cobrar — registra como aprovado e libera o acesso agora.
+    if (amountCents <= 0) {
+      const { data: free, error: freeError } = await service
+        .from('payments')
+        .insert({
+          user_id: user.id,
+          plan: plan.id,
+          amount_cents: 0,
+          discount_cents: discountCents,
+          coupon_code: quote?.code ?? null,
+          provider: 'manual',
+          status: 'approved',
+        })
+        .select(PAYMENT_COLUMNS)
+        .single();
+      if (freeError || !free) {
+        console.error(`[api/checkout] não foi possível registrar o cupom integral — ${freeError?.message.slice(0, 200) ?? 'sem linha'}`);
+        return jsonError(502, 'upstream', 'Não foi possível aplicar o cupom agora. Tente novamente em instantes.');
+      }
+      await applyPaymentAccess(service, free as PaymentRecord);
+      const url = `${siteOrigin(req)}/assinar?plano=${encodeURIComponent(plan.id)}&status=approved`;
+      return jsonOk<CheckoutResponse>({ provider: 'mercadopago', url, quote });
+    }
+
     const { data: row, error: insertError } = await service
       .from('payments')
       .insert({
         user_id: user.id,
         plan: plan.id,
-        amount_cents: plan.priceCents,
+        amount_cents: amountCents,
+        discount_cents: discountCents,
+        coupon_code: quote?.code ?? null,
         provider: 'mercadopago',
         status: 'pending',
       })
@@ -76,8 +121,10 @@ export async function POST(req: Request) {
         user: { id: user.id, email: user.email },
         origin: siteOrigin(req),
         externalReference: paymentId,
+        amountCents,
+        couponCode: quote?.code ?? null,
       });
-      return jsonOk<CheckoutResponse>({ provider: 'mercadopago', url: preference.url });
+      return jsonOk<CheckoutResponse>({ provider: 'mercadopago', url: preference.url, ...(quote ? { quote } : {}) });
     } catch (err) {
       // A linha pendente não terá pagamento associado: marca como cancelada.
       await service

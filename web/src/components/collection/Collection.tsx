@@ -265,7 +265,7 @@ function CollectionSkeleton() {
           <div key={i} className={cn('flex flex-col', i === 0 && 'col-span-2 md:row-span-2')}>
             <div
               className={cn(
-                'panel relative overflow-hidden',
+                'panel relative overflow-hidden rounded-2xl',
                 i === 0 ? 'aspect-[4/5] md:aspect-auto md:min-h-[26rem] md:flex-1' : 'aspect-[4/5]',
               )}
             >
@@ -276,10 +276,10 @@ function CollectionSkeleton() {
                 transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 0.6, ease: 'easeInOut', delay: i * 0.15 }}
               />
             </div>
-            <div className="mt-5 h-4 w-3/4 bg-surface-2" />
-            <div className="mt-3 h-3 w-1/2 bg-surface-2/60" />
+            <div className="mt-5 h-4 w-3/4 rounded-full bg-surface-2" />
+            <div className="mt-3 h-3 w-1/2 rounded-full bg-surface-2/60" />
             <div className="mt-6 h-px w-full bg-line" />
-            <div className="mt-3 h-3 w-1/4 bg-surface-2/60" />
+            <div className="mt-3 h-3 w-1/4 rounded-full bg-surface-2/60" />
           </div>
         ))}
       </div>
@@ -319,9 +319,9 @@ function EmptyState({
         : 'Veja a coleção completa ou peça uma curadoria direta ao Titi.';
 
   return (
-    <div className="panel relative mx-auto flex max-w-2xl flex-col items-center overflow-hidden px-6 pb-14 pt-16 text-center sm:px-12">
+    <div className="panel relative mx-auto flex max-w-2xl flex-col items-center overflow-hidden rounded-3xl px-6 pb-14 pt-16 text-center sm:px-12">
       <div aria-hidden className="tape absolute inset-x-0 top-0 opacity-50" />
-      <span aria-hidden className="pinked block h-16 w-12 bg-gold-dark/40" />
+      <span aria-hidden className="pinked block h-16 w-12 rounded-t-[6px] bg-gold-dark/40" />
       <h3 className="mt-8 font-display text-[1.75rem] font-extrabold leading-[1.1] tracking-[-0.02em] text-ivory sm:text-[2.1rem]">
         {title}
       </h3>

@@ -41,7 +41,7 @@ export default function NotFound() {
             </Button>
           </div>
 
-          <div className="tape relative mt-16 w-full max-w-md opacity-40" aria-hidden />
+          <div className="tape relative mt-16 w-full max-w-md rounded-full opacity-40" aria-hidden />
         </section>
       </main>
       <Footer />

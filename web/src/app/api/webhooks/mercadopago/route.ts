@@ -1,6 +1,7 @@
 // POST /api/webhooks/mercadopago — notificações de pagamento do Mercado Pago.
 // Valida a assinatura, consulta o pagamento na API, atualiza public.payments e,
-// quando aprovado, libera o acesso em public.profiles (uma única vez por pagamento).
+// quando aprovado com valor pago >= valor final da linha (já com desconto),
+// libera o acesso em public.profiles e registra o uso do cupom — uma única vez.
 import { getPlan } from '@/lib/site';
 import { isRecord, jsonError, jsonOk, readJson } from '@/lib/server/http';
 import {
@@ -11,26 +12,14 @@ import {
   verifyWebhookSignature,
   type MercadoPagoPayment,
 } from '@/lib/server/mercadopago';
-import type { PaymentStatus, PlanId } from '@/lib/types';
+import { PAYMENT_COLUMNS, applyPaymentAccess, type PaymentRecord } from '@/lib/server/payments';
+import type { PaymentStatus } from '@/lib/types';
 
 export const maxDuration = 30;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const DAY_MS = 86_400_000;
 
 type ServiceClient = ReturnType<typeof createServiceSupabase>;
-
-interface PaymentRecord {
-  id: string;
-  user_id: string;
-  plan: PlanId;
-  amount_cents: number;
-  status: PaymentStatus;
-  provider_payment_id: string | null;
-  applied_at: string | null;
-}
-
-const PAYMENT_COLUMNS = 'id, user_id, plan, amount_cents, status, provider_payment_id, applied_at';
 
 /** Status do Mercado Pago → status interno. */
 function mapStatus(status: string): PaymentStatus {
@@ -60,6 +49,15 @@ function ignored(reason: string): Response {
   return jsonOk({ received: true, ignored: reason });
 }
 
+function toRecord(row: unknown): PaymentRecord {
+  const r = (row ?? {}) as Record<string, unknown>;
+  return {
+    ...(r as unknown as PaymentRecord),
+    discount_cents: typeof r.discount_cents === 'number' ? r.discount_cents : 0,
+    coupon_code: typeof r.coupon_code === 'string' && r.coupon_code ? r.coupon_code : null,
+  };
+}
+
 /** Localiza a linha de public.payments correspondente ao pagamento do Mercado Pago. */
 async function findPaymentRow(db: ServiceClient, payment: MercadoPagoPayment): Promise<PaymentRecord | null> {
   if (payment.external_reference && UUID_RE.test(payment.external_reference)) {
@@ -69,7 +67,7 @@ async function findPaymentRow(db: ServiceClient, payment: MercadoPagoPayment): P
       .eq('id', payment.external_reference)
       .maybeSingle();
     if (error) throw new Error(`payments por external_reference: ${error.message}`);
-    if (data) return data as PaymentRecord;
+    if (data) return toRecord(data);
   }
 
   const { data: byProvider, error: providerError } = await db
@@ -78,7 +76,7 @@ async function findPaymentRow(db: ServiceClient, payment: MercadoPagoPayment): P
     .eq('provider_payment_id', payment.id)
     .maybeSingle();
   if (providerError) throw new Error(`payments por provider_payment_id: ${providerError.message}`);
-  if (byProvider) return byProvider as PaymentRecord;
+  if (byProvider) return toRecord(byProvider);
 
   const userId = text(payment.metadata.user_id);
   const plan = getPlan(text(payment.metadata.plan));
@@ -95,9 +93,10 @@ async function findPaymentRow(db: ServiceClient, payment: MercadoPagoPayment): P
     .limit(1)
     .maybeSingle();
   if (pendingError) throw new Error(`payments por metadata: ${pendingError.message}`);
-  if (pending) return pending as PaymentRecord;
+  if (pending) return toRecord(pending);
 
   // Nenhuma linha (ex.: removida): registra a partir dos metadados que o próprio servidor enviou.
+  // Sem a linha original não há como recuperar o desconto: exige o valor cheio do plano.
   const { data: created, error: insertError } = await db
     .from('payments')
     .insert({
@@ -111,63 +110,7 @@ async function findPaymentRow(db: ServiceClient, payment: MercadoPagoPayment): P
     .select(PAYMENT_COLUMNS)
     .single();
   if (insertError) throw new Error(`payments (novo registro): ${insertError.message}`);
-  return created as PaymentRecord;
-}
-
-/**
- * Libera o acesso uma única vez: reivindica o pagamento (applied_at nulo → agora)
- * de forma atômica e só então estende o perfil. Se o perfil falhar, desfaz a marca
- * para que o Mercado Pago reenvie a notificação.
- */
-async function applyAccess(db: ServiceClient, row: PaymentRecord): Promise<'applied' | 'already'> {
-  const plan = getPlan(row.plan);
-  if (!plan || plan.accessDays === null) return 'already';
-
-  const { data: claimed, error: claimError } = await db
-    .from('payments')
-    .update({ applied_at: new Date().toISOString() })
-    .eq('id', row.id)
-    .is('applied_at', null)
-    .select('id');
-  if (claimError) throw new Error(`marcar applied_at: ${claimError.message}`);
-  if (!claimed || claimed.length === 0) return 'already';
-
-  try {
-    const { data: profile, error: profileError } = await db
-      .from('profiles')
-      .select('role, access_until')
-      .eq('id', row.user_id)
-      .maybeSingle();
-    if (profileError) throw new Error(`ler perfil: ${profileError.message}`);
-    if (!profile) throw new Error('perfil inexistente');
-
-    const current = profile as { role?: unknown; access_until?: unknown };
-    const isAdmin = current.role === 'admin';
-    const currentUntil = typeof current.access_until === 'string' ? current.access_until : null;
-
-    // VIP sem prazo continua sem prazo; nos demais casos soma a partir do maior entre agora e o prazo atual.
-    let accessUntil: string | null;
-    if (current.role === 'vip' && currentUntil === null) {
-      accessUntil = null;
-    } else {
-      const base = Math.max(Date.now(), currentUntil ? new Date(currentUntil).getTime() || 0 : 0);
-      accessUntil = new Date(base + plan.accessDays * DAY_MS).toISOString();
-    }
-
-    const { error: updateError } = await db
-      .from('profiles')
-      .update({ ...(isAdmin ? {} : { role: 'vip' }), plan: plan.id, access_until: accessUntil })
-      .eq('id', row.user_id);
-    if (updateError) throw new Error(`atualizar perfil: ${updateError.message}`);
-    return 'applied';
-  } catch (err) {
-    await db
-      .from('payments')
-      .update({ applied_at: null })
-      .eq('id', row.id)
-      .then(undefined, () => undefined);
-    throw err;
-  }
+  return toRecord(created);
 }
 
 export async function POST(req: Request) {
@@ -232,14 +175,15 @@ export async function POST(req: Request) {
     if (updateError) throw new Error(`atualizar pagamento: ${updateError.message}`);
 
     if (status === 'approved' && !row.applied_at) {
+      // amount_cents já é o valor final (com desconto do cupom).
       const paidCents = payment.transaction_amount === null ? null : Math.round(payment.transaction_amount * 100);
       if (payment.currency_id !== 'BRL' || paidCents === null || paidCents < row.amount_cents) {
         console.warn(
-          `[webhook/mercadopago] pagamento ${payment.id} aprovado com valor divergente (${paidCents ?? '?'} ${payment.currency_id ?? '?'}); acesso não liberado`,
+          `[webhook/mercadopago] pagamento ${payment.id} aprovado com valor divergente (${paidCents ?? '?'} ${payment.currency_id ?? '?'} < ${row.amount_cents}); acesso não liberado`,
         );
         return jsonOk({ received: true, status, applied: false });
       }
-      const result = await applyAccess(db, row);
+      const result = await applyPaymentAccess(db, row);
       return jsonOk({ received: true, status, applied: result === 'applied' });
     }
 

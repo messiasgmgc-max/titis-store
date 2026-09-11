@@ -5,7 +5,7 @@ import { ArrowRight } from 'lucide-react';
 import { AuthForm } from '@/components/auth/AuthForm';
 import { BenefitList } from './Benefits';
 import { APP_TITLE, EYEBROW, plansHref } from './shared';
-import { CLUB_PLANS } from '@/lib/site';
+import { CLUB_PLANS, CONSULTING_PATH } from '@/lib/site';
 
 /** Plano de entrada (menor preço com acesso digital). */
 const entry = CLUB_PLANS.filter((p) => p.priceCents !== null && p.accessDays !== null).sort(
@@ -28,8 +28,9 @@ export function AccessGate() {
             Sua cartela, seus looks e o provador ficam guardados na sua conta.
           </p>
 
-          <div className="panel mt-8 p-6 sm:p-8">
-            <AuthForm initialMode="login" />
+          <div className="panel mt-8 rounded-3xl p-6 sm:p-8">
+            {/* Quem entra por aqui continua na consultoria (com acesso, abre o app; sem, vê os planos). */}
+            <AuthForm initialMode="login" next={CONSULTING_PATH} />
           </div>
         </section>
 

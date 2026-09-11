@@ -4,7 +4,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, CircleAlert, CircleCheck, CloudUpload, Hourglass, LoaderCircle, RotateCcw, X } from 'lucide-react';
+import { CircleAlert, CircleCheck, CloudUpload, Hourglass, LoaderCircle, RotateCcw, X } from 'lucide-react';
+import { Checkbox } from '@/components/ui/Controls';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useSession } from '@/providers/SessionProvider';
@@ -347,32 +348,17 @@ export function BatchUpload({ products, onClose, onFinished, onShowDrafts }: Bat
         </div>
 
         {/* Preenchimento automático */}
-        <label className={cn('flex items-start gap-3', running || analysisUnavailable ? 'cursor-not-allowed opacity-60' : 'cursor-pointer')}>
-          <input
-            type="checkbox"
-            className="peer sr-only"
-            checked={analyze}
-            disabled={running || analysisUnavailable}
-            onChange={(e) => toggleAnalyze(e.target.checked)}
-          />
-          <span
-            aria-hidden
-            className={cn(
-              'mt-0.5 grid h-5 w-5 shrink-0 place-items-center border transition-colors duration-300 peer-focus-visible:outline peer-focus-visible:outline-1 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-gold',
-              analyze ? 'border-gold bg-gold text-obsidian' : 'border-line',
-            )}
-          >
-            {analyze && <Check className="h-3.5 w-3.5" strokeWidth={2.5} />}
-          </span>
-          <span className="text-sm leading-relaxed">
-            <span className="text-ivory">Preencher nome, categoria, cor e tecido a partir de cada foto</span>
-            <span className="mt-0.5 block text-xs text-smoke">
-              {analysisUnavailable
-                ? 'Indisponível: configure GEMINI_API_KEY na Vercel. As peças usam o nome do arquivo.'
-                : 'As fotos são processadas por inteligência artificial. Sem esta opção, o nome vem do arquivo.'}
-            </span>
-          </span>
-        </label>
+        <Checkbox
+          checked={analyze}
+          onChange={toggleAnalyze}
+          disabled={running || analysisUnavailable}
+          label="Preencher nome, categoria, cor e tecido a partir de cada foto"
+          description={
+            analysisUnavailable
+              ? 'Indisponível: configure GEMINI_API_KEY na Vercel. As peças usam o nome do arquivo.'
+              : 'As fotos são processadas por inteligência artificial. Sem esta opção, o nome vem do arquivo.'
+          }
+        />
 
         {abortReason && (
           <div role="alert" className="flex items-start gap-3 border border-danger/30 bg-danger/[0.05] px-4 py-3 text-sm">

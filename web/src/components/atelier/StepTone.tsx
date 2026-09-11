@@ -82,7 +82,7 @@ export function StepTone({
         </div>
 
         {fromPhoto && (
-          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-line-gold/60 py-3 text-xs">
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-line-gold/60 bg-gold/[0.04] px-4 py-3 text-xs">
             <ScanFace className="h-4 w-4 shrink-0 text-gold" strokeWidth={1.5} aria-hidden />
             {matchesPhoto ? (
               <span className="uppercase tracking-[0.2em] text-parchment">
@@ -118,9 +118,9 @@ export function StepTone({
                 onClick={() => onToneChange(t.id)}
                 aria-pressed={active}
                 data-active={active}
-                className="option group block overflow-hidden p-0"
+                className="option group block overflow-hidden rounded-[22px] p-0"
               >
-                <span className={cn('relative block aspect-[3/4] w-full overflow-hidden bg-coal', active && 'frame')}>
+                <span className={cn('relative block aspect-[3/4] w-full overflow-hidden rounded-[inherit] bg-coal [--frame-radius:12px]', active && 'frame')}>
                   <Image
                     src={t.image}
                     alt={`Retrato de referência: pele ${t.name.toLowerCase()}`}
@@ -173,15 +173,22 @@ export function StepTone({
                     onClick={() => onSubtoneChange(s.id)}
                     aria-pressed={active}
                     data-active={active}
-                    className="option flex items-start gap-4 px-4 py-4"
+                    className="option group flex items-start gap-4 rounded-[20px] px-4 py-4"
                   >
                     <span
                       className={cn(
-                        'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full border transition-colors duration-500',
-                        active ? 'border-gold bg-gold' : 'border-ivory/30',
+                        'mt-1 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border transition-colors duration-500',
+                        active ? 'border-gold' : 'border-ivory/30 group-hover:border-ivory/50',
                       )}
                       aria-hidden
-                    />
+                    >
+                      <span
+                        className={cn(
+                          'h-2 w-2 rounded-full bg-gold shadow-[0_0_8px_rgb(212_175_55/0.6)] transition-transform duration-500 ease-[var(--ease-couture)]',
+                          active ? 'scale-100' : 'scale-0',
+                        )}
+                      />
+                    </span>
                     <span>
                       <span className="block text-xl font-bold leading-tight tracking-[-0.02em] text-ivory">{s.name}</span>
                       <span className="mt-1 block text-xs leading-snug text-mist">{s.hint}</span>
@@ -215,7 +222,7 @@ export function StepTone({
         </div>
 
         {/* Prévia viva da estação */}
-        <aside className="panel-gold frame relative overflow-hidden p-7 sm:p-10 lg:col-span-7" aria-live="polite">
+        <aside className="panel-gold frame relative overflow-hidden rounded-[var(--radius-panel)] p-7 sm:p-10 lg:col-span-7" aria-live="polite">
           <div className="flex items-center justify-between gap-4">
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Sua estação</span>
             <span className="kicker text-[0.62rem]">Família {season.family}</span>

@@ -101,7 +101,7 @@ export function OrdersTab({ userId }: { userId: string }) {
 
   const intro = (
     <TabIntro
-      numeral="III"
+      numeral="IV"
       eyebrow="Pedidos"
       title={
         <>
@@ -162,7 +162,7 @@ export function OrdersTab({ userId }: { userId: string }) {
             const hidden = order.items.length - shown.length;
             return (
               <li key={order.id}>
-                <article className="panel group relative p-6 transition-colors duration-500 hover:border-line-gold sm:p-8">
+                <article className="panel group relative rounded-3xl p-6 transition-colors duration-500 hover:border-line-gold sm:p-8">
                   <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">

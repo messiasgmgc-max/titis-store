@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Modal } from '@/components/ui/Modal';
 import { Medallion } from '@/components/ui/Logo';
 import { AuthForm, type AuthMode } from '@/components/auth/AuthForm';
@@ -24,10 +25,21 @@ const COPY: Record<AuthMode, { plain: string; accent: string; lead: string }> = 
   },
 };
 
+/** Páginas em que o usuário deve continuar após entrar (compra e app da consultoria). */
+const STAY_ON = /^\/(assinar|consultoria)(\/|$)/;
+
 export function AuthModal({ mode = 'login', onClose }: { mode?: 'login' | 'register'; onClose: () => void }) {
   const { toast } = useUI();
+  const router = useRouter();
+  const pathname = usePathname();
   const [current, setCurrent] = useState<AuthMode>(mode);
   const copy = COPY[current];
+
+  // Em /assinar e /consultoria o fluxo continua na própria página (com o plano da URL);
+  // no resto do site, cada um cai no seu lugar. O modal só monta no navegador.
+  const [next] = useState<string | null>(() =>
+    STAY_ON.test(pathname) ? `${pathname}${typeof window !== 'undefined' ? window.location.search : ''}` : null,
+  );
 
   return (
     <Modal onClose={onClose} title={`${copy.plain} ${copy.accent}`} size="sm">
@@ -47,11 +59,13 @@ export function AuthModal({ mode = 'login', onClose }: { mode?: 'login' | 'regis
         <AuthForm
           className="relative mt-7"
           initialMode={mode}
+          next={next}
           onModeChange={setCurrent}
           autoFocus
-          onSuccess={() => {
+          onSuccess={(destination) => {
             toast("Boas-vindas à Titi's Store.", 'success');
             onClose();
+            router.push(destination);
           }}
         />
       </div>

@@ -22,6 +22,7 @@ import type { ClimateId, OccasionId, StylePreference, TimeOfDayId } from '@/lib/
 import { CLIMATES, OCCASIONS, STYLES, TIMES_OF_DAY, climateTitle } from '@/lib/stylist/knowledge';
 import { interpretVenue } from '@/lib/stylist/engine';
 import { Button } from '@/components/ui/Button';
+import { Segmented, type SegmentedOption } from '@/components/ui/Controls';
 import { cn } from '@/lib/format';
 
 type IconType = React.ComponentType<{ className?: string; strokeWidth?: number; 'aria-hidden'?: boolean }>;
@@ -40,6 +41,25 @@ const TIME_ICONS: Record<TimeOfDayId, IconType> = { manha: Sunrise, tarde: Sun, 
 const CLIMATE_ICONS: Record<ClimateId, IconType> = { frio: Snowflake, ameno: Leaf, quente: ThermometerSun };
 const ROMAN = ['I', 'II', 'III'];
 const VENUE_MIN = 3;
+
+const TIME_OPTIONS: SegmentedOption<TimeOfDayId>[] = TIMES_OF_DAY.map((t) => ({
+  id: t.id,
+  label: t.title,
+  hint: t.range,
+  icon: TIME_ICONS[t.id],
+}));
+const CLIMATE_OPTIONS: SegmentedOption<ClimateId>[] = CLIMATES.map((c) => ({
+  id: c.id,
+  label: c.title,
+  hint: c.range,
+  icon: CLIMATE_ICONS[c.id],
+}));
+const STYLE_OPTIONS: SegmentedOption<StylePreference>[] = STYLES.map((s, i) => ({
+  id: s.id,
+  kicker: ROMAN[i],
+  label: s.title,
+  hint: s.description,
+}));
 
 interface StepContextProps {
   occasion: OccasionId;
@@ -82,56 +102,6 @@ function Row({
         {help && <p className="mt-2 text-sm leading-relaxed text-mist">{help}</p>}
       </div>
       <div className="min-w-0">{children}</div>
-    </div>
-  );
-}
-
-function Segmented<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-  icons,
-}: {
-  label: string;
-  options: { id: T; title: string; range: string }[];
-  value: T;
-  onChange: (id: T) => void;
-  icons: Record<T, IconType>;
-}) {
-  return (
-    <div>
-      <p className="label">{label}</p>
-      <div role="group" aria-label={label} className="grid grid-cols-3 border border-line">
-        {options.map((o, i) => {
-          const active = o.id === value;
-          const Icon: IconType = icons[o.id];
-          return (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => onChange(o.id)}
-              aria-pressed={active}
-              className={cn(
-                'relative flex flex-col items-center gap-1.5 px-2 py-4 text-center transition-colors duration-500',
-                i > 0 && 'border-l border-line',
-                active ? 'bg-gold/[0.07] text-ivory' : 'text-mist hover:bg-ivory/[0.02] hover:text-ivory',
-              )}
-            >
-              <Icon className={cn('h-4 w-4 transition-colors', active ? 'text-gold' : 'text-smoke')} strokeWidth={1.25} aria-hidden />
-              <span className="text-[0.68rem] font-medium uppercase tracking-[0.18em]">{o.title}</span>
-              <span className="text-[0.62rem] text-smoke">{o.range}</span>
-              <span
-                className={cn(
-                  'absolute inset-x-0 bottom-0 h-px origin-center bg-gold transition-transform duration-500 ease-[var(--ease-couture)]',
-                  active ? 'scale-x-100' : 'scale-x-0',
-                )}
-                aria-hidden
-              />
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -189,7 +159,7 @@ export function StepContext({
                 onClick={() => onOccasionChange(o.id)}
                 aria-pressed={active}
                 data-active={active}
-                className={cn('option group flex flex-col gap-3 p-4 sm:p-5', o.id === 'outro' && 'col-span-2')}
+                className={cn('option group flex flex-col gap-3 rounded-[22px] p-4 sm:p-5', o.id === 'outro' && 'col-span-2')}
               >
                 <Icon
                   className={cn('h-5 w-5 transition-colors duration-500', active ? 'text-gold' : 'text-mist group-hover:text-parchment')}
@@ -250,33 +220,13 @@ export function StepContext({
 
       <Row numeral="ii." title={<>Horário e <span className="text-gold-light">clima</span></>} help="Luz e temperatura mudam tecido, cor e profundidade do look.">
         <div className="grid gap-6 md:grid-cols-2">
-          <Segmented label="Horário" options={TIMES_OF_DAY} value={timeOfDay} onChange={onTimeChange} icons={TIME_ICONS} />
-          <Segmented label="Clima" options={CLIMATES} value={climate} onChange={onClimateChange} icons={CLIMATE_ICONS} />
+          <Segmented label="Horário" showLabel layout="stacked" options={TIME_OPTIONS} value={timeOfDay} onChange={onTimeChange} />
+          <Segmented label="Clima" showLabel layout="stacked" options={CLIMATE_OPTIONS} value={climate} onChange={onClimateChange} />
         </div>
       </Row>
 
       <Row numeral="iii." title={<>O seu <span className="text-gold-light">estilo</span></>} help="Como você quer ser lembrado ao chegar." labelId="atelier-style-label">
-        <div className="grid gap-2 sm:grid-cols-3 sm:gap-3" role="group" aria-labelledby="atelier-style-label">
-          {STYLES.map((s, i) => {
-            const active = s.id === style;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => onStyleChange(s.id)}
-                aria-pressed={active}
-                data-active={active}
-                className="option flex flex-col gap-2 p-5"
-              >
-                <span className={cn('numeral text-[0.65rem] transition-colors', active ? 'text-gold' : 'text-smoke')} aria-hidden>
-                  {ROMAN[i]}
-                </span>
-                <span className="text-2xl font-extrabold leading-tight tracking-[-0.03em] text-ivory">{s.title}</span>
-                <span className="text-xs leading-snug text-mist">{s.description}</span>
-              </button>
-            );
-          })}
-        </div>
+        <Segmented label="Estilo" layout="stacked" options={STYLE_OPTIONS} value={style} onChange={onStyleChange} />
       </Row>
 
       <div className="flex flex-col-reverse gap-5 border-t border-line pt-8 sm:flex-row sm:items-center sm:justify-between">

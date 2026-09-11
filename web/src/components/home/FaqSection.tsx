@@ -68,14 +68,17 @@ export function FaqSection() {
           </a>
         </div>
 
-        <div className="divide-y divide-line border-y border-line">
+        <div className="space-y-2.5">
           {FAQ.map((item) => (
-            <details key={item.question} className="group">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-5 text-left text-[17px] font-bold leading-snug text-ivory transition-colors duration-300 hover:text-gold-light [&::-webkit-details-marker]:hidden">
+            <details
+              key={item.question}
+              className="group rounded-2xl border border-line bg-surface/40 px-5 transition-[border-color,background-color] duration-300 open:border-line-gold open:bg-surface/70 hover:border-ivory/15 sm:px-6"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 rounded-2xl py-5 text-left text-[17px] font-bold leading-snug text-ivory transition-colors duration-300 hover:text-gold-light [&::-webkit-details-marker]:hidden">
                 {item.question}
                 <span
                   aria-hidden
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-line-gold text-gold transition-transform duration-300 group-open:rotate-45"
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-line-gold text-gold transition-[transform,background-color,color] duration-300 group-open:rotate-45 group-open:bg-gold group-open:text-obsidian"
                 >
                   <Plus className="h-4 w-4" strokeWidth={2} />
                 </span>

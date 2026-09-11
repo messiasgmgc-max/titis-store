@@ -4,9 +4,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
 import type { Profile } from '@/lib/types';
-import { hasConsultingAccess } from '@/lib/access';
+import { accessState, hasConsultingAccess, type AccessState } from '@/lib/access';
 
-type EditableProfile = Partial<Omit<Profile, 'id' | 'role' | 'plan' | 'access_until' | 'created_at' | 'updated_at'>>;
+type EditableProfile = Partial<
+  Omit<Profile, 'id' | 'role' | 'plan' | 'access_until' | 'is_blocked' | 'admin_notes' | 'created_at' | 'updated_at'>
+>;
 
 interface SessionValue {
   user: User | null;
@@ -18,6 +20,10 @@ interface SessionValue {
   isVip: boolean;
   /** Plano ativo: pode usar a consultoria digital (Atelier, leitura, provador). */
   hasAccess: boolean;
+  /** Situação resumida do acesso: admin, bloqueado, ativo, expirado ou sem plano. */
+  accessState: AccessState;
+  /** Acesso pausado manualmente pelo Titi (derruba o plano mesmo vigente). */
+  isBlocked: boolean;
   /** Fim do acesso (ISO) ou null. */
   accessUntil: string | null;
   accessToken: string | null;
@@ -43,6 +49,8 @@ function fallbackProfile(user: User): Profile {
     preferred_style: null,
     plan: null,
     access_until: null,
+    is_blocked: false,
+    admin_notes: null,
   };
 }
 
@@ -117,6 +125,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       isAdmin: profile?.role === 'admin',
       isVip: hasConsultingAccess(profile),
       hasAccess: hasConsultingAccess(profile),
+      accessState: accessState(profile),
+      isBlocked: profile?.role !== 'admin' && profile?.is_blocked === true,
       accessUntil: profile?.access_until ?? null,
       accessToken: session?.access_token ?? null,
       refreshProfile,

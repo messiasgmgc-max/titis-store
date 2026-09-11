@@ -29,6 +29,14 @@ export function toRoman(value: number): string {
   return out;
 }
 
+/** dd/mm/aaaa (ou null se a data for inválida). */
+export function shortDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+}
+
 /** Primeira palavra do nome, com fallback para o início do e-mail. */
 export function firstName(fullName: string | null | undefined, email?: string | null): string {
   const fromName = fullName?.trim().split(/\s+/)[0];
@@ -87,7 +95,7 @@ export function StatePanel({
   return (
     <div
       role={tone === 'error' ? 'alert' : undefined}
-      className={cn('panel relative overflow-hidden px-6 py-12 text-center sm:px-12 sm:py-16', className)}
+      className={cn('panel relative overflow-hidden rounded-3xl px-6 py-12 text-center sm:px-12 sm:py-16', className)}
     >
       <span className="stitch absolute inset-x-6 top-4" aria-hidden />
       <span className="stitch absolute inset-x-6 bottom-4" aria-hidden />
@@ -111,16 +119,16 @@ export function SkeletonList({ rows = 3, label }: { rows?: number; label: string
     <div role="status" aria-live="polite" className="space-y-4">
       <span className="sr-only">{label}</span>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="panel animate-pulse p-6 sm:p-8" aria-hidden style={{ animationDelay: `${i * 120}ms` }}>
+        <div key={i} className="panel animate-pulse rounded-3xl p-6 sm:p-8" aria-hidden style={{ animationDelay: `${i * 120}ms` }}>
           <div className="flex items-center gap-4">
-            <span className="h-3 w-10 bg-surface-2" />
-            <span className="h-3 w-24 bg-surface-2" />
+            <span className="h-3 w-10 rounded-full bg-surface-2" />
+            <span className="h-3 w-24 rounded-full bg-surface-2" />
           </div>
-          <div className="mt-5 h-6 w-2/3 max-w-sm bg-surface-2" />
+          <div className="mt-5 h-6 w-2/3 max-w-sm rounded-full bg-surface-2" />
           <div className="mt-5 flex gap-2">
-            <span className="h-5 w-16 bg-surface-2" />
-            <span className="h-5 w-20 bg-surface-2" />
-            <span className="h-5 w-14 bg-surface-2" />
+            <span className="h-5 w-16 rounded-full bg-surface-2" />
+            <span className="h-5 w-20 rounded-full bg-surface-2" />
+            <span className="h-5 w-14 rounded-full bg-surface-2" />
           </div>
         </div>
       ))}
@@ -133,7 +141,7 @@ export function Tag({ children, className }: { children: React.ReactNode; classN
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 border border-line px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-mist',
+        'inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-mist',
         className,
       )}
     >

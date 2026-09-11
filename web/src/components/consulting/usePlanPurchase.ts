@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { ApiRequestError } from '@/lib/api';
-import { beginPlanPurchase, planWhatsappText } from '@/lib/checkout';
+import { beginPlanPurchase, planWhatsappText, type PurchaseOptions } from '@/lib/checkout';
 import { CHECKOUT_PROVIDER, type ClubPlan } from '@/lib/site';
 import { whatsappLink } from '@/lib/format';
 import type { PlanId } from '@/lib/types';
@@ -34,8 +34,9 @@ export function usePlanPurchase() {
   const [state, setState] = useState<PurchaseState>({ status: 'idle' });
 
   const purchase = useCallback(
-    async (plan: ClubPlan, opts?: { accessToken?: string | null }) => {
+    async (plan: ClubPlan, opts?: { accessToken?: string | null } & PurchaseOptions) => {
       const token = opts?.accessToken ?? accessToken;
+      const options: PurchaseOptions = { coupon: opts?.coupon ?? null, upgrade: opts?.upgrade ?? false };
       const needsAccount = plan.accessDays !== null && !token;
       const goesToWhatsapp = !needsAccount && (CHECKOUT_PROVIDER !== 'mercadopago' || plan.priceCents === null);
 
@@ -44,7 +45,7 @@ export function usePlanPurchase() {
 
       setState({ status: 'loading', planId: plan.id });
       try {
-        const next = await beginPlanPurchase(plan, { accessToken: token, profile });
+        const next = await beginPlanPurchase(plan, { accessToken: token, profile, ...options });
         if (next.kind === 'redirect') {
           tab?.close();
           window.location.href = next.url;
@@ -64,7 +65,7 @@ export function usePlanPurchase() {
           status: 'error',
           planId: plan.id,
           message: checkoutErrorMessage(err),
-          whatsappUrl: whatsappLink(planWhatsappText(plan, profile)),
+          whatsappUrl: whatsappLink(planWhatsappText(plan, profile, options)),
         });
       }
     },

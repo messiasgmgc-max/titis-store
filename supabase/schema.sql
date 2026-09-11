@@ -15,14 +15,18 @@
 --
 --  Seções
 --    0. Base ............... extensões, set_updated_at(), limpeza de políticas
---    1. Perfis ............. public.profiles, is_admin(), has_consulting_access(),
+--    1. Perfis ............. public.profiles (inclui bloqueio e observações do
+--                            admin), is_admin(), has_consulting_access(),
 --                            gatilhos de auth
 --    2. Catálogo ........... public.products e acervo inicial
 --    3. Consultorias ....... public.consultations (exige plano ativo para salvar)
 --    4. Pedidos ............ public.orders
---    5. Pagamentos ......... public.payments e grant_consulting_access()
---    6. Storage ............ bucket "products"
---    7. Recarregar a API
+--    5. Pagamentos ......... public.payments (com desconto/cupom),
+--                            grant_consulting_access() e set_client_access()
+--    6. Cupons ............. public.coupons, quote_coupon() e redeem_coupon()
+--    7. Configurações ...... public.settings (WhatsApp, checkout, planos, aviso)
+--    8. Storage ............ bucket "products"
+--    9. Recarregar a API
 --    Rodapé ................ comandos úteis (admin, liberar acesso, verificações)
 -- =============================================================================
 
@@ -59,7 +63,7 @@ begin
     select schemaname, tablename, policyname
       from pg_catalog.pg_policies
      where schemaname = 'public'
-       and tablename in ('profiles', 'products', 'consultations', 'orders', 'payments')
+       and tablename in ('profiles', 'products', 'consultations', 'orders', 'payments', 'coupons', 'settings')
   loop
     execute format('drop policy if exists %I on %I.%I', pol.policyname, pol.schemaname, pol.tablename);
   end loop;
@@ -86,6 +90,8 @@ create table if not exists public.profiles (
   preferred_style     text,
   plan                text,
   access_until        timestamptz,
+  is_blocked          boolean not null default false,
+  admin_notes         text,
   created_at          timestamptz not null default now(),
   updated_at          timestamptz default now()
 );
@@ -103,6 +109,8 @@ alter table public.profiles
   add column if not exists preferred_style     text,
   add column if not exists plan                text,
   add column if not exists access_until        timestamptz,
+  add column if not exists is_blocked          boolean not null default false,
+  add column if not exists admin_notes         text,
   add column if not exists created_at          timestamptz not null default now(),
   add column if not exists updated_at          timestamptz default now();
 
@@ -116,6 +124,10 @@ comment on column public.profiles.plan is
   'Último plano contratado: passe | clube | presencial. Alterado só por admin, service_role ou SQL Editor.';
 comment on column public.profiles.access_until is
   'Fim do acesso à consultoria digital para role = vip (null = sem prazo). Alterado só por admin, service_role ou SQL Editor.';
+comment on column public.profiles.is_blocked is
+  'Bloqueio manual pelo admin: derruba o acesso à consultoria mesmo com plano vigente (admins nunca são afetados).';
+comment on column public.profiles.admin_notes is
+  'Observações internas da administração sobre o cliente (motivo de bloqueio, combinados). O cliente não vê nem edita.';
 
 -- 1.2 Normalização de dados legados e CHECKs ----------------------------------
 -- Remove os CHECKs (inclusive os nomes automáticos da versão anterior) antes de
@@ -188,9 +200,15 @@ update public.profiles
    set created_at = coalesce(updated_at, now())
  where created_at is null;
 
+update public.profiles
+   set is_blocked = false
+ where is_blocked is null;
+
 alter table public.profiles
   alter column role       set default 'client',
   alter column role       set not null,
+  alter column is_blocked set default false,
+  alter column is_blocked set not null,
   alter column created_at set default now(),
   alter column created_at set not null,
   alter column updated_at set default now();
@@ -234,8 +252,9 @@ grant execute on function public.is_admin() to anon, authenticated;
 
 -- 1.3b has_consulting_access() ------------------------------------------------
 -- Regra única de acesso à consultoria digital (espelha src/lib/access.ts):
--- admin sempre; vip enquanto access_until for nulo (sem prazo) ou futuro.
--- SECURITY DEFINER pelo mesmo motivo de is_admin(): pode ser usada em políticas.
+-- admin sempre; vip não bloqueado enquanto access_until for nulo (sem prazo)
+-- ou futuro. SECURITY DEFINER pelo mesmo motivo de is_admin(): pode ser usada
+-- em políticas.
 create or replace function public.has_consulting_access()
 returns boolean
 language sql
@@ -249,13 +268,17 @@ as $$
      where id = auth.uid()
        and (
              role = 'admin'
-          or (role = 'vip' and (access_until is null or access_until > now()))
+          or (
+               role = 'vip'
+               and not is_blocked
+               and (access_until is null or access_until > now())
+             )
        )
   );
 $$;
 
 comment on function public.has_consulting_access() is
-  'true quando auth.uid() é admin ou vip com access_until nulo ou futuro (SECURITY DEFINER).';
+  'true quando auth.uid() é admin, ou vip não bloqueado com access_until nulo ou futuro (SECURITY DEFINER).';
 
 grant execute on function public.has_consulting_access() to anon, authenticated;
 
@@ -303,12 +326,13 @@ grant select, update on public.profiles to service_role;
 
 -- 1.5 Proteção contra escalonamento de privilégio ------------------------------
 -- Requisições de usuários comuns (JWT anon ou authenticated, sem ser admin):
---   • INSERT: role é sempre 'client', plan e access_until são nulos e o e-mail
---     vem de auth.users;
---   • UPDATE: trocar role ou id gera erro; plan, access_until, e-mail e
---     created_at são preservados (um perfil salvo com valores antigos não
---     falha, mas também não altera o acesso; o e-mail oficial é o da conta e é
---     sincronizado pelo gatilho 1.7).
+--   • INSERT: role é sempre 'client', plan e access_until são nulos, o bloqueio
+--     começa desligado, as observações do admin ficam vazias e o e-mail vem de
+--     auth.users;
+--   • UPDATE: trocar role ou id gera erro; plan, access_until, is_blocked,
+--     admin_notes, e-mail e created_at são preservados (um perfil salvo com
+--     valores antigos não falha, mas também não altera o acesso; o e-mail
+--     oficial é o da conta e é sincronizado pelo gatilho 1.7).
 -- Passam livremente: SQL Editor e processos internos do Supabase (sem JWT, como
 -- o cadastro feito pelo Auth e o handle_new_user), a service_role e admins.
 create or replace function public.protect_profile_privileges()
@@ -328,6 +352,8 @@ begin
     new.role         := 'client';
     new.plan         := null;
     new.access_until := null;
+    new.is_blocked   := false;
+    new.admin_notes  := null;
     new.email        := (select u.email from auth.users u where u.id = new.id);
     new.created_at   := now();
     return new;
@@ -343,9 +369,12 @@ begin
       using errcode = '42501';
   end if;
 
-  -- Plano e prazo só mudam por admin, service_role (webhook) ou SQL Editor.
+  -- Plano, prazo, bloqueio e observações só mudam por admin, service_role
+  -- (webhook) ou SQL Editor.
   new.plan         := old.plan;
   new.access_until := old.access_until;
+  new.is_blocked   := old.is_blocked;
+  new.admin_notes  := old.admin_notes;
   new.email        := old.email;
   new.created_at   := old.created_at;
   return new;
@@ -1125,6 +1154,8 @@ create table if not exists public.payments (
   provider            text not null default 'manual',
   provider_payment_id text,
   status              text not null default 'pending',
+  discount_cents      integer not null default 0,
+  coupon_code         text,
   applied_at          timestamptz,
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now()
@@ -1132,30 +1163,46 @@ create table if not exists public.payments (
 
 alter table public.payments
   add column if not exists provider_payment_id text,
+  add column if not exists discount_cents      integer not null default 0,
+  add column if not exists coupon_code         text,
   add column if not exists applied_at          timestamptz,
   add column if not exists created_at          timestamptz not null default now(),
   add column if not exists updated_at          timestamptz not null default now();
 
 comment on table public.payments is
-  'Pagamentos de planos da consultoria (Mercado Pago, WhatsApp ou manual). applied_at = acesso já liberado.';
+  'Pagamentos de planos da consultoria (Mercado Pago, WhatsApp ou manual). amount_cents = valor final já com desconto; applied_at = acesso já liberado.';
+comment on column public.payments.discount_cents is
+  'Desconto aplicado (cupom ou manual), em centavos. amount_cents já é o valor cobrado.';
+comment on column public.payments.coupon_code is
+  'Código do cupom usado nesta compra (caixa-alta), se houver.';
 
 -- 5.2 CHECKs e índices --------------------------------------------------------
 alter table public.payments
   drop constraint if exists payments_plan_check,
   drop constraint if exists payments_amount_cents_check,
   drop constraint if exists payments_provider_check,
-  drop constraint if exists payments_status_check;
+  drop constraint if exists payments_status_check,
+  drop constraint if exists payments_discount_cents_check;
+
+update public.payments
+   set discount_cents = 0
+ where discount_cents is null
+    or discount_cents < 0;
 
 alter table public.payments
-  alter column id       set default gen_random_uuid(),
-  alter column provider set default 'manual',
-  alter column status   set default 'pending';
+  alter column id             set default gen_random_uuid(),
+  alter column provider       set default 'manual',
+  alter column status         set default 'pending',
+  alter column discount_cents set default 0,
+  alter column discount_cents set not null;
 
 alter table public.payments
   add constraint payments_plan_check
     check (plan in ('passe', 'clube', 'presencial')),
   add constraint payments_amount_cents_check
     check (amount_cents >= 0),
+  add constraint payments_discount_cents_check
+    check (discount_cents >= 0),
   add constraint payments_provider_check
     check (provider in ('whatsapp', 'mercadopago', 'manual')),
   add constraint payments_status_check
@@ -1217,12 +1264,19 @@ grant select, insert, update, delete on public.payments to service_role;
 --   • role vira 'vip' (admins continuam admin) e plan = p_plan;
 --   • p_days informado: access_until = greatest(now(), access_until) + p_days dias;
 --   • p_days nulo: sem prazo (access_until = null);
---   • registra o pagamento como provider 'manual', status 'approved'.
+--   • registra o pagamento como provider 'manual', status 'approved', com o
+--     desconto e o cupom informados (amount_cents = preço do plano − desconto).
 -- Só executa para administradores logados, service_role ou SQL Editor (sem JWT).
+-- A assinatura antiga (3 parâmetros) é removida para não haver ambiguidade
+-- entre as duas versões; chamadas com 3 argumentos continuam funcionando.
+drop function if exists public.grant_consulting_access(uuid, text, integer);
+
 create or replace function public.grant_consulting_access(
   p_user uuid,
   p_plan text,
-  p_days integer default null
+  p_days integer default null,
+  p_discount_cents integer default 0,
+  p_coupon_code text default null
 )
 returns jsonb
 language plpgsql
@@ -1230,11 +1284,13 @@ security definer
 set search_path = ''
 as $$
 declare
-  jwt_role  text := coalesce(auth.jwt() ->> 'role', '');
-  v_current timestamptz;
-  v_role    text;
-  v_until   timestamptz;
-  v_amount  integer;
+  jwt_role   text := coalesce(auth.jwt() ->> 'role', '');
+  v_current  timestamptz;
+  v_role     text;
+  v_until    timestamptz;
+  v_price    integer;
+  v_discount integer;
+  v_coupon   text;
 begin
   if not (jwt_role in ('', 'service_role') or public.is_admin()) then
     raise exception 'Apenas administradores podem liberar acesso à consultoria.'
@@ -1268,7 +1324,9 @@ begin
                when p_days is null then null
                else greatest(now(), v_current) + make_interval(days => p_days)
              end;
-  v_amount := case p_plan when 'passe' then 2990 when 'clube' then 4990 else 0 end;
+  v_price    := case p_plan when 'passe' then 2990 when 'clube' then 4990 else 0 end;
+  v_discount := least(greatest(coalesce(p_discount_cents, 0), 0), v_price);
+  v_coupon   := nullif(upper(btrim(coalesce(p_coupon_code, ''))), '');
 
   update public.profiles
      set role         = v_role,
@@ -1276,35 +1334,508 @@ begin
          access_until = v_until
    where id = p_user;
 
-  insert into public.payments (user_id, plan, amount_cents, provider, status, applied_at)
-  values (p_user, p_plan, v_amount, 'manual', 'approved', now());
+  insert into public.payments (user_id, plan, amount_cents, discount_cents, coupon_code, provider, status, applied_at)
+  values (p_user, p_plan, v_price - v_discount, v_discount, v_coupon, 'manual', 'approved', now());
+
+  return jsonb_build_object(
+    'id',             p_user,
+    'role',           v_role,
+    'plan',           p_plan,
+    'access_until',   v_until,
+    'amount_cents',   v_price - v_discount,
+    'discount_cents', v_discount
+  );
+end;
+$$;
+
+comment on function public.grant_consulting_access(uuid, text, integer, integer, text) is
+  'Admin: libera a consultoria digital (role vip, plano e prazo) e registra pagamento manual aprovado, com desconto/cupom opcionais.';
+
+revoke all on function public.grant_consulting_access(uuid, text, integer, integer, text) from public, anon;
+grant execute on function public.grant_consulting_access(uuid, text, integer, integer, text) to authenticated, service_role;
+
+-- 5.6 set_client_access() -----------------------------------------------------
+-- Ficha do cliente no painel admin: define de uma vez plano, validade, bloqueio
+-- e observações internas (sem registrar pagamento — para isso use 5.5).
+--   • p_plan: 'passe' | 'clube' | 'presencial' | null (sem plano);
+--   • p_access_until: fim do acesso (null = sem prazo quando há plano);
+--   • p_role: nulo = automático — 'vip' quando há plano, 'client' quando não há;
+--     administradores nunca são rebaixados nem promovidos por aqui, a não ser
+--     que p_role seja informado explicitamente ('client' | 'vip' | 'admin');
+--   • p_blocked: nulo = mantém; true/false = liga/desliga o bloqueio;
+--   • p_notes: nulo = mantém; texto = substitui; '' = apaga as observações.
+-- Só executa para administradores logados, service_role ou SQL Editor (sem JWT).
+-- Um admin não altera a própria conta por esta função (use o SQL Editor).
+create or replace function public.set_client_access(
+  p_user uuid,
+  p_plan text,
+  p_access_until timestamptz,
+  p_role text default null,
+  p_blocked boolean default null,
+  p_notes text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  jwt_role  text := coalesce(auth.jwt() ->> 'role', '');
+  v_old     public.profiles%rowtype;
+  v_role    text;
+  v_until   timestamptz;
+  v_blocked boolean;
+  v_notes   text;
+begin
+  if not (jwt_role in ('', 'service_role') or public.is_admin()) then
+    raise exception 'Apenas administradores podem alterar o acesso de clientes.'
+      using errcode = '42501';
+  end if;
+
+  if p_user is null then
+    raise exception 'Informe o cliente.' using errcode = '22023';
+  end if;
+
+  if p_user = auth.uid() then
+    raise exception 'A própria conta não pode ser alterada por aqui. Use o SQL Editor.'
+      using errcode = '42501';
+  end if;
+
+  if p_plan is not null and p_plan not in ('passe', 'clube', 'presencial') then
+    raise exception 'Plano inválido: %.', p_plan using errcode = '22023';
+  end if;
+
+  if p_role is not null and p_role not in ('client', 'vip', 'admin') then
+    raise exception 'Nível de acesso inválido: %.', p_role using errcode = '22023';
+  end if;
+
+  if p_notes is not null and char_length(p_notes) > 4000 then
+    raise exception 'As observações podem ter no máximo 4000 caracteres.' using errcode = '22023';
+  end if;
+
+  select * into v_old
+    from public.profiles p
+   where p.id = p_user
+     for update;
+
+  if not found then
+    raise exception 'Perfil não encontrado para o cliente informado.' using errcode = 'P0002';
+  end if;
+
+  v_role := case
+              when p_role is not null    then p_role
+              when v_old.role = 'admin'  then 'admin'
+              when p_plan is not null    then 'vip'
+              else 'client'
+            end;
+  -- Sem plano não há prazo a guardar.
+  v_until   := case when p_plan is null then null else p_access_until end;
+  v_blocked := coalesce(p_blocked, v_old.is_blocked);
+  v_notes   := case
+                 when p_notes is null then v_old.admin_notes
+                 else nullif(btrim(p_notes), '')
+               end;
+
+  update public.profiles
+     set role         = v_role,
+         plan         = p_plan,
+         access_until = v_until,
+         is_blocked   = v_blocked,
+         admin_notes  = v_notes
+   where id = p_user;
 
   return jsonb_build_object(
     'id',           p_user,
     'role',         v_role,
     'plan',         p_plan,
-    'access_until', v_until
+    'access_until', v_until,
+    'is_blocked',   v_blocked,
+    'admin_notes',  v_notes
   );
 end;
 $$;
 
-comment on function public.grant_consulting_access(uuid, text, integer) is
-  'Admin: libera a consultoria digital (role vip, plano e prazo) e registra pagamento manual aprovado.';
+comment on function public.set_client_access(uuid, text, timestamptz, text, boolean, text) is
+  'Admin: define plano, validade, nível, bloqueio e observações internas de um cliente (sem registrar pagamento).';
 
-revoke all on function public.grant_consulting_access(uuid, text, integer) from public, anon;
-grant execute on function public.grant_consulting_access(uuid, text, integer) to authenticated, service_role;
+revoke all on function public.set_client_access(uuid, text, timestamptz, text, boolean, text) from public, anon;
+grant execute on function public.set_client_access(uuid, text, timestamptz, text, boolean, text) to authenticated, service_role;
 
 
 -- =============================================================================
--- 6. STORAGE · bucket "products"
+-- 6. CUPONS · public.coupons
+-- =============================================================================
+-- Cupons de desconto do checkout. A tabela só é lida e escrita por admins
+-- (e pela service_role); o site consulta um código pela função quote_coupon(),
+-- que devolve apenas o resultado do cálculo — nunca a lista de cupons.
+-- Regras: um desconto por cupom (percentual OU valor fixo), planos opcionais
+-- (lista vazia = todos os planos com checkout), limite de usos e validade.
+
+-- 6.1 Tabela e colunas --------------------------------------------------------
+create table if not exists public.coupons (
+  id               uuid primary key default gen_random_uuid(),
+  code             text not null,
+  description      text,
+  percent_off      smallint,
+  amount_off_cents integer,
+  plans            text[] not null default '{}',
+  max_uses         integer,
+  used_count       integer not null default 0,
+  expires_at       timestamptz,
+  is_active        boolean not null default true,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
+alter table public.coupons
+  add column if not exists description      text,
+  add column if not exists percent_off      smallint,
+  add column if not exists amount_off_cents integer,
+  add column if not exists plans            text[] not null default '{}',
+  add column if not exists max_uses         integer,
+  add column if not exists used_count       integer not null default 0,
+  add column if not exists expires_at       timestamptz,
+  add column if not exists is_active        boolean not null default true,
+  add column if not exists created_at       timestamptz not null default now(),
+  add column if not exists updated_at       timestamptz not null default now();
+
+comment on table public.coupons is
+  'Cupons de desconto do checkout (só admin). code em caixa-alta; percent_off OU amount_off_cents; plans vazio = todos os planos com checkout.';
+
+-- 6.2 Normalização, CHECKs e índices ------------------------------------------
+alter table public.coupons
+  drop constraint if exists coupons_code_check,
+  drop constraint if exists coupons_code_key,
+  drop constraint if exists coupons_percent_off_check,
+  drop constraint if exists coupons_amount_off_cents_check,
+  drop constraint if exists coupons_one_discount_check,
+  drop constraint if exists coupons_max_uses_check,
+  drop constraint if exists coupons_used_count_check,
+  drop constraint if exists coupons_plans_check;
+
+update public.coupons
+   set code = upper(btrim(code))
+ where code is distinct from upper(btrim(code));
+
+update public.coupons
+   set plans      = coalesce(plans, '{}'),
+       used_count = greatest(coalesce(used_count, 0), 0),
+       is_active  = coalesce(is_active, true)
+ where plans is null
+    or used_count is null
+    or used_count < 0
+    or is_active is null;
+
+alter table public.coupons
+  alter column id         set default gen_random_uuid(),
+  alter column plans      set default '{}',
+  alter column plans      set not null,
+  alter column used_count set default 0,
+  alter column used_count set not null,
+  alter column is_active  set default true,
+  alter column is_active  set not null;
+
+alter table public.coupons
+  add constraint coupons_code_check
+    check (code ~ '^[A-Z0-9_-]{3,24}$'),
+  add constraint coupons_code_key
+    unique (code),
+  add constraint coupons_percent_off_check
+    check (percent_off is null or percent_off between 1 and 100),
+  add constraint coupons_amount_off_cents_check
+    check (amount_off_cents is null or amount_off_cents >= 0),
+  add constraint coupons_one_discount_check
+    check ((percent_off is null) <> (amount_off_cents is null)),
+  add constraint coupons_max_uses_check
+    check (max_uses is null or max_uses >= 1),
+  add constraint coupons_used_count_check
+    check (used_count >= 0),
+  add constraint coupons_plans_check
+    check (plans <@ array['passe', 'clube', 'presencial']::text[]);
+
+create index if not exists coupons_active_idx
+  on public.coupons (is_active, expires_at);
+
+-- 6.3 Gatilhos ----------------------------------------------------------------
+-- Guarda o código sempre em caixa-alta e sem espaços, e a descrição aparada.
+create or replace function public.normalize_coupon()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.code        := upper(btrim(coalesce(new.code, '')));
+  new.description := nullif(btrim(coalesce(new.description, '')), '');
+  return new;
+end;
+$$;
+
+drop trigger if exists coupons_normalize on public.coupons;
+create trigger coupons_normalize
+  before insert or update on public.coupons
+  for each row
+  execute function public.normalize_coupon();
+
+drop trigger if exists coupons_set_updated_at on public.coupons;
+create trigger coupons_set_updated_at
+  before update on public.coupons
+  for each row
+  execute function public.set_updated_at();
+
+-- 6.4 RLS ---------------------------------------------------------------------
+-- Tudo só para administradores. A service_role (checkout e webhook) ignora o RLS.
+alter table public.coupons enable row level security;
+
+drop policy if exists "Cupons: leitura apenas por admin"  on public.coupons;
+drop policy if exists "Cupons: cadastro apenas por admin" on public.coupons;
+drop policy if exists "Cupons: edição apenas por admin"   on public.coupons;
+drop policy if exists "Cupons: exclusão apenas por admin" on public.coupons;
+
+create policy "Cupons: leitura apenas por admin"
+  on public.coupons
+  for select
+  to authenticated
+  using ((select public.is_admin()));
+
+create policy "Cupons: cadastro apenas por admin"
+  on public.coupons
+  for insert
+  to authenticated
+  with check ((select public.is_admin()));
+
+create policy "Cupons: edição apenas por admin"
+  on public.coupons
+  for update
+  to authenticated
+  using ((select public.is_admin()))
+  with check ((select public.is_admin()));
+
+create policy "Cupons: exclusão apenas por admin"
+  on public.coupons
+  for delete
+  to authenticated
+  using ((select public.is_admin()));
+
+grant select, insert, update, delete on public.coupons to authenticated;
+grant select, insert, update, delete on public.coupons to service_role;
+
+-- 6.5 quote_coupon() ----------------------------------------------------------
+-- Calcula o desconto de um código para um plano e um valor, sem expor a tabela.
+-- Devolve sempre um JSON:
+--   { ok: true,  code, discount_cents, final_cents, message }
+--   { ok: false, code, discount_cents: 0, final_cents: p_amount_cents, message }
+-- Regras: cupom ativo, dentro da validade, com usos disponíveis e válido para
+-- o plano. Percentual: floor(valor × pct / 100); fixo: até o valor da compra.
+-- SECURITY DEFINER para ler coupons; pode ser chamada por visitantes (anon).
+create or replace function public.quote_coupon(
+  p_code text,
+  p_plan text,
+  p_amount_cents integer
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_code     text := upper(btrim(coalesce(p_code, '')));
+  v_amount   integer := greatest(coalesce(p_amount_cents, 0), 0);
+  v_coupon   public.coupons%rowtype;
+  v_discount integer;
+begin
+  if v_code !~ '^[A-Z0-9_-]{3,24}$' then
+    return jsonb_build_object('ok', false, 'code', v_code, 'discount_cents', 0, 'final_cents', v_amount,
+                              'message', 'Código de cupom inválido.');
+  end if;
+
+  if p_plan is null or p_plan not in ('passe', 'clube') then
+    return jsonb_build_object('ok', false, 'code', v_code, 'discount_cents', 0, 'final_cents', v_amount,
+                              'message', 'Este plano não aceita cupom.');
+  end if;
+
+  select * into v_coupon from public.coupons c where c.code = v_code;
+
+  if not found or not v_coupon.is_active then
+    return jsonb_build_object('ok', false, 'code', v_code, 'discount_cents', 0, 'final_cents', v_amount,
+                              'message', 'Cupom não encontrado ou inativo.');
+  end if;
+
+  if v_coupon.expires_at is not null and v_coupon.expires_at <= now() then
+    return jsonb_build_object('ok', false, 'code', v_code, 'discount_cents', 0, 'final_cents', v_amount,
+                              'message', 'Este cupom expirou.');
+  end if;
+
+  if v_coupon.max_uses is not null and v_coupon.used_count >= v_coupon.max_uses then
+    return jsonb_build_object('ok', false, 'code', v_code, 'discount_cents', 0, 'final_cents', v_amount,
+                              'message', 'Este cupom atingiu o limite de usos.');
+  end if;
+
+  if cardinality(v_coupon.plans) > 0 and not (p_plan = any (v_coupon.plans)) then
+    return jsonb_build_object('ok', false, 'code', v_code, 'discount_cents', 0, 'final_cents', v_amount,
+                              'message', 'Este cupom não vale para o plano escolhido.');
+  end if;
+
+  v_discount := case
+                  when v_coupon.percent_off is not null then floor(v_amount * v_coupon.percent_off / 100.0)::integer
+                  else least(coalesce(v_coupon.amount_off_cents, 0), v_amount)
+                end;
+  v_discount := least(greatest(v_discount, 0), v_amount);
+
+  return jsonb_build_object(
+    'ok',             true,
+    'code',           v_coupon.code,
+    'discount_cents', v_discount,
+    'final_cents',    v_amount - v_discount,
+    'message',        case
+                        when v_coupon.percent_off is not null then format('%s%% de desconto aplicado.', v_coupon.percent_off)
+                        else 'Desconto aplicado.'
+                      end
+  );
+end;
+$$;
+
+comment on function public.quote_coupon(text, text, integer) is
+  'Calcula o desconto de um cupom para um plano/valor: {ok, code, discount_cents, final_cents, message}. Não expõe a tabela.';
+
+revoke all on function public.quote_coupon(text, text, integer) from public;
+grant execute on function public.quote_coupon(text, text, integer) to anon, authenticated, service_role;
+
+-- 6.6 redeem_coupon() ---------------------------------------------------------
+-- Marca um uso do cupom (used_count + 1) após o pagamento aprovado. Chamada
+-- pelo webhook (service_role) ou por admin; visitantes e clientes não podem.
+create or replace function public.redeem_coupon(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  jwt_role text := coalesce(auth.jwt() ->> 'role', '');
+  v_code   text := upper(btrim(coalesce(p_code, '')));
+  v_used   integer;
+begin
+  if not (jwt_role in ('', 'service_role') or public.is_admin()) then
+    raise exception 'Apenas o servidor ou administradores podem registrar o uso de cupons.'
+      using errcode = '42501';
+  end if;
+
+  update public.coupons
+     set used_count = used_count + 1
+   where code = v_code
+  returning used_count into v_used;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'code', v_code, 'message', 'Cupom não encontrado.');
+  end if;
+
+  return jsonb_build_object('ok', true, 'code', v_code, 'used_count', v_used);
+end;
+$$;
+
+comment on function public.redeem_coupon(text) is
+  'Servidor/admin: incrementa used_count do cupom após pagamento aprovado.';
+
+revoke all on function public.redeem_coupon(text) from public, anon;
+grant execute on function public.redeem_coupon(text) to authenticated, service_role;
+
+
+-- =============================================================================
+-- 7. CONFIGURAÇÕES · public.settings
+-- =============================================================================
+-- Ajustes editáveis pelo painel (WhatsApp da loja, provedor de checkout,
+-- preços/dias dos planos e aviso do site). Leitura pública; escrita só admin.
+-- O site lê estes valores no servidor com cache curto (src/lib/server/settings.ts).
+
+-- 7.1 Tabela ------------------------------------------------------------------
+create table if not exists public.settings (
+  key        text primary key,
+  value      jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.settings
+  add column if not exists value      jsonb not null default '{}'::jsonb,
+  add column if not exists updated_at timestamptz not null default now();
+
+comment on table public.settings is
+  'Configurações do site editadas pelo painel admin (whatsapp, checkout, plans, announcement). Leitura pública.';
+
+alter table public.settings
+  drop constraint if exists settings_key_check,
+  drop constraint if exists settings_value_check;
+
+alter table public.settings
+  add constraint settings_key_check
+    check (key ~ '^[a-z0-9_]{1,40}$'),
+  add constraint settings_value_check
+    check (jsonb_typeof(value) = 'object');
+
+-- 7.2 updated_at --------------------------------------------------------------
+drop trigger if exists settings_set_updated_at on public.settings;
+create trigger settings_set_updated_at
+  before update on public.settings
+  for each row
+  execute function public.set_updated_at();
+
+-- 7.3 RLS ---------------------------------------------------------------------
+alter table public.settings enable row level security;
+
+drop policy if exists "Configurações: leitura pública"           on public.settings;
+drop policy if exists "Configurações: cadastro apenas por admin" on public.settings;
+drop policy if exists "Configurações: edição apenas por admin"   on public.settings;
+drop policy if exists "Configurações: exclusão apenas por admin" on public.settings;
+
+create policy "Configurações: leitura pública"
+  on public.settings
+  for select
+  to anon, authenticated
+  using (true);
+
+create policy "Configurações: cadastro apenas por admin"
+  on public.settings
+  for insert
+  to authenticated
+  with check ((select public.is_admin()));
+
+create policy "Configurações: edição apenas por admin"
+  on public.settings
+  for update
+  to authenticated
+  using ((select public.is_admin()))
+  with check ((select public.is_admin()));
+
+create policy "Configurações: exclusão apenas por admin"
+  on public.settings
+  for delete
+  to authenticated
+  using ((select public.is_admin()));
+
+grant select on public.settings to anon, authenticated;
+grant insert, update, delete on public.settings to authenticated;
+grant select, insert, update, delete on public.settings to service_role;
+
+-- 7.4 Valores iniciais --------------------------------------------------------
+-- Só insere as chaves que ainda não existem (nunca sobrescreve o que o painel salvou).
+insert into public.settings (key, value)
+values
+  ('whatsapp',     '{"number": "5531996000213"}'::jsonb),
+  ('checkout',     '{"provider": "whatsapp"}'::jsonb),
+  ('plans',        '{"passe": {"price_cents": 2990, "access_days": 30, "active": true}, "clube": {"price_cents": 4990, "access_days": 30, "active": true}, "presencial": {"active": true}}'::jsonb),
+  ('announcement', '{"text": "", "active": false}'::jsonb)
+on conflict (key) do nothing;
+
+
+-- =============================================================================
+-- 8. STORAGE · bucket "products"
 -- =============================================================================
 -- Fotos das peças: leitura pública; envio, substituição e remoção só por admins.
 --
 -- O schema "storage" pertence ao Supabase. Se o papel do editor não tiver
 -- permissão sobre ele, cada bloco abaixo desfaz apenas a própria parte e
--- mostra um WARNING com a instrução — sem cancelar as seções 0 a 5.
+-- mostra um WARNING com a instrução — sem cancelar as seções 0 a 7.
 
--- 6.1 Bucket ------------------------------------------------------------------
+-- 8.1 Bucket ------------------------------------------------------------------
 do $$
 begin
   insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -1325,7 +1856,7 @@ exception
 end;
 $$;
 
--- 6.2 Políticas ---------------------------------------------------------------
+-- 8.2 Políticas ---------------------------------------------------------------
 do $$
 begin
   drop policy if exists "Produtos: leitura pública das imagens"       on storage.objects;
@@ -1365,7 +1896,7 @@ $$;
 
 
 -- =============================================================================
--- 7. RECARREGAR A API
+-- 9. RECARREGAR A API
 -- =============================================================================
 -- Faz o PostgREST enxergar colunas e funções novas assim que o COMMIT ocorrer.
 notify pgrst, 'reload schema';
@@ -1391,6 +1922,23 @@ commit;
 --
 --   Planos: 'passe' (R$ 29,90) · 'clube' (R$ 49,90) · 'presencial' (R$ 0).
 --   Sem prazo: troque 30 por null.
+--   Com desconto/cupom registrados no pagamento (R$ 10,00 com o cupom BEMVINDO):
+--   select public.grant_consulting_access((select id from public.profiles where lower(email)=lower('EMAIL')), 'clube', 30, 1000, 'BEMVINDO');
+--
+-- Ajustar a ficha do cliente (plano, validade, bloqueio e observações), sem
+-- registrar pagamento — é o que o painel Admin → Clientes → ficha usa:
+--
+--   -- Clube até 31/12 deste ano, desbloqueado, com observação
+--   select public.set_client_access(
+--     (select id from public.profiles where lower(email)=lower('EMAIL')),
+--     'clube', date_trunc('year', now()) + interval '1 year' - interval '1 second',
+--     null, false, 'Combinado pelo WhatsApp em setembro.');
+--
+--   -- Bloquear (mantém plano e prazo; o acesso cai na hora)
+--   select public.set_client_access((select id from public.profiles where lower(email)=lower('EMAIL')), 'clube', null, null, true, 'Chargeback em análise.');
+--
+--   -- Remover o plano (volta a cliente comum)
+--   select public.set_client_access((select id from public.profiles where lower(email)=lower('EMAIL')), null, null);
 --
 -- Revogar o acesso (volta a cliente comum; o histórico de pagamentos fica):
 --
@@ -1398,20 +1946,36 @@ commit;
 --
 -- Quem tem acesso e até quando:
 --
---   select email, full_name, role, plan, access_until,
---          (role = 'admin' or (role = 'vip' and (access_until is null or access_until > now()))) as ativo
+--   select email, full_name, role, plan, access_until, is_blocked,
+--          (role = 'admin' or (role = 'vip' and not is_blocked and (access_until is null or access_until > now()))) as ativo
 --     from public.profiles
---    where role <> 'client' or plan is not null
+--    where role <> 'client' or plan is not null or is_blocked
 --    order by ativo desc, access_until nulls first, email;
 --
 -- Últimos pagamentos:
 --
---   select pay.created_at, p.email, pay.plan, pay.amount_cents, pay.provider,
---          pay.status, pay.provider_payment_id, pay.applied_at
+--   select pay.created_at, p.email, pay.plan, pay.amount_cents, pay.discount_cents, pay.coupon_code,
+--          pay.provider, pay.status, pay.provider_payment_id, pay.applied_at
 --     from public.payments pay
 --     left join public.profiles p on p.id = pay.user_id
 --    order by pay.created_at desc
 --    limit 50;
+--
+-- Cupons: criar, testar e conferir usos:
+--
+--   insert into public.coupons (code, description, percent_off, plans, max_uses, expires_at)
+--   values ('BEMVINDO', '20% na primeira compra', 20, '{}', 100, now() + interval '90 days');
+--
+--   insert into public.coupons (code, description, amount_off_cents, plans)
+--   values ('CLUBE10', 'R$ 10 no Clube', 1000, array['clube']);
+--
+--   select public.quote_coupon('BEMVINDO', 'clube', 4990);
+--   select code, percent_off, amount_off_cents, plans, used_count, max_uses, expires_at, is_active from public.coupons order by created_at desc;
+--
+-- Configurações do site (o painel Admin → Configurações edita as mesmas chaves):
+--
+--   select key, value, updated_at from public.settings order by key;
+--   update public.settings set value = '{"number": "5531999999999"}' where key = 'whatsapp';
 --
 -- Políticas de segurança (RLS) aplicadas:
 --
@@ -1426,7 +1990,7 @@ commit;
 --   select relname, relrowsecurity
 --     from pg_class
 --    where relnamespace = 'public'::regnamespace
---      and relname in ('profiles', 'products', 'consultations', 'orders', 'payments');
+--      and relname in ('profiles', 'products', 'consultations', 'orders', 'payments', 'coupons', 'settings');
 --
 -- Produtos antigos com a foto embutida em base64 (deixam o catálogo pesado):
 --

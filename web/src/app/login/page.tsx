@@ -17,20 +17,20 @@ export const metadata: Metadata = {
 function FormFallback() {
   return (
     <div aria-hidden className="animate-pulse">
-      <div className="grid grid-cols-2 border-b border-line pb-3.5">
-        <span className="mx-auto h-2.5 w-14 bg-line" />
-        <span className="mx-auto h-2.5 w-20 bg-line" />
+      <div className="grid h-12 grid-cols-2 items-center rounded-full border border-line p-1">
+        <span className="mx-auto h-2.5 w-14 rounded-full bg-line" />
+        <span className="mx-auto h-2.5 w-20 rounded-full bg-line" />
       </div>
       <div className="mt-7 space-y-5">
         <div>
-          <span className="block h-2 w-12 bg-line" />
-          <span className="mt-3 block h-12 w-full border border-line" />
+          <span className="block h-2 w-12 rounded-full bg-line" />
+          <span className="mt-3 block h-12 w-full rounded-2xl border border-line" />
         </div>
         <div>
-          <span className="block h-2 w-10 bg-line" />
-          <span className="mt-3 block h-12 w-full border border-line" />
+          <span className="block h-2 w-10 rounded-full bg-line" />
+          <span className="mt-3 block h-12 w-full rounded-2xl border border-line" />
         </div>
-        <span className="block h-12 w-full bg-gold/20" />
+        <span className="block h-12 w-full rounded-full bg-gold/20" />
       </div>
     </div>
   );
@@ -92,7 +92,7 @@ export default function LoginPage() {
                 Acesse seu plano, sua cartela de cores, os looks salvos e o histórico dos seus pedidos.
               </p>
 
-              <div className="panel relative mt-10 p-6 sm:p-8">
+              <div className="panel relative mt-10 rounded-3xl p-6 sm:p-8">
                 <Suspense fallback={<FormFallback />}>
                   <LoginRedirectForm />
                 </Suspense>

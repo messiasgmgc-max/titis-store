@@ -27,7 +27,7 @@ export function PlanSummary({ plan, className }: { plan: ClubPlan; className?: s
       ];
 
   return (
-    <section aria-labelledby="plan-summary-title" className={cn('border border-line bg-surface p-6 sm:p-8', className)}>
+    <section aria-labelledby="plan-summary-title" className={cn('rounded-3xl border border-line bg-surface p-6 sm:p-8', className)}>
       <p className={EYEBROW}>{plan.kicker}</p>
       <h2 id="plan-summary-title" className="mt-3 text-[1.9rem] font-extrabold leading-tight tracking-[-0.03em] text-ivory">
         {plan.name}
@@ -55,7 +55,7 @@ export function PlanSummary({ plan, className }: { plan: ClubPlan; className?: s
         ))}
       </ul>
 
-      <dl className="mt-7 grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-3">
+      <dl className="mt-7 grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-3">
         {details.map((d) => (
           <div key={d.label} className="bg-coal px-4 py-3">
             <dt className="text-[10px] font-semibold uppercase tracking-[0.18em] text-smoke">{d.label}</dt>

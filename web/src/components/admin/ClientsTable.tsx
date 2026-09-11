@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { SearchX, ShieldCheck, ShieldOff, Users } from 'lucide-react';
+import { ContactRound, SearchX, ShieldCheck, ShieldOff, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useUI } from '@/providers/UIProvider';
 import { supabase } from '@/lib/supabaseClient';
@@ -17,12 +17,16 @@ import {
   IconButton,
   InlineError,
   LoadingRows,
+  PillOption,
   RefreshButton,
   SearchField,
   Segmented,
   SectionLabel,
 } from './AdminUI';
+import { ClientPanel, clientDisplayName, clientInitials } from './ClientPanel';
 import {
+  ACCESS_KINDS,
+  ACCESS_TONE,
   accessStateOf,
   describeError,
   displayPhone,
@@ -31,6 +35,7 @@ import {
   waLinkFor,
   type AccessKind,
   type AccessState,
+  type AdminPayment,
   type ClientProfile,
 } from './admin-utils';
 import type { Resource } from './useAdminData';
@@ -53,58 +58,16 @@ const DURATIONS: { days: number | null; label: string }[] = [
   { days: null, label: 'Sem prazo' },
 ];
 
-const FILTERS: { id: AccessKind; label: string }[] = [
-  { id: 'active', label: 'Ativos' },
-  { id: 'expired', label: 'Expirados' },
-  { id: 'none', label: 'Sem plano' },
-  { id: 'admin', label: 'Admin' },
-];
-
-const ACCESS_TONE: Record<AccessKind, { dot: string; text: string }> = {
-  admin: { dot: 'bg-gold', text: 'text-gold-light' },
-  active: { dot: 'bg-success', text: 'text-success' },
-  expired: { dot: 'bg-danger', text: 'text-danger' },
-  none: { dot: 'bg-smoke', text: 'text-mist' },
-};
-
-function displayName(c: ClientProfile): string {
-  return c.full_name || c.email?.split('@')[0] || 'Cliente sem nome';
-}
-
-function initials(c: ClientProfile): string {
-  const source = c.full_name || c.email || '';
-  const parts = source
-    .replace(/@.*/, '')
-    .split(/[\s._-]+/)
-    .filter(Boolean);
-  const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? '').slice(0, 2);
-  return letters.toUpperCase() || 'T';
-}
-
-/** Opção em pílula (plano ou duração) dentro do diálogo de liberação. */
-function PillOption({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        'rounded-full border px-4 py-2 text-xs font-semibold transition-colors duration-300',
-        active ? 'border-gold bg-gold/10 text-gold-light' : 'border-line text-mist hover:border-ivory/25 hover:text-ivory',
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 /** Clientes cadastrados, situação do acesso à consultoria e níveis de administração. */
 export function ClientsTable({
   resource,
+  payments,
   currentUserId,
   onAccessChanged,
 }: {
   resource: Resource<ClientProfile>;
+  /** Pagamentos já carregados (histórico na ficha do cliente). */
+  payments: AdminPayment[];
   currentUserId: string;
   /** Chamado após liberar ou revogar acesso (ex.: recarregar pagamentos). */
   onAccessChanged?: () => void;
@@ -115,6 +78,7 @@ export function ClientsTable({
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<AccessFilter>('all');
   const [pending, setPending] = useState<Pending | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [grantPlan, setGrantPlan] = useState<PlanId>('clube');
   const [grantDays, setGrantDays] = useState<number | null>(30);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -127,7 +91,7 @@ export function ClientsTable({
   }, [clients]);
 
   const counts = useMemo(() => {
-    const base: Record<AccessFilter, number> = { all: clients.length, active: 0, expired: 0, none: 0, admin: 0 };
+    const base: Record<AccessFilter, number> = { all: clients.length, active: 0, expired: 0, blocked: 0, none: 0, admin: 0 };
     accessById.forEach((state) => {
       base[state.kind] += 1;
     });
@@ -140,10 +104,12 @@ export function ClientsTable({
     return clients.filter((c) => {
       if (filter !== 'all' && accessById.get(c.id)?.kind !== filter) return false;
       if (!q) return true;
-      if (normalizeSearch(`${c.full_name ?? ''} ${c.email ?? ''} ${c.seasonal_palette ?? ''}`).includes(q)) return true;
+      if (normalizeSearch(`${c.full_name ?? ''} ${c.email ?? ''} ${c.seasonal_palette ?? ''} ${c.admin_notes ?? ''}`).includes(q)) return true;
       return digits.length >= 3 && (c.phone ?? '').replace(/\D/g, '').includes(digits);
     });
   }, [clients, filter, query, accessById]);
+
+  const selected = useMemo(() => clients.find((c) => c.id === selectedId) ?? null, [clients, selectedId]);
 
   /** Executa uma ação com trava contra cliques repetidos e recarrega a lista. */
   const run = async (client: ClientProfile, action: () => Promise<string>, fallback: string) => {
@@ -191,7 +157,7 @@ export function ClientsTable({
           list.map((c) => (c.id === client.id ? { ...c, role, plan: grantPlan, access_until: accessUntil } : c)),
         );
         const until = accessUntil ? `até ${formatDateBR(accessUntil)}` : 'sem prazo';
-        return `Acesso de ${displayName(client)} liberado ${until}.`;
+        return `Acesso de ${clientDisplayName(client)} liberado ${until}.`;
       },
       'Não foi possível liberar o acesso.',
     );
@@ -208,7 +174,7 @@ export function ClientsTable({
           client,
           async () => {
             await updateProfile(client, { role: 'client', access_until: null });
-            return `Acesso de ${displayName(client)} revogado.`;
+            return `Acesso de ${clientDisplayName(client)} revogado.`;
           },
           'Não foi possível revogar o acesso.',
         );
@@ -218,7 +184,7 @@ export function ClientsTable({
           client,
           async () => {
             await updateProfile(client, { role: 'admin' });
-            return `${displayName(client)} agora é administrador.`;
+            return `${clientDisplayName(client)} agora é administrador.`;
           },
           'Não foi possível alterar o papel.',
         );
@@ -228,7 +194,7 @@ export function ClientsTable({
           client,
           async () => {
             await updateProfile(client, { role: 'client' });
-            return `${displayName(client)} deixou a administração.`;
+            return `${clientDisplayName(client)} deixou a administração.`;
           },
           'Não foi possível alterar o papel.',
         );
@@ -237,14 +203,29 @@ export function ClientsTable({
   };
 
   const openGrant = (client: ClientProfile) => {
+    setSelectedId(null);
     setGrantPlan(client.plan === 'passe' ? 'passe' : 'clube');
     setGrantDays(30);
     setPending({ kind: 'grant', client });
   };
 
+  /** Abre um diálogo de confirmação fechando a ficha (um diálogo por vez). */
+  const openPending = (next: Pending) => {
+    setSelectedId(null);
+    setPending(next);
+  };
+
   const cancelPending = useCallback(() => {
     if (!savingRef.current) setPending(null);
   }, []);
+
+  const closePanel = useCallback(() => setSelectedId(null), []);
+
+  const onPanelSaved = (updated: ClientProfile) => {
+    setData((list) => list.map((c) => (c.id === updated.id ? updated : c)));
+    onAccessChanged?.();
+    void reload();
+  };
 
   let body: React.ReactNode;
   if (loading) {
@@ -281,8 +262,8 @@ export function ClientsTable({
   } else {
     body = (
       <>
-        <div className="overflow-x-auto rounded-2xl border border-line bg-surface/40">
-          <table className="w-full min-w-[60rem] border-collapse text-left">
+        <div className="overflow-x-auto rounded-3xl border border-line bg-surface/40">
+          <table className="w-full min-w-[62rem] border-collapse text-left">
             <caption className="sr-only">Clientes cadastrados e situação do acesso à consultoria</caption>
             <thead>
               <tr className="border-b border-line-gold text-[0.6rem] uppercase tracking-[0.22em] text-smoke">
@@ -314,42 +295,43 @@ export function ClientsTable({
                 return (
                   <tr key={c.id} className="transition-colors duration-300 hover:bg-ivory/[0.02]">
                     <td className="py-3 pl-4 pr-3">
-                      <div className="flex items-center gap-3.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(c.id)}
+                        className="group flex w-full items-center gap-3.5 text-left"
+                        aria-label={`Abrir ficha de ${clientDisplayName(c)}`}
+                      >
                         <span
                           className={cn(
-                            'grid h-10 w-10 shrink-0 place-items-center rounded-full border text-sm font-bold',
+                            'grid h-10 w-10 shrink-0 place-items-center rounded-full border text-sm font-bold transition-colors',
                             c.role === 'admin'
                               ? 'border-gold bg-gold/10 text-gold-light'
                               : access.kind === 'active'
                                 ? 'border-line-gold text-gold'
-                                : 'border-line text-parchment',
+                                : access.kind === 'blocked'
+                                  ? 'border-danger/50 text-danger'
+                                  : 'border-line text-parchment',
+                            'group-hover:border-gold',
                           )}
                           aria-hidden
                         >
-                          {initials(c)}
+                          {clientInitials(c)}
                         </span>
-                        <div className="min-w-0">
-                          <p className="flex max-w-[18rem] items-center gap-2 text-sm font-semibold text-ivory">
-                            <span className={cn('truncate', !c.full_name && 'font-normal text-mist')}>{displayName(c)}</span>
+                        <span className="min-w-0">
+                          <span className="flex max-w-[18rem] items-center gap-2 text-sm font-semibold text-ivory">
+                            <span className={cn('truncate transition-colors group-hover:text-gold-light', !c.full_name && 'font-normal text-mist')}>
+                              {clientDisplayName(c)}
+                            </span>
                             {self && (
                               <span className="shrink-0 rounded-full border border-line-gold px-2 py-0.5 text-[0.52rem] uppercase tracking-[0.2em] text-gold">
                                 Você
                               </span>
                             )}
-                          </p>
-                          {c.email ? (
-                            <a
-                              href={`mailto:${c.email}`}
-                              className="mt-0.5 block max-w-[18rem] truncate text-xs text-smoke transition-colors hover:text-gold-light"
-                            >
-                              {c.email}
-                            </a>
-                          ) : (
-                            <p className="mt-0.5 text-xs text-smoke">E-mail não informado</p>
-                          )}
-                          {c.created_at && <p className="mt-0.5 text-[0.68rem] text-smoke">Desde {formatDateBR(c.created_at)}</p>}
-                        </div>
-                      </div>
+                          </span>
+                          <span className="mt-0.5 block max-w-[18rem] truncate text-xs text-smoke">{c.email ?? 'E-mail não informado'}</span>
+                          {c.created_at && <span className="mt-0.5 block text-[0.68rem] text-smoke">Desde {formatDateBR(c.created_at)}</span>}
+                        </span>
+                      </button>
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-sm tabular-nums">
                       {phone && chat ? (
@@ -358,7 +340,7 @@ export function ClientsTable({
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-parchment transition-colors hover:text-gold-light"
-                          aria-label={`Conversar com ${displayName(c)} no WhatsApp: ${phone}`}
+                          aria-label={`Conversar com ${clientDisplayName(c)} no WhatsApp: ${phone}`}
                         >
                           {phone}
                         </a>
@@ -379,44 +361,48 @@ export function ClientsTable({
                         <span className={cn('text-sm font-semibold', tone.text)}>{access.label}</span>
                       </span>
                       {access.detail && <p className="mt-0.5 pl-4 text-xs text-smoke">{access.detail}</p>}
+                      {c.admin_notes && (
+                        <p className="mt-0.5 max-w-[16rem] truncate pl-4 text-[0.68rem] italic text-smoke" title={c.admin_notes}>
+                          {c.admin_notes}
+                        </p>
+                      )}
                     </td>
                     <td className="py-3 pl-3 pr-4">
-                      {self ? (
-                        <p className="text-right text-xs text-smoke">Sua conta</p>
-                      ) : (
-                        <div className="flex items-center justify-end gap-2">
-                          {c.role === 'admin' ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <IconButton label={`Abrir ficha de ${clientDisplayName(c)}`} disabled={busy} onClick={() => setSelectedId(c.id)}>
+                          <ContactRound className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                        </IconButton>
+                        {self ? (
+                          <p className="text-right text-xs text-smoke">Sua conta</p>
+                        ) : c.role === 'admin' ? (
+                          <IconButton
+                            label={`Remover ${clientDisplayName(c)} da administração`}
+                            tone="danger"
+                            disabled={busy}
+                            onClick={() => setPending({ kind: 'demote', client: c })}
+                          >
+                            <ShieldOff className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                          </IconButton>
+                        ) : (
+                          <>
+                            <Button variant="outline" size="sm" disabled={busy} onClick={() => openGrant(c)}>
+                              {access.kind === 'active' ? 'Estender acesso' : 'Liberar acesso'}
+                            </Button>
+                            {c.role === 'vip' && (
+                              <DangerButton disabled={busy} onClick={() => setPending({ kind: 'revoke', client: c })}>
+                                Revogar
+                              </DangerButton>
+                            )}
                             <IconButton
-                              label={`Remover ${displayName(c)} da administração`}
-                              tone="danger"
+                              label={`Tornar ${clientDisplayName(c)} administrador`}
                               disabled={busy}
-                              onClick={() => setPending({ kind: 'demote', client: c })}
-                              className="rounded-full"
+                              onClick={() => setPending({ kind: 'promote', client: c })}
                             >
-                              <ShieldOff className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                              <ShieldCheck className="h-4 w-4" strokeWidth={1.5} aria-hidden />
                             </IconButton>
-                          ) : (
-                            <>
-                              <Button variant="outline" size="sm" disabled={busy} onClick={() => openGrant(c)}>
-                                {access.kind === 'active' ? 'Estender acesso' : 'Liberar acesso'}
-                              </Button>
-                              {c.role === 'vip' && (
-                                <DangerButton disabled={busy} onClick={() => setPending({ kind: 'revoke', client: c })}>
-                                  Revogar
-                                </DangerButton>
-                              )}
-                              <IconButton
-                                label={`Tornar ${displayName(c)} administrador`}
-                                disabled={busy}
-                                onClick={() => setPending({ kind: 'promote', client: c })}
-                                className="rounded-full"
-                              >
-                                <ShieldCheck className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-                              </IconButton>
-                            </>
-                          )}
-                        </div>
-                      )}
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -428,7 +414,7 @@ export function ClientsTable({
           {filtered.length === clients.length
             ? `${clients.length} ${clients.length === 1 ? 'conta cadastrada' : 'contas cadastradas'}`
             : `Mostrando ${filtered.length} de ${clients.length} contas`}
-          {' · '}a própria conta não pode ser alterada
+          {' · '}clique no cliente para abrir a ficha · a própria conta não pode ser alterada
         </p>
       </>
     );
@@ -444,8 +430,8 @@ export function ClientsTable({
           Fichas da <span className="text-gold-light">clientela</span>
         </h2>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-mist">
-          Libere a consultoria digital por plano e prazo, acompanhe quem está ativo e revogue quando precisar. Admin concede
-          acesso total a este painel.
+          Abra a ficha para trocar o plano, ajustar a validade, bloquear e anotar observações. “Liberar acesso” registra um
+          pagamento manual; Admin concede acesso total a este painel.
         </p>
       </div>
 
@@ -456,7 +442,7 @@ export function ClientsTable({
               value={query}
               onChange={setQuery}
               label="Buscar cliente"
-              placeholder="Buscar por nome, e-mail, telefone ou cartela"
+              placeholder="Buscar por nome, e-mail, telefone, cartela ou observação"
             />
             <RefreshButton onClick={() => void reload()} busy={refreshing} />
           </div>
@@ -464,7 +450,7 @@ export function ClientsTable({
             label="Filtrar por situação do acesso"
             value={filter}
             onChange={setFilter}
-            options={[{ id: 'all', label: 'Todos', count: counts.all }, ...FILTERS.map((f) => ({ ...f, count: counts[f.id] }))]}
+            options={[{ id: 'all', label: 'Todos', count: counts.all }, ...ACCESS_KINDS.map((f) => ({ ...f, count: counts[f.id] }))]}
           />
         </div>
       )}
@@ -478,6 +464,21 @@ export function ClientsTable({
       <div className="mt-6">{body}</div>
 
       <AnimatePresence>
+        {selected && !pending && (
+          <ClientPanel
+            key={`ficha-${selected.id}`}
+            client={selected}
+            payments={payments}
+            isSelf={selected.id === currentUserId}
+            onClose={closePanel}
+            onSaved={onPanelSaved}
+            onGrant={() => openGrant(selected)}
+            onRevoke={() => openPending({ kind: 'revoke', client: selected })}
+            onPromote={() => openPending({ kind: 'promote', client: selected })}
+            onDemote={() => openPending({ kind: 'demote', client: selected })}
+          />
+        )}
+
         {pending?.kind === 'grant' && (
           <ConfirmDialog
             key="liberar"
@@ -488,11 +489,14 @@ export function ClientsTable({
             onCancel={cancelPending}
           >
             <p>
-              <span className="font-semibold text-ivory">{displayName(pending.client)}</span>{' '}
+              <span className="font-semibold text-ivory">{clientDisplayName(pending.client)}</span>{' '}
               {accessStateOf(pending.client).kind === 'active'
                 ? 'já tem acesso ativo: os dias escolhidos são somados ao prazo atual.'
                 : 'passa a usar a leitura de colorimetria, os looks sob medida, o provador virtual e as consultorias salvas.'}
             </p>
+            {pending.client.is_blocked && (
+              <p className="mt-3 text-danger">Esta conta está bloqueada: o acesso só volta quando o bloqueio for removido na ficha.</p>
+            )}
 
             <p className="label mt-6">Plano</p>
             <div role="group" aria-label="Plano" className="mt-2 flex flex-wrap gap-2">
@@ -532,7 +536,7 @@ export function ClientsTable({
             onCancel={cancelPending}
           >
             <p>
-              <span className="font-semibold text-ivory">{displayName(pending.client)}</span> perde o acesso à consultoria
+              <span className="font-semibold text-ivory">{clientDisplayName(pending.client)}</span> perde o acesso à consultoria
               digital imediatamente e volta a ser cliente comum.
             </p>
             <p className="mt-3">O histórico de pagamentos é mantido.</p>
@@ -549,8 +553,8 @@ export function ClientsTable({
             onCancel={cancelPending}
           >
             <p>
-              <span className="font-semibold text-ivory">{displayName(pending.client)}</span> terá acesso total ao painel: acervo,
-              pedidos, pagamentos, dados de clientes e liberação de acessos.
+              <span className="font-semibold text-ivory">{clientDisplayName(pending.client)}</span> terá acesso total ao painel: acervo,
+              pedidos, pagamentos, cupons, configurações, dados de clientes e liberação de acessos.
             </p>
             <p className="mt-3">Conceda apenas a pessoas de confiança da loja.</p>
           </ConfirmDialog>
@@ -567,7 +571,7 @@ export function ClientsTable({
             onCancel={cancelPending}
           >
             <p>
-              <span className="font-semibold text-ivory">{displayName(pending.client)}</span> deixará de acessar a administração e
+              <span className="font-semibold text-ivory">{clientDisplayName(pending.client)}</span> deixará de acessar a administração e
               voltará a ser cliente comum.
             </p>
             <p className="mt-3">Se a pessoa deve continuar usando a consultoria, libere o acesso em seguida.</p>

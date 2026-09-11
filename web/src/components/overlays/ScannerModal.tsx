@@ -15,6 +15,7 @@ import { ConsultingLock } from '@/components/consulting/ConsultingLock';
 import { isConsultingLockError, lockReason, lockToastMessage } from '@/components/consulting/shared';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Controls';
 import { Swatch } from '@/components/ui/Swatch';
 import { SeasonName } from '@/components/atelier/StepTone';
 import { cn } from '@/lib/format';
@@ -413,13 +414,13 @@ function ScannerStudio({ onClose }: { onClose: () => void }) {
                 </div>
 
                 {error && (
-                  <div role="alert" className="mt-6 flex items-start gap-3 border border-danger/40 bg-danger/[0.06] px-4 py-3 text-sm text-parchment">
+                  <div role="alert" className="mt-6 flex items-start gap-3 rounded-2xl border border-danger/40 bg-danger/[0.06] px-4 py-3 text-sm text-parchment">
                     <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-danger" strokeWidth={1.75} aria-hidden />
                     <span>{error}</span>
                   </div>
                 )}
 
-                <div className="mt-7 flex items-start gap-3 border-t border-line pt-6">
+                <div className="mt-7 flex items-start gap-3 rounded-2xl border border-line bg-ivory/[0.015] px-4 py-3.5">
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-gold" strokeWidth={1.5} aria-hidden />
                   <p className="text-xs leading-relaxed text-mist">{PRIVACY}</p>
                 </div>
@@ -439,7 +440,7 @@ function ScannerStudio({ onClose }: { onClose: () => void }) {
 
             {phase === 'camera' && (
               <div className="mt-6">
-                <div className="relative mx-auto aspect-[3/4] w-full max-w-sm overflow-hidden bg-coal">
+                <div className="relative mx-auto aspect-[3/4] w-full max-w-sm overflow-hidden rounded-3xl border border-line bg-coal">
                   <video
                     ref={videoRef}
                     playsInline
@@ -467,7 +468,7 @@ function ScannerStudio({ onClose }: { onClose: () => void }) {
                       </span>
                     </div>
                   )}
-                  <p className="absolute inset-x-0 bottom-4 text-center text-[0.6rem] uppercase tracking-[0.22em] text-parchment">
+                  <p className="absolute inset-x-0 bottom-4 mx-auto w-fit rounded-full bg-obsidian/60 px-3 py-1.5 text-center text-[0.6rem] uppercase tracking-[0.22em] text-parchment backdrop-blur-sm">
                     Centralize o rosto na moldura
                   </p>
                 </div>
@@ -527,7 +528,7 @@ function ScannerStudio({ onClose }: { onClose: () => void }) {
                         <img src={photo} alt="Sua foto analisada" className="h-full w-full object-cover" />
                       </div>
                     )}
-                    <span className="border border-line-gold px-2.5 py-1 text-[0.58rem] uppercase tracking-[0.22em] text-gold">
+                    <span className="rounded-full border border-line-gold px-3 py-1 text-[0.58rem] uppercase tracking-[0.22em] text-gold">
                       {result.source === 'ai' ? 'Leitura detalhada' : 'Leitura rápida por cor'}
                     </span>
                   </div>
@@ -537,7 +538,7 @@ function ScannerStudio({ onClose }: { onClose: () => void }) {
                     <h3 className="mt-3 font-display text-5xl leading-none text-ivory sm:text-6xl">
                       <SeasonName name={result.season} />
                     </h3>
-                    <dl className="mt-6 grid grid-cols-3 border-y border-line">
+                    <dl className="mt-6 grid grid-cols-3 rounded-2xl border border-line bg-ivory/[0.015] px-4">
                       {[
                         { k: 'Pele', v: skinToneName(result.skinTone) },
                         { k: 'Subtom', v: subtoneName },
@@ -588,18 +589,12 @@ function ScannerStudio({ onClose }: { onClose: () => void }) {
 
                 <div className="stitch my-8" aria-hidden />
 
-                <label className="flex cursor-pointer items-start gap-3 text-sm text-parchment">
-                  <input
-                    type="checkbox"
-                    checked={keepPhoto}
-                    onChange={(e) => setKeepPhoto(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-gold"
-                  />
-                  <span>
-                    Guardar a foto neste aparelho para o provador virtual
-                    <span className="mt-1 block text-xs text-smoke">Fica salva somente neste navegador.</span>
-                  </span>
-                </label>
+                <Checkbox
+                  checked={keepPhoto}
+                  onChange={setKeepPhoto}
+                  label="Guardar a foto neste aparelho para o provador virtual"
+                  description="Fica salva somente neste navegador."
+                />
 
                 <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                   <Button variant="ghost" onClick={redo}>

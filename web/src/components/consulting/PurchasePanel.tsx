@@ -7,9 +7,12 @@ import { Button } from '@/components/ui/Button';
 import { WhatsAppIcon } from '@/components/ui/icons';
 import { planWhatsappText } from '@/lib/checkout';
 import { CHECKOUT_PROVIDER, CONSULTING_PATH, type ClubPlan } from '@/lib/site';
-import { cn, whatsappLink } from '@/lib/format';
+import { cn, formatBRL, whatsappLink } from '@/lib/format';
 import { supabase } from '@/lib/supabaseClient';
+import type { CouponQuote } from '@/lib/types';
 import { useSession } from '@/providers/SessionProvider';
+import { BlockedNotice } from './BlockedNotice';
+import { CouponField } from './CouponField';
 import { PurchaseFeedback } from './PurchaseFeedback';
 import { RefreshAccessButton } from './RefreshAccess';
 import { usePlanPurchase } from './usePlanPurchase';
@@ -43,7 +46,7 @@ function ReturnNotice({ status, hasAccess }: { status: ReturnStatus; hasAccess: 
   const copy = RETURN_COPY[status];
   const Icon = released ? BadgeCheck : copy.icon;
   return (
-    <div role="status" className={cn('border p-5', released ? RETURN_COPY.approved.tone : copy.tone)}>
+    <div role="status" className={cn('rounded-2xl border p-5', released ? RETURN_COPY.approved.tone : copy.tone)}>
       <p className="flex items-center gap-2.5 text-base font-extrabold tracking-[-0.02em] text-ivory">
         <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden />
         {released ? 'Acesso liberado' : copy.title}
@@ -66,17 +69,18 @@ function ReturnNotice({ status, hasAccess }: { status: ReturnStatus; hasAccess: 
   );
 }
 
-function ActiveNotice({ accessUntil, isAdmin }: { accessUntil: string | null; isAdmin: boolean }) {
+function ActiveNotice({ accessUntil, isAdmin, upgrade }: { accessUntil: string | null; isAdmin: boolean; upgrade: boolean }) {
   return (
-    <div className="border border-success/35 bg-success/[0.06] p-5">
+    <div className="rounded-2xl border border-success/35 bg-success/[0.06] p-5">
       <p className="flex items-center gap-2.5 text-base font-extrabold tracking-[-0.02em] text-ivory">
         <BadgeCheck className="h-5 w-5 shrink-0 text-success" strokeWidth={1.75} aria-hidden />
         Seu plano está ativo
       </p>
       <p className="mt-1.5 text-sm text-mist">
         {accessUntil && !isAdmin ? `Acesso até ${formatAccessDate(accessUntil)}.` : 'Acesso sem prazo.'}
+        {upgrade && ' O upgrade vale a partir da confirmação, sem perder sua cartela nem seus looks.'}
       </p>
-      <Button href={CONSULTING_PATH} className="mt-4 w-full">
+      <Button href={CONSULTING_PATH} variant="outline" size="sm" className="mt-4 w-full">
         Ir para minha consultoria
       </Button>
     </div>
@@ -86,24 +90,35 @@ function ActiveNotice({ accessUntil, isAdmin }: { accessUntil: string | null; is
 function PanelLoading() {
   return (
     <div aria-hidden className="animate-pulse space-y-4">
-      <span className="block h-2.5 w-24 bg-line" />
-      <span className="block h-3 w-full bg-line" />
-      <span className="block h-3 w-2/3 bg-line" />
+      <span className="block h-2.5 w-24 rounded-full bg-line" />
+      <span className="block h-3 w-full rounded-full bg-line" />
+      <span className="block h-3 w-2/3 rounded-full bg-line" />
       <span className="block h-12 w-full rounded-full bg-gold/20" />
     </div>
   );
 }
 
-/** Coluna de ações da assinatura: conta, pagamento, retorno do checkout e confirmação. */
-export function PurchasePanel({ plan, returnStatus }: { plan: ClubPlan; returnStatus: ReturnStatus | null }) {
-  const { user, profile, loading, hasAccess, accessUntil, isAdmin } = useSession();
+/** Coluna de ações da assinatura: conta, cupom, pagamento, retorno do checkout e confirmação. */
+export function PurchasePanel({
+  plan,
+  returnStatus,
+  upgrade = false,
+}: {
+  plan: ClubPlan;
+  returnStatus: ReturnStatus | null;
+  upgrade?: boolean;
+}) {
+  const { user, profile, loading, hasAccess, accessUntil, isAdmin, isBlocked } = useSession();
   const { state, purchase } = usePlanPurchase();
   const [authMode, setAuthMode] = useState<AuthMode>('register');
   const [justJoined, setJustJoined] = useState(false);
+  const [quote, setQuote] = useState<CouponQuote | null>(null);
 
   const digital = plan.accessDays !== null;
   const online = CHECKOUT_PROVIDER === 'mercadopago' && plan.priceCents !== null;
   const paymentReturned = returnStatus === 'approved' || returnStatus === 'pending';
+  const coupon = quote?.code ?? null;
+  const payable = quote ? quote.finalCents : plan.priceCents;
 
   /** Depois de criar a conta, o pagamento on-line segue direto; o WhatsApp precisa de um clique (nova aba). */
   const continueAfterAuth = async () => {
@@ -111,8 +126,10 @@ export function PurchasePanel({ plan, returnStatus }: { plan: ClubPlan; returnSt
     if (!online || authMode !== 'register') return;
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token ?? null;
-    if (token) void purchase(plan, { accessToken: token });
+    if (token) void purchase(plan, { accessToken: token, coupon, upgrade });
   };
+
+  const buy = () => void purchase(plan, { coupon, upgrade });
 
   let body: React.ReactNode;
 
@@ -157,13 +174,15 @@ export function PurchasePanel({ plan, returnStatus }: { plan: ClubPlan; returnSt
         </p>
       </div>
     );
+  } else if (isBlocked) {
+    body = <BlockedNotice compact />;
   } else if (paymentReturned) {
     body = null;
   } else {
     const loadingPurchase = state.status === 'loading';
     body = (
       <div className="space-y-6">
-        {hasAccess && <ActiveNotice accessUntil={accessUntil} isAdmin={isAdmin} />}
+        {hasAccess && <ActiveNotice accessUntil={accessUntil} isAdmin={isAdmin} upgrade={upgrade} />}
         {justJoined && !hasAccess && (
           <p role="status" className="flex items-center gap-2.5 text-sm font-semibold text-success">
             <CircleCheck className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
@@ -172,7 +191,9 @@ export function PurchasePanel({ plan, returnStatus }: { plan: ClubPlan; returnSt
         )}
 
         <div>
-          <p className={EYEBROW}>{hasAccess ? 'Renovar ou trocar de plano' : justJoined ? 'Passo 2 de 2' : 'Pagamento'}</p>
+          <p className={EYEBROW}>
+            {upgrade ? 'Upgrade para o Clube' : hasAccess ? 'Renovar ou trocar de plano' : justJoined ? 'Passo 2 de 2' : 'Pagamento'}
+          </p>
           <p className="mt-3 text-sm leading-relaxed text-parchment">
             {online
               ? 'Você segue para o ambiente do Mercado Pago para pagar com Pix ou cartão. O acesso é liberado automaticamente na sua conta.'
@@ -180,30 +201,45 @@ export function PurchasePanel({ plan, returnStatus }: { plan: ClubPlan; returnSt
           </p>
         </div>
 
+        {plan.priceCents !== null && (
+          <CouponField plan={plan} quote={quote} onQuote={setQuote} disabled={loadingPurchase || state.status === 'whatsapp'} />
+        )}
+
+        <div className="flex items-baseline justify-between gap-4 rounded-2xl border border-line bg-obsidian/40 px-4 py-3">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-smoke">Total</span>
+          <span className="text-right">
+            {quote && (
+              <span className="mr-2 text-sm tabular-nums text-smoke line-through">{formatBRL(quote.originalCents)}</span>
+            )}
+            <span className="text-xl font-extrabold tabular-nums tracking-[-0.02em] text-ivory">{formatBRL(payable)}</span>
+            <span className="ml-1.5 text-xs text-mist">{plan.cadence}</span>
+          </span>
+        </div>
+
         {state.status === 'whatsapp' ? (
           <PurchaseFeedback state={state} plan={plan} />
         ) : (
           <>
             <Button
-              variant={hasAccess ? 'outline' : 'gold'}
+              variant={hasAccess && !upgrade ? 'outline' : 'gold'}
               size="lg"
               className="w-full whitespace-normal"
               loading={loadingPurchase}
-              onClick={() => void purchase(plan)}
+              onClick={buy}
             >
               {online ? (
                 <>
-                  Continuar para pagamento
+                  {upgrade ? 'Confirmar upgrade' : 'Continuar para pagamento'}
                   {!loadingPurchase && <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
                 </>
               ) : (
                 <>
                   {!loadingPurchase && <WhatsAppIcon className="h-4 w-4" />}
-                  Finalizar pelo WhatsApp
+                  {upgrade ? 'Pedir upgrade pelo WhatsApp' : 'Finalizar pelo WhatsApp'}
                 </>
               )}
             </Button>
-            <PurchaseFeedback state={state} plan={plan} onRetry={() => void purchase(plan)} />
+            <PurchaseFeedback state={state} plan={plan} onRetry={buy} />
           </>
         )}
 
@@ -217,9 +253,9 @@ export function PurchasePanel({ plan, returnStatus }: { plan: ClubPlan; returnSt
   }
 
   return (
-    <div className="panel p-6 sm:p-8">
+    <div className="panel rounded-3xl p-6 sm:p-8">
       <div className="space-y-6">
-        {digital && returnStatus && user && <ReturnNotice status={returnStatus} hasAccess={hasAccess} />}
+        {digital && returnStatus && user && !isBlocked && <ReturnNotice status={returnStatus} hasAccess={hasAccess} />}
         {body}
       </div>
 

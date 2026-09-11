@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { cn, formatPhoneBR } from '@/lib/format';
+import { postLoginPath, resolvePostLoginPath, safeNextPath } from '@/lib/auth-redirect';
 import { Button } from '@/components/ui/Button';
 import { useSession } from '@/providers/SessionProvider';
 
@@ -90,7 +91,7 @@ function NoticeLine({ notice }: { notice: Notice | null }) {
       {notice && (
         <p
           className={cn(
-            'flex items-start gap-2.5 border px-3.5 py-3 text-sm leading-snug',
+            'flex items-start gap-2.5 rounded-2xl border px-4 py-3 text-sm leading-snug',
             notice.tone === 'error'
               ? 'border-danger/35 bg-danger/[0.06] text-danger'
               : 'border-success/35 bg-success/[0.06] text-success',
@@ -131,7 +132,7 @@ function TextField({ id, label, value, onValue, invalid, inputRef, autoFocusTarg
         onChange={(e) => onValue(e.target.value)}
         aria-invalid={invalid || undefined}
         data-autofocus={autoFocusTarget ? '' : undefined}
-        className={cn('field', invalid && 'border-danger/60', className)}
+        className={cn('field rounded-2xl', invalid && 'border-danger/60', className)}
         {...rest}
       />
     </div>
@@ -188,14 +189,14 @@ function PasswordField({
           aria-invalid={invalid || undefined}
           aria-describedby={meter ? `${id}-hint` : undefined}
           data-autofocus={autoFocusTarget ? '' : undefined}
-          className={cn('field pr-12', invalid && 'border-danger/60')}
+          className={cn('field rounded-2xl pr-12', invalid && 'border-danger/60')}
         />
         <button
           type="button"
           onClick={onToggle}
           aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}
           aria-pressed={visible}
-          className="absolute inset-y-0 right-0 grid w-12 place-items-center text-smoke transition-colors hover:text-gold-light"
+          className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-2xl text-smoke transition-colors hover:text-gold-light"
         >
           {visible ? <EyeOff className="h-4 w-4" strokeWidth={1.5} /> : <Eye className="h-4 w-4" strokeWidth={1.5} />}
         </button>
@@ -206,7 +207,7 @@ function PasswordField({
             {Array.from({ length: MIN_PASSWORD_LENGTH }, (_, i) => (
               <span
                 key={i}
-                className={cn('h-[3px] transition-colors duration-300', i < value.length ? 'bg-gold' : 'bg-line')}
+                className={cn('h-[3px] rounded-full transition-colors duration-300', i < value.length ? 'bg-gold' : 'bg-line')}
               />
             ))}
           </span>
@@ -235,7 +236,7 @@ function TermsCheckbox({
   const linkClass = 'text-gold-light underline decoration-gold/40 underline-offset-4 transition-colors hover:decoration-gold';
   return (
     <div className="flex items-start gap-3">
-      <span className="relative mt-[3px] grid h-4 w-4 shrink-0 place-items-center">
+      <span className="relative mt-[2px] grid h-[18px] w-[18px] shrink-0 place-items-center">
         <input
           ref={inputRef}
           id={id}
@@ -244,7 +245,7 @@ function TermsCheckbox({
           onChange={(e) => onChange(e.target.checked)}
           aria-invalid={invalid || undefined}
           className={cn(
-            'peer absolute inset-0 m-0 cursor-pointer appearance-none border bg-transparent transition-colors checked:border-gold checked:bg-gold',
+            'peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-full border bg-transparent transition-colors checked:border-gold checked:bg-gold',
             invalid ? 'border-danger/70' : 'border-line-gold',
           )}
         />
@@ -314,7 +315,13 @@ function SentPanel({
 // ---------------------------------------------------------------------------
 interface AuthFormProps {
   initialMode?: AuthMode;
-  onSuccess?: () => void;
+  /** Caminho interno preferido depois de entrar (ex.: a página em que o usuário estava). */
+  next?: string | null;
+  /**
+   * Chamado após entrar (ou criar conta com sessão) com o destino calculado por postLoginPath.
+   * Sem este callback o formulário navega sozinho para o destino.
+   */
+  onSuccess?: (destination: string) => void;
   /** Avisa o contêiner (ex.: modal) quando o modo muda, para ajustar títulos. */
   onModeChange?: (mode: AuthMode) => void;
   /** Esconde as abas e o "voltar" — usado quando só um modo faz sentido. */
@@ -326,6 +333,7 @@ interface AuthFormProps {
 
 export function AuthForm({
   initialMode = 'login',
+  next = null,
   onSuccess,
   onModeChange,
   lockMode = false,
@@ -333,6 +341,7 @@ export function AuthForm({
   className,
 }: AuthFormProps) {
   const uid = useId();
+  const router = useRouter();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -408,12 +417,19 @@ export function AuthForm({
     setLoading(true);
     const cleanEmail = email.trim().toLowerCase();
 
+    // Quem já pagou cai na consultoria; sem plano, na aba "Meu plano"; admin, no painel.
+    const finish = async () => {
+      const destination = await resolvePostLoginPath(next);
+      if (onSuccess) onSuccess(destination);
+      else router.push(destination);
+    };
+
     try {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
         if (error) throw error;
-        setNotice({ tone: 'success', text: 'Acesso confirmado.' });
-        onSuccess?.();
+        setNotice({ tone: 'success', text: 'Acesso confirmado. Levando você ao seu lugar…' });
+        await finish();
       } else if (mode === 'register') {
         const digits = phone.replace(/\D/g, '');
         const { data, error } = await supabase.auth.signUp({
@@ -436,7 +452,7 @@ export function AuthForm({
           setPassword('');
           setSentTo({ kind: 'confirm', email: cleanEmail });
         } else {
-          onSuccess?.();
+          await finish();
         }
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
@@ -463,8 +479,13 @@ export function AuthForm({
           role="tablist"
           aria-label="Acesso à conta"
           onKeyDown={onTabKeyDown}
-          className="relative grid grid-cols-2 border-b border-line"
+          className="relative grid grid-cols-2 rounded-full border border-line bg-surface-2/60 p-1"
         >
+          <span
+            aria-hidden
+            className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-gold/[0.12] ring-1 ring-gold/40 transition-transform duration-700 ease-[var(--ease-couture)]"
+            style={{ transform: `translateX(${mode === 'register' ? '100%' : '0%'})` }}
+          />
           {TABS.map((tab) => {
             const active = mode === tab.mode;
             return (
@@ -478,24 +499,19 @@ export function AuthForm({
                 tabIndex={active ? 0 : -1}
                 onClick={() => !active && switchMode(tab.mode)}
                 className={cn(
-                  'pb-3.5 pt-1 text-[12px] font-semibold uppercase tracking-[0.16em] transition-colors duration-500',
-                  active ? 'text-ivory' : 'text-smoke hover:text-mist',
+                  'relative rounded-full py-2.5 text-[12px] font-semibold uppercase tracking-[0.16em] transition-colors duration-500',
+                  active ? 'text-gold-light' : 'text-smoke hover:text-mist',
                 )}
               >
                 {tab.label}
               </button>
             );
           })}
-          <span
-            aria-hidden
-            className="absolute -bottom-px left-0 h-px w-1/2 bg-gold transition-transform duration-700 ease-[var(--ease-couture)]"
-            style={{ transform: `translateX(${mode === 'register' ? '100%' : '0%'})` }}
-          />
         </div>
       )}
 
       {!lockMode && mode === 'forgot' && (
-        <div className="flex items-center justify-between gap-4 border-b border-line pb-3">
+        <div className="flex items-center justify-between gap-4 rounded-full border border-line px-4 py-2">
           <button
             type="button"
             onClick={() => switchMode('login')}
@@ -637,25 +653,19 @@ export function AuthForm({
 // ---------------------------------------------------------------------------
 // /login — lê ?next= e ?modo= (envolver em <Suspense>)
 // ---------------------------------------------------------------------------
-function safeNextPath(value: string | null): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return '/dashboard';
-  if (value === '/login' || value.startsWith('/login?') || value.startsWith('/login/')) return '/dashboard';
-  return value;
-}
-
 export function LoginRedirectForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const { user, loading } = useSession();
-  const target = safeNextPath(params.get('next'));
+  const { user, profile, loading } = useSession();
+  const next = safeNextPath(params.get('next'));
   const initialMode: AuthMode = params.get('modo') === 'cadastro' ? 'register' : 'login';
 
-  // Quem já está conectado segue direto para o destino.
+  // Quem já está conectado segue direto para o seu lugar (espera o perfil para decidir).
   useEffect(() => {
-    if (!loading && user) router.replace(target);
-  }, [loading, user, router, target]);
+    if (!loading && user && profile) router.replace(postLoginPath(profile, next));
+  }, [loading, user, profile, router, next]);
 
-  return <AuthForm initialMode={initialMode} onSuccess={() => router.replace(target)} />;
+  return <AuthForm initialMode={initialMode} next={next} onSuccess={(destination) => router.replace(destination)} />;
 }
 
 // ---------------------------------------------------------------------------

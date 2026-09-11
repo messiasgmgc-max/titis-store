@@ -68,7 +68,7 @@ function FabricCell({ name, hex, caption }: { name: string; hex: string; caption
         {name}
       </span>
       {caption && (
-        <span className="absolute bottom-0 left-0 bg-obsidian/80 px-2.5 py-1.5 text-[0.55rem] uppercase tracking-[0.2em] text-parchment">
+        <span className="absolute bottom-2 left-2 rounded-full bg-obsidian/80 px-2.5 py-1 text-[0.55rem] uppercase tracking-[0.2em] text-parchment backdrop-blur-sm">
           {caption}
         </span>
       )}
@@ -92,7 +92,7 @@ function ProductCell({ entry }: { entry: ProductEntry }) {
         onError={() => setFailed(true)}
         className="img-editorial h-full w-full object-cover transition-transform duration-[1400ms] ease-[var(--ease-couture)] group-hover/cell:scale-105"
       />
-      <span className="absolute bottom-0 left-0 bg-obsidian/80 px-2.5 py-1.5 text-[0.55rem] uppercase tracking-[0.2em] text-parchment">
+      <span className="absolute bottom-2 left-2 rounded-full bg-obsidian/80 px-2.5 py-1 text-[0.55rem] uppercase tracking-[0.2em] text-parchment backdrop-blur-sm">
         {SLOT_LABELS[piece.slot]}
       </span>
     </div>
@@ -213,10 +213,10 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
   };
 
   return (
-    <article className="flex h-full flex-col border border-line bg-surface transition-colors duration-500 hover:border-line-gold">
+    <article className="flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface transition-[border-color,box-shadow] duration-500 hover:border-line-gold hover:shadow-[0_30px_60px_-40px_rgb(212_175_55/0.35)]">
       <div className="relative aspect-[4/3] w-full overflow-hidden border-b border-line">
         {productEntries.length > 0 ? <FlatLay entries={entries} /> : <FabricBoard pieces={look.pieces} />}
-        <span className="absolute left-0 top-0 z-[2] bg-obsidian/85 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
+        <span className="absolute left-3 top-3 z-[2] rounded-full border border-gold/30 bg-obsidian/85 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-gold backdrop-blur-sm">
           Look {numeral}
         </span>
       </div>
@@ -263,7 +263,7 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
                 </span>
                 {product && (
                   <span className="flex shrink-0 items-center gap-1 self-center">
-                    <span className="border border-line-gold px-1.5 py-0.5 text-[0.52rem] uppercase tracking-[0.18em] text-gold">
+                    <span className="rounded-full border border-line-gold px-2 py-0.5 text-[0.52rem] uppercase tracking-[0.18em] text-gold">
                       No acervo
                     </span>
                     <ChevronRight
@@ -281,7 +281,7 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
                   <button
                     type="button"
                     onClick={() => openOverlay({ type: 'product', product })}
-                    className="group -mx-2 flex w-[calc(100%+1rem)] items-start gap-3 px-2 py-3 text-left transition-colors duration-500 hover:bg-gold/[0.04]"
+                    className="group -mx-2 flex w-[calc(100%+1rem)] items-start gap-3 rounded-xl px-2 py-3 text-left transition-colors duration-500 hover:bg-gold/[0.04]"
                   >
                     {body}
                   </button>
@@ -308,7 +308,7 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
         )}
 
         <div className="mt-auto pt-7">
-          <div className="border border-line-gold bg-gold/[0.04] p-4">
+          <div className="rounded-2xl border border-line-gold bg-gold/[0.04] p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
               {inStore ? 'Disponível na loja' : 'Look sob consulta'}
             </p>

@@ -23,7 +23,7 @@ export function Toaster() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-              className="pointer-events-auto flex max-w-md items-center gap-3 border border-line-gold bg-surface/95 px-4 py-3 text-sm text-ivory shadow-2xl backdrop-blur-md"
+              className="pointer-events-auto flex max-w-md items-center gap-3 rounded-full border border-line-gold bg-surface/95 py-3 pl-4 pr-3 text-sm text-ivory shadow-2xl backdrop-blur-md"
               role={t.tone === 'error' ? 'alert' : 'status'}
             >
               <Icon
@@ -31,7 +31,12 @@ export function Toaster() {
                 strokeWidth={1.75}
               />
               <span className="leading-snug">{t.message}</span>
-              <button type="button" onClick={() => dismissToast(t.id)} className="ml-1 text-smoke hover:text-ivory" aria-label="Dispensar aviso">
+              <button
+                type="button"
+                onClick={() => dismissToast(t.id)}
+                className="ml-1 grid h-7 w-7 shrink-0 place-items-center rounded-full text-smoke transition-colors hover:bg-ivory/[0.06] hover:text-ivory"
+                aria-label="Dispensar aviso"
+              >
                 <X className="h-3.5 w-3.5" />
               </button>
             </motion.div>

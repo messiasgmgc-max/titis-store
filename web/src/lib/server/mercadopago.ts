@@ -94,6 +94,10 @@ export interface CreatePreferenceInput {
   origin: string;
   /** id da linha em public.payments — vira external_reference. */
   externalReference: string;
+  /** Valor cobrado em centavos já com desconto; padrão = preço do plano. */
+  amountCents?: number;
+  /** Cupom aplicado (vai nos metadados, só para conferência no painel do MP). */
+  couponCode?: string | null;
 }
 
 export interface PreferenceResult {
@@ -102,8 +106,16 @@ export interface PreferenceResult {
 }
 
 /** Cria a preferência do Checkout Pro e devolve a URL de pagamento (sandbox com token TEST-). */
-export async function createPreference({ plan, user, origin, externalReference }: CreatePreferenceInput): Promise<PreferenceResult> {
-  if (plan.priceCents === null || plan.priceCents <= 0) {
+export async function createPreference({
+  plan,
+  user,
+  origin,
+  externalReference,
+  amountCents,
+  couponCode,
+}: CreatePreferenceInput): Promise<PreferenceResult> {
+  const cents = amountCents ?? plan.priceCents;
+  if (cents === null || cents <= 0) {
     throw new MercadoPagoError('Plano sem valor para checkout.', 400);
   }
   const base = origin.replace(/\/+$/, '');
@@ -118,13 +130,13 @@ export async function createPreference({ plan, user, origin, externalReference }
         id: plan.id,
         title: `Titi's Store · ${plan.name}`,
         quantity: 1,
-        unit_price: plan.priceCents / 100,
+        unit_price: cents / 100,
         currency_id: 'BRL',
       },
     ],
     ...(user.email ? { payer: { email: user.email } } : {}),
     external_reference: externalReference,
-    metadata: { user_id: user.id, plan: plan.id },
+    metadata: { user_id: user.id, plan: plan.id, ...(couponCode ? { coupon_code: couponCode } : {}) },
     back_urls: { success: back('approved'), pending: back('pending'), failure: back('failure') },
     ...(secure ? { auto_return: 'approved', notification_url: `${base}/api/webhooks/mercadopago` } : {}),
     statement_descriptor: 'TITIS STORE',

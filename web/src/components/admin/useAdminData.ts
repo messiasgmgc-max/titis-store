@@ -1,13 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import type { SettingRow } from '@/lib/settings';
 import type { OrderRow, Product } from '@/lib/types';
 import {
   describeError,
+  fetchAdminCoupons,
   fetchAdminOrders,
   fetchAdminPayments,
   fetchAdminProducts,
   fetchAdminProfiles,
+  fetchAdminSettings,
+  type AdminCoupon,
   type AdminPayment,
   type ClientProfile,
 } from './admin-utils';
@@ -92,4 +96,12 @@ export function useAdminClients(): Resource<ClientProfile> {
 
 export function useAdminPayments(): Resource<AdminPayment> {
   return useResource(fetchAdminPayments, 'Não foi possível carregar os pagamentos.');
+}
+
+export function useAdminCoupons(): Resource<AdminCoupon> {
+  return useResource(fetchAdminCoupons, 'Não foi possível carregar os cupons.');
+}
+
+export function useAdminSettings(): Resource<SettingRow> {
+  return useResource(fetchAdminSettings, 'Não foi possível carregar as configurações.');
 }

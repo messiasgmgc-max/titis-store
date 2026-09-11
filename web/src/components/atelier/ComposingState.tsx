@@ -31,7 +31,7 @@ export function ComposingState({ seasonName }: { seasonName?: string }) {
   const loop = { duration: CYCLE, ease: 'easeInOut' as const, repeat: Infinity, repeatDelay: 0.35 };
 
   return (
-    <div className="panel relative overflow-hidden px-6 py-14 sm:px-12 sm:py-20" role="status" aria-live="polite">
+    <div className="panel relative overflow-hidden rounded-[var(--radius-panel)] px-6 py-14 sm:px-12 sm:py-20" role="status" aria-live="polite">
       <span className="sr-only">Compondo seus looks. Aguarde alguns instantes.</span>
       <div className="glow-gold pointer-events-none absolute left-1/2 top-1/3 h-72 w-[36rem] max-w-full -translate-x-1/2" aria-hidden />
 
@@ -67,10 +67,10 @@ export function ComposingState({ seasonName }: { seasonName?: string }) {
           </defs>
 
           {/* Duas partes do tecido prestes a serem unidas */}
-          <rect x="20" y="22" width="600" height="56" className="fill-surface-2" />
-          <rect x="20" y="22" width="600" height="56" fill={`url(#${id}-weave)`} />
-          <rect x="20" y="82" width="600" height="56" className="fill-surface-2" />
-          <rect x="20" y="82" width="600" height="56" fill={`url(#${id}-weave)`} />
+          <rect x="20" y="22" width="600" height="56" rx="8" className="fill-surface-2" />
+          <rect x="20" y="22" width="600" height="56" rx="8" fill={`url(#${id}-weave)`} />
+          <rect x="20" y="82" width="600" height="56" rx="8" className="fill-surface-2" />
+          <rect x="20" y="82" width="600" height="56" rx="8" fill={`url(#${id}-weave)`} />
           <line x1="20" x2="620" y1="80" y2="80" className="stroke-obsidian" strokeWidth="4" />
 
           {/* Linha-guia de giz e o pesponto já costurado */}
@@ -107,7 +107,7 @@ export function ComposingState({ seasonName }: { seasonName?: string }) {
           </motion.g>
         </svg>
 
-        <div className="tape mt-2 w-full max-w-xl opacity-50" aria-hidden />
+        <div className="tape mt-2 w-full max-w-xl rounded-full opacity-50" aria-hidden />
 
         <div className="mt-10 min-h-[2.75rem] sm:min-h-[3rem]" aria-hidden>
           <AnimatePresence mode="wait" initial={false}>

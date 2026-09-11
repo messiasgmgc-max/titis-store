@@ -13,6 +13,8 @@ export interface ConsultingProfile {
   role: Role;
   plan: PlanId | null;
   access_until: string | null;
+  /** Bloqueio manual pelo admin (derruba o acesso mesmo com plano vigente). */
+  is_blocked: boolean;
 }
 
 export interface ConsultingContext {
@@ -34,12 +36,13 @@ function toProfile(row: unknown): ConsultingProfile | null {
     role: typeof r.role === 'string' && ROLES.has(r.role) ? (r.role as Role) : 'client',
     plan: typeof r.plan === 'string' && PLANS.has(r.plan) ? (r.plan as PlanId) : null,
     access_until: typeof r.access_until === 'string' && r.access_until ? r.access_until : null,
+    is_blocked: r.is_blocked === true,
   };
 }
 
 /**
- * Exige sessão válida e acesso ativo à consultoria (admin; ou VIP dentro do prazo).
- * Devolve o contexto ou uma Response 401 (sem sessão), 402 (sem plano) ou 502 (falha ao verificar).
+ * Exige sessão válida e acesso ativo à consultoria (admin; ou VIP não bloqueado dentro do prazo).
+ * Devolve o contexto ou uma Response 401 (sem sessão), 402 (sem plano ou bloqueado) ou 502 (falha ao verificar).
  */
 export async function requireConsultingAccess(req: Request): Promise<ConsultingContext | Response> {
   const token = bearerToken(req);
@@ -50,11 +53,20 @@ export async function requireConsultingAccess(req: Request): Promise<ConsultingC
     const { data, error } = await client.auth.getUser(token);
     if (error || !data.user) return jsonError(401, 'unauthorized', UNAUTHORIZED);
 
-    const { data: row, error: profileError } = await client
+    let { data: row, error: profileError } = await client
       .from('profiles')
-      .select('role, plan, access_until')
+      .select('role, plan, access_until, is_blocked')
       .eq('id', data.user.id)
       .maybeSingle();
+
+    // Banco ainda sem a coluna is_blocked (schema.sql desta versão não executado): lê sem ela.
+    if (profileError && profileError.code === '42703') {
+      ({ data: row, error: profileError } = await client
+        .from('profiles')
+        .select('role, plan, access_until')
+        .eq('id', data.user.id)
+        .maybeSingle());
+    }
 
     if (profileError) {
       const hint = profileError.code === '42703' ? ' (rode supabase/schema.sql: colunas plan/access_until ausentes)' : '';

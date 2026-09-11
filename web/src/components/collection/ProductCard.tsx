@@ -103,7 +103,7 @@ export function FabricSample({ hex, label, className }: { hex: string | null; la
       />
       <span
         aria-hidden
-        className="pinked relative block h-[58%] w-[56%]"
+        className="pinked relative block h-[58%] w-[56%] rounded-t-[6px]"
         style={{ backgroundColor: hex ?? 'var(--color-surface)' }}
       >
         <span className="absolute inset-0 opacity-[0.14] mix-blend-overlay" style={{ backgroundImage: WEAVE }} />
@@ -131,8 +131,8 @@ export function HangTag({ label, className }: { label: string; className?: strin
     >
       <span className="h-1.5 w-1.5 rounded-full bg-gold-dark" />
       <span className="relative z-[1] -mt-0.5 h-6 w-px bg-linear-to-b from-gold-dark via-gold to-gold-light" />
-      <span className="relative -mt-2 bg-parchment px-2.5 pb-1.5 pt-4 [clip-path:polygon(22%_0,78%_0,100%_16%,100%_100%,0_100%,0_16%)]">
-        <span className="absolute left-1/2 top-[5px] h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-obsidian/85" />
+      <span className="relative -mt-2 rounded-[7px_7px_10px_10px] bg-parchment px-2.5 pb-1.5 pt-4 shadow-[inset_0_0_0_1px_rgb(11_12_16/0.08)]">
+        <span className="absolute left-1/2 top-[5px] h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-obsidian/85 ring-1 ring-obsidian/15" />
         <span className="block max-w-[7.5rem] truncate text-[10px] font-bold uppercase tracking-[0.14em] text-obsidian">
           {label}
         </span>
@@ -195,13 +195,13 @@ export function ProductCard({ product, index, lead = false, className }: Product
     <article
       className={cn(
         'group relative flex h-full flex-col',
-        'has-[.card-link:focus-visible]:outline has-[.card-link:focus-visible]:outline-offset-8 has-[.card-link:focus-visible]:outline-gold',
+        'rounded-2xl has-[.card-link:focus-visible]:outline has-[.card-link:focus-visible]:outline-offset-8 has-[.card-link:focus-visible]:outline-gold',
         className,
       )}
     >
       <div
         className={cn(
-          'relative overflow-hidden bg-surface',
+          'relative overflow-hidden rounded-2xl bg-surface',
           lead ? 'aspect-[4/5] md:aspect-auto md:min-h-[26rem] md:flex-1' : 'aspect-[4/5]',
         )}
       >
@@ -248,7 +248,7 @@ export function ProductCard({ product, index, lead = false, className }: Product
         />
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-3 border border-gold-light/0 transition-colors duration-700 ease-[var(--ease-couture)] group-hover:border-gold-light/35 sm:inset-4"
+          className="pointer-events-none absolute inset-3 rounded-[10px] border border-gold-light/0 transition-colors duration-700 ease-[var(--ease-couture)] group-hover:border-gold-light/35 sm:inset-4"
         />
 
         <HangTag label={product.category} className="absolute left-3 top-0 z-[2] sm:left-5" />

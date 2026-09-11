@@ -74,7 +74,7 @@ export function PaymentsBoard({ resource, clients }: { resource: Resource<AdminP
       if (!q) return true;
       const client = clientById.get(p.user_id);
       const haystack = normalizeSearch(
-        `${client?.full_name ?? ''} ${client?.email ?? ''} ${getPlan(p.plan)?.name ?? p.plan} ${p.provider_payment_id ?? ''}`,
+        `${client?.full_name ?? ''} ${client?.email ?? ''} ${getPlan(p.plan)?.name ?? p.plan} ${p.provider_payment_id ?? ''} ${p.coupon_code ?? ''}`,
       );
       return haystack.includes(q) || p.id.toLowerCase().startsWith(q);
     });
@@ -115,7 +115,7 @@ export function PaymentsBoard({ resource, clients }: { resource: Resource<AdminP
   } else {
     body = (
       <>
-        <div className="overflow-x-auto rounded-2xl border border-line bg-surface/40">
+        <div className="overflow-x-auto rounded-3xl border border-line bg-surface/40">
           <table className="w-full min-w-[52rem] border-collapse text-left">
             <caption className="sr-only">Pagamentos de planos</caption>
             <thead>
@@ -160,6 +160,16 @@ export function PaymentsBoard({ resource, clients }: { resource: Resource<AdminP
                     <td className="whitespace-nowrap px-3 py-3 text-sm text-parchment">{getPlan(p.plan)?.name ?? p.plan}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-semibold tabular-nums text-ivory">
                       {formatBRL(p.amount_cents)}
+                      {(p.discount_cents > 0 || p.coupon_code) && (
+                        <p className="mt-0.5 text-xs font-normal text-smoke">
+                          {p.discount_cents > 0 && `−${formatBRL(p.discount_cents)}`}
+                          {p.coupon_code && (
+                            <span className="ml-1.5 rounded-full border border-line-gold px-1.5 py-0.5 text-[0.56rem] tracking-[0.14em] text-gold-light">
+                              {p.coupon_code}
+                            </span>
+                          )}
+                        </p>
+                      )}
                     </td>
                     <td className="px-3 py-3">
                       <p className="text-sm text-parchment">{PAYMENT_PROVIDERS[p.provider]}</p>

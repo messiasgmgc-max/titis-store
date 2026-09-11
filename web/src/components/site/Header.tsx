@@ -4,21 +4,12 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'framer-motion';
-import {
-  ArrowRight,
-  ArrowUpRight,
-  LayoutDashboard,
-  LogOut,
-  Palette,
-  ShieldCheck,
-  ShoppingBag,
-  User,
-  X,
-} from 'lucide-react';
+import { ArrowRight, ArrowUpRight, LogOut, ShoppingBag, Sparkles, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Medallion, Wordmark } from '@/components/ui/Logo';
 import { WhatsAppIcon } from '@/components/ui/icons';
 import { DEFAULT_PLAN_HREF, DOUBT_TEXT } from '@/components/home/links';
+import { PLAN_TAB_PATH } from '@/lib/auth-redirect';
 import { cn, whatsappLink } from '@/lib/format';
 import { CONSULTING_PATH, NAV_LINKS, SITE } from '@/lib/site';
 import { useCart } from '@/providers/CartProvider';
@@ -33,10 +24,7 @@ const PRIVATE_AREAS = ['/dashboard', '/admin', CONSULTING_PATH];
 const MOBILE_CTA_PAGES = ['/', '/colecao'];
 
 const ICON_BUTTON =
-  'relative grid h-11 w-11 place-items-center text-parchment transition-colors duration-300 hover:text-gold-light';
-
-const MENU_ITEM =
-  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[0.92rem] font-semibold text-parchment transition-colors duration-300 hover:bg-gold/[0.07] hover:text-gold-light focus-visible:bg-gold/[0.07] focus-visible:text-gold-light';
+  'relative grid h-11 w-11 place-items-center rounded-full text-parchment transition-colors duration-300 hover:text-gold-light';
 
 function sectionOf(href: string): string {
   return href.split('#')[1] ?? '';
@@ -103,10 +91,29 @@ function useCtaBlocked(enabled: boolean): boolean {
   return enabled && blocked;
 }
 
+/** Faixa fina na home para quem já tem acesso: atalho direto para a consultoria. */
+function AccessStrip() {
+  return (
+    <div className="border-t border-line-gold/60 bg-gold/[0.06]">
+      <div className="container-luxe flex h-10 items-center justify-center gap-x-3 text-[0.78rem] font-semibold tracking-[-0.005em] text-parchment">
+        <Sparkles className="hidden h-3.5 w-3.5 text-gold sm:block" strokeWidth={1.75} aria-hidden />
+        <span className="truncate">Você já tem acesso</span>
+        <span aria-hidden className="text-gold/60">
+          ·
+        </span>
+        <Link href={CONSULTING_PATH} className="inline-flex shrink-0 items-center gap-1.5 text-gold-light transition-colors hover:text-ivory">
+          Abrir minha consultoria
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, loading, isAdmin, isVip, hasAccess, signOut } = useSession();
+  const { user, profile, loading, isAdmin, hasAccess, signOut } = useSession();
   const { count, lastAddedAt } = useCart();
   const { openOverlay, toast } = useUI();
 
@@ -114,17 +121,11 @@ export function Header() {
   const [pastTop, setPastTop] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
 
-  const accountRef = useRef<HTMLDivElement>(null);
-  const accountButtonRef = useRef<HTMLButtonElement>(null);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
   const scrollAnchor = useRef(0);
   const scrollDirection = useRef<1 | -1>(1);
 
   const menuId = useId();
-  const accountMenuId = useId();
-  const accountLabelId = useId();
 
   const activeSection = useActiveSection(pathname === '/');
   const mobileCtaEnabled = !loading && !hasAccess && MOBILE_CTA_PAGES.includes(pathname);
@@ -165,62 +166,30 @@ export function Header() {
     };
   }, [menuOpen]);
 
-  // Menu da conta: foco no primeiro item, fecha ao clicar fora ou com ESC.
-  useEffect(() => {
-    if (!accountOpen) return;
-    const frame = window.requestAnimationFrame(() => {
-      accountMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-    });
-    const onPointerDown = (event: PointerEvent) => {
-      if (!accountRef.current?.contains(event.target as Node)) setAccountOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setAccountOpen(false);
-        accountButtonRef.current?.focus();
-      }
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [accountOpen]);
-
   const displayName = profile?.full_name?.trim() || user?.email?.split('@')[0] || 'Sua conta';
-  const roleLabel = isAdmin ? 'Administração' : isVip ? "Membro do Clube Titi's Store" : hasAccess ? 'Consultoria ativa' : 'Cliente';
   const bagLabel = count > 0 ? `Abrir sacola, ${count} ${count === 1 ? 'item' : 'itens'}` : 'Abrir sacola, vazia';
   const solid = scrolled || menuOpen;
-  const concealed = hidden && !menuOpen && !accountOpen;
+  const concealed = hidden && !menuOpen;
+  // Quem já pagou cai direto na consultoria; sem plano, na conta (aba "Meu plano").
+  const accountHref = hasAccess ? CONSULTING_PATH : '/dashboard';
+  const accountLabel = hasAccess ? 'Minha consultoria' : 'Minha conta';
   const cta = hasAccess
     ? { href: CONSULTING_PATH, label: 'Minha consultoria' }
     : { href: DEFAULT_PLAN_HREF, label: 'Começar consultoria' };
   const showMobileCta = mobileCtaEnabled && pastTop && !ctaBlocked && !menuOpen;
+  const showAccessStrip = pathname === '/' && !loading && hasAccess;
 
-  function handleAccountClick() {
-    if (user) {
-      setAccountOpen((open) => !open);
-      return;
-    }
-    if (loading) return;
-    openOverlay({ type: 'auth' });
-  }
-
-  function openAuth(mode: 'login' | 'register') {
+  function openAuth(mode: 'login' | 'register' = 'login') {
     setMenuOpen(false);
     openOverlay({ type: 'auth', mode });
   }
 
   function openBag() {
     setMenuOpen(false);
-    setAccountOpen(false);
     openOverlay({ type: 'bag' });
   }
 
   async function handleSignOut() {
-    setAccountOpen(false);
     setMenuOpen(false);
     try {
       await signOut();
@@ -228,22 +197,6 @@ export function Header() {
       if (PRIVATE_AREAS.some((area) => pathname.startsWith(area))) router.push('/');
     } catch {
       toast('Não foi possível encerrar a sessão. Tente novamente.', 'error');
-    }
-  }
-
-  function handleMenuKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]'));
-    if (items.length === 0) return;
-    const index = items.indexOf(document.activeElement as HTMLElement);
-    let next: number | null = null;
-    if (event.key === 'ArrowDown') next = index < 0 ? 0 : (index + 1) % items.length;
-    else if (event.key === 'ArrowUp') next = index < 0 ? items.length - 1 : (index - 1 + items.length) % items.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = items.length - 1;
-    else if (event.key === 'Tab') setAccountOpen(false);
-    if (next !== null) {
-      event.preventDefault();
-      items[next]?.focus();
     }
   }
 
@@ -297,82 +250,46 @@ export function Header() {
           </nav>
 
           <div className="ml-auto flex items-center gap-0.5 sm:gap-1 lg:ml-0 lg:justify-self-end">
-            {/* Conta */}
-            <div ref={accountRef} className="relative">
-              <button
-                ref={accountButtonRef}
-                type="button"
-                onClick={handleAccountClick}
-                aria-label={user ? `Conta de ${displayName}` : 'Entrar ou criar conta'}
-                aria-haspopup={user ? 'menu' : 'dialog'}
-                aria-expanded={user ? accountOpen : undefined}
-                aria-controls={user && accountOpen ? accountMenuId : undefined}
-                aria-busy={!user && loading ? true : undefined}
+            {/* Conta: logado vai direto para o seu lugar; visitante abre o modal de acesso */}
+            {user ? (
+              <>
+              <Link
+                href={accountHref}
+                aria-label={`${accountLabel} · ${displayName}`}
+                title={accountLabel}
                 className={ICON_BUTTON}
               >
                 <User className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden />
-                {user && (
-                  <span
-                    aria-hidden
-                    className="absolute bottom-[11px] right-[10px] h-1.5 w-1.5 rounded-full bg-gold shadow-[0_0_0_2px_var(--color-obsidian)]"
-                  />
-                )}
+                <span
+                  aria-hidden
+                  className={cn(
+                    'absolute bottom-[11px] right-[10px] h-1.5 w-1.5 rounded-full shadow-[0_0_0_2px_var(--color-obsidian)]',
+                    hasAccess ? 'bg-success' : 'bg-gold',
+                  )}
+                />
+              </Link>
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                aria-label="Sair da conta"
+                title="Sair"
+                className={cn(ICON_BUTTON, 'hidden lg:grid')}
+              >
+                <LogOut className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden />
               </button>
-
-              <AnimatePresence>
-                {user && accountOpen && (
-                  <motion.div
-                    key="account-menu"
-                    className="absolute right-0 top-full z-10 mt-2 w-72 overflow-hidden rounded-2xl border border-line-gold bg-surface shadow-[0_32px_64px_-24px_rgba(0,0,0,0.85)] lg:mt-3"
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.3, ease: EASE }}
-                  >
-                    <div className="px-5 pb-4 pt-5">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Boas-vindas</p>
-                      <p
-                        id={accountLabelId}
-                        className="mt-2 truncate text-[1.35rem] font-extrabold leading-tight tracking-[-0.02em] text-ivory"
-                      >
-                        {displayName}
-                      </p>
-                      <p className="mt-1 text-xs font-medium text-gold-light/80">{roleLabel}</p>
-                    </div>
-                    <div aria-hidden className="stitch mx-5 opacity-70" />
-                    <div
-                      ref={accountMenuRef}
-                      id={accountMenuId}
-                      role="menu"
-                      aria-labelledby={accountLabelId}
-                      onKeyDown={handleMenuKeyDown}
-                      className="p-2"
-                    >
-                      {hasAccess && (
-                        <Link role="menuitem" href={CONSULTING_PATH} onClick={() => setAccountOpen(false)} className={MENU_ITEM}>
-                          <Palette className="h-4 w-4 text-gold/80" strokeWidth={1.6} aria-hidden />
-                          Minha consultoria
-                        </Link>
-                      )}
-                      <Link role="menuitem" href="/dashboard" onClick={() => setAccountOpen(false)} className={MENU_ITEM}>
-                        <LayoutDashboard className="h-4 w-4 text-gold/80" strokeWidth={1.6} aria-hidden />
-                        Minha conta
-                      </Link>
-                      {isAdmin && (
-                        <Link role="menuitem" href="/admin" onClick={() => setAccountOpen(false)} className={MENU_ITEM}>
-                          <ShieldCheck className="h-4 w-4 text-gold/80" strokeWidth={1.6} aria-hidden />
-                          Administração
-                        </Link>
-                      )}
-                      <button role="menuitem" type="button" onClick={() => void handleSignOut()} className={MENU_ITEM}>
-                        <LogOut className="h-4 w-4 text-gold/80" strokeWidth={1.6} aria-hidden />
-                        Sair
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => !loading && openAuth('login')}
+                aria-label="Entrar ou criar conta"
+                aria-haspopup="dialog"
+                aria-busy={loading || undefined}
+                className={ICON_BUTTON}
+              >
+                <User className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden />
+              </button>
+            )}
 
             {/* Sacola */}
             <button type="button" onClick={openBag} aria-label={bagLabel} className={ICON_BUTTON}>
@@ -416,7 +333,7 @@ export function Header() {
               aria-haspopup="dialog"
               aria-expanded={menuOpen}
               aria-controls={menuOpen ? menuId : undefined}
-              className="-mr-2 ml-1 grid h-11 w-11 place-items-center lg:hidden"
+              className="-mr-2 ml-1 grid h-11 w-11 place-items-center rounded-full lg:hidden"
             >
               <span aria-hidden className="flex w-6 flex-col items-end gap-[7px]">
                 <span className="block h-0.5 w-6 rounded-full bg-ivory" />
@@ -425,6 +342,8 @@ export function Header() {
             </button>
           </div>
         </div>
+
+        {showAccessStrip && <AccessStrip />}
       </motion.header>
 
       {/* Barra fixa de conversão no mobile: some sobre o hero, os planos e o CTA final. */}
@@ -456,6 +375,7 @@ export function Header() {
             activeSection={activeSection}
             signedIn={Boolean(user)}
             isAdmin={isAdmin}
+            hasAccess={hasAccess}
             displayName={displayName}
             count={count}
             cta={cta}
@@ -476,6 +396,7 @@ interface MobileMenuProps {
   activeSection: string | null;
   signedIn: boolean;
   isAdmin: boolean;
+  hasAccess: boolean;
   displayName: string;
   count: number;
   cta: { href: string; label: string };
@@ -494,6 +415,7 @@ function MobileMenu({
   activeSection,
   signedIn,
   isAdmin,
+  hasAccess,
   displayName,
   count,
   cta,
@@ -643,6 +565,9 @@ function MobileMenu({
             <>
               <Button href="/dashboard" variant="ghost" size="sm" onClick={onClose} className={MOBILE_ACTION}>
                 Minha conta
+              </Button>
+              <Button href={PLAN_TAB_PATH} variant="ghost" size="sm" onClick={onClose} className={MOBILE_ACTION}>
+                {hasAccess ? 'Meu plano' : 'Ativar plano'}
               </Button>
               {isAdmin && (
                 <Button href="/admin" variant="ghost" size="sm" onClick={onClose} className={MOBILE_ACTION}>

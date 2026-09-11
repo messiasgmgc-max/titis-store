@@ -68,7 +68,7 @@ export function PaletteTab() {
   if (!diagnosis) {
     return (
       <section aria-label="Minha cartela" className="space-y-10">
-        <TabIntro numeral="I" eyebrow="Minha cartela" title={<>Sua cartela está <span className="text-gold-light">em branco</span></>} />
+        <TabIntro numeral="II" eyebrow="Minha cartela" title={<>Sua cartela está <span className="text-gold-light">em branco</span></>} />
         <StatePanel
           title={
             <>
@@ -117,7 +117,7 @@ export function PaletteTab() {
   return (
     <section aria-label="Minha cartela" className="space-y-10">
       <TabIntro
-        numeral="I"
+        numeral="II"
         eyebrow="Minha cartela"
         title={
           <>

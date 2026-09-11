@@ -171,7 +171,7 @@ function AssistantBubble({ text, footnote }: { text: string; footnote?: string }
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: EASE }}
-      className="max-w-[92%] border-l border-gold/45 bg-surface-2 px-4 py-3 text-[0.9rem] leading-relaxed text-ivory"
+      className="bubble bubble-in max-w-[92%] px-4 py-3 text-[0.9rem] leading-relaxed text-ivory"
     >
       <RichText text={text} />
       {footnote && <p className="mt-3 border-t border-line pt-2.5 text-[0.7rem] leading-snug text-smoke">{footnote}</p>}
@@ -187,7 +187,7 @@ function UserBubble({ text }: { text: string }) {
       transition={{ duration: 0.4, ease: EASE }}
       className="flex justify-end"
     >
-      <p className="max-w-[85%] whitespace-pre-wrap break-words border border-gold/45 px-4 py-2.5 text-[0.9rem] leading-relaxed text-parchment">
+      <p className="bubble bubble-out max-w-[85%] whitespace-pre-wrap break-words px-4 py-2.5 text-[0.9rem] leading-relaxed text-parchment">
         {text}
       </p>
     </motion.div>
@@ -222,7 +222,7 @@ function PlanCard({ hasAccess, onNavigate }: { hasAccess: boolean; onNavigate: (
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: EASE, delay: 0.1 }}
-      className="relative max-w-[92%] overflow-hidden border border-line-gold bg-gold/[0.05] px-4 py-4"
+      className="relative max-w-[92%] overflow-hidden rounded-2xl border border-line-gold bg-gold/[0.05] px-4 py-4"
     >
       <span aria-hidden className="glow-gold pointer-events-none absolute -right-10 -top-12 h-32 w-32" />
       <p className="relative text-[11px] font-semibold uppercase tracking-[0.16em] text-gold">{cta.kicker}</p>
@@ -267,7 +267,7 @@ function TypingIndicator() {
     <div
       role="status"
       aria-label="O concierge está escrevendo"
-      className="flex w-fit items-center gap-1.5 border-l border-gold/45 bg-surface-2 px-4 py-4"
+      className="bubble bubble-in flex w-fit items-center gap-1.5 px-4 py-4"
     >
       {[0, 1, 2].map((i) => (
         <motion.span
@@ -459,7 +459,7 @@ export function ConciergeWidget() {
             >
               <span
                 aria-hidden
-                className="pointer-events-none absolute right-full top-1/2 mr-3 hidden -translate-y-1/2 translate-x-2 items-center gap-2 whitespace-nowrap border border-line-gold bg-surface py-2 pl-2.5 pr-3.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-gold-light opacity-0 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.85)] transition-all duration-500 ease-[var(--ease-couture)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 sm:flex"
+                className="pointer-events-none absolute right-full top-1/2 mr-3 hidden -translate-y-1/2 translate-x-2 items-center gap-2 whitespace-nowrap rounded-full border border-line-gold bg-surface py-2 pl-3 pr-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-gold-light opacity-0 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.85)] transition-all duration-500 ease-[var(--ease-couture)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 sm:flex"
               >
                 <span className="h-1.5 w-1.5 rounded-full border border-gold/70" />
                 Assistente de estilo
@@ -507,9 +507,9 @@ export function ConciergeWidget() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 28 }}
             transition={{ duration: 0.5, ease: EASE }}
-            className="fixed inset-x-0 bottom-0 z-[65] flex h-[min(86dvh,640px)] w-full flex-col border-t border-line-gold bg-surface text-ivory shadow-[0_-30px_80px_-30px_rgba(0,0,0,0.9)] outline-none sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[min(620px,calc(100dvh-7rem))] sm:w-[min(400px,calc(100vw-2rem))] sm:border"
+            className="fixed inset-x-0 bottom-0 z-[65] flex h-[min(86dvh,640px)] w-full flex-col overflow-hidden rounded-t-[var(--radius-panel)] border-t border-line-gold bg-surface text-ivory shadow-[0_-30px_80px_-30px_rgba(0,0,0,0.9)] outline-none sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[min(620px,calc(100dvh-7rem))] sm:w-[min(400px,calc(100vw-2rem))] sm:rounded-3xl sm:border"
           >
-            <span aria-hidden className="mx-auto mt-2.5 h-1 w-10 shrink-0 bg-line sm:hidden" />
+            <span aria-hidden className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-line sm:hidden" />
 
             <header className="relative flex shrink-0 items-center gap-3.5 px-5 pb-4 pt-3 sm:pt-4">
               <Medallion size={42} />
@@ -523,7 +523,7 @@ export function ConciergeWidget() {
                 type="button"
                 onClick={close}
                 aria-label="Fechar concierge"
-                className="-mr-2 grid h-10 w-10 place-items-center text-mist transition-colors hover:text-gold-light"
+                className="-mr-2 grid h-10 w-10 place-items-center rounded-full text-mist transition-colors hover:bg-ivory/[0.05] hover:text-gold-light"
               >
                 <X className="h-5 w-5" strokeWidth={1.5} />
               </button>
@@ -551,7 +551,7 @@ export function ConciergeWidget() {
               )}
               {pending && <TypingIndicator />}
               {failed && !pending && (
-                <div className="max-w-[92%] border-l border-danger/50 bg-surface-2 px-4 py-3.5">
+                <div className="bubble bubble-in max-w-[92%] border-danger/40 px-4 py-3.5">
                   <p className="text-[0.9rem] leading-relaxed text-parchment">
                     Estou com instabilidade agora. Se preferir, fale direto com o Titi.
                   </p>
@@ -582,7 +582,7 @@ export function ConciergeWidget() {
                       type="button"
                       onClick={() => send(suggestion)}
                       disabled={pending}
-                      className="shrink-0 border border-line bg-ivory/[0.02] px-3 py-2 text-xs text-parchment transition-colors duration-300 hover:border-line-gold hover:text-gold-light disabled:opacity-40"
+                      className="shrink-0 rounded-full border border-line bg-ivory/[0.02] px-3.5 py-2 text-xs text-parchment transition-colors duration-300 hover:border-line-gold hover:bg-gold/[0.04] hover:text-gold-light disabled:opacity-40"
                     >
                       {suggestion}
                     </button>
@@ -595,7 +595,7 @@ export function ConciergeWidget() {
                   e.preventDefault();
                   send(draft);
                 }}
-                className="flex items-end gap-1.5 border border-line bg-ivory/[0.02] transition-colors duration-300 focus-within:border-gold/60"
+                className="flex items-end gap-1.5 rounded-[1.45rem] border border-line bg-ivory/[0.02] pl-1.5 transition-[border-color,box-shadow] duration-300 focus-within:border-gold/60 focus-within:shadow-[0_0_0_3px_rgb(212_175_55/0.1)]"
               >
                 <label htmlFor={inputId} className="sr-only">
                   Mensagem para o concierge
@@ -616,7 +616,7 @@ export function ConciergeWidget() {
                   type="submit"
                   disabled={!draft.trim() || pending}
                   aria-label="Enviar mensagem"
-                  className="m-1.5 grid h-9 w-9 shrink-0 place-items-center bg-gold text-obsidian transition-[background-color,opacity] duration-300 hover:bg-gold-light disabled:opacity-30"
+                  className="m-1.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gold text-obsidian shadow-[inset_0_1px_0_rgb(255_255_255/0.35)] transition-[background-color,opacity,transform] duration-300 hover:bg-gold-light enabled:hover:scale-105 disabled:opacity-30"
                 >
                   <ArrowUp className="h-4 w-4" strokeWidth={2} />
                 </button>

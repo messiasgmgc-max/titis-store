@@ -345,7 +345,7 @@ export function SavedLooksTab({ userId }: { userId: string }) {
   return (
     <section aria-label="Looks salvos" className="space-y-10">
       <TabIntro
-        numeral="II"
+        numeral="III"
         eyebrow="Looks salvos"
         title={
           <>

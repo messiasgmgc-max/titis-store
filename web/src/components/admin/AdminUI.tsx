@@ -56,20 +56,24 @@ export function Field({
   );
 }
 
-/** Interruptor retangular (sem pílulas): trilho fino e botão quadrado dourado. */
+/** Interruptor redondo: trilho em pílula e botão circular dourado. `tone="danger"` para bloqueios. */
 export function Switch({
   checked,
   onChange,
   label,
   disabled,
+  tone = 'gold',
   className,
 }: {
   checked: boolean;
   onChange: (next: boolean) => void;
   label: string;
   disabled?: boolean;
+  tone?: 'gold' | 'danger';
   className?: string;
 }) {
+  const on = tone === 'danger' ? 'border-danger bg-danger/20' : 'border-gold bg-gold/15';
+  const knob = tone === 'danger' ? 'bg-danger' : 'bg-gold';
   return (
     <button
       type="button"
@@ -79,16 +83,16 @@ export function Switch({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        'group relative inline-flex h-5 w-9 shrink-0 items-center border transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-40',
-        checked ? 'border-gold bg-gold/15' : 'border-line bg-ivory/[0.03] hover:border-ivory/25',
+        'group relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-40',
+        checked ? on : 'border-line bg-ivory/[0.03] hover:border-ivory/25',
         className,
       )}
     >
       <span
         aria-hidden
         className={cn(
-          'absolute left-[3px] h-3 w-3 transition-transform duration-300 ease-[var(--ease-couture)]',
-          checked ? 'translate-x-4 bg-gold' : 'translate-x-0 bg-smoke group-hover:bg-mist',
+          'absolute left-[3px] h-4 w-4 rounded-full transition-transform duration-300 ease-[var(--ease-couture)]',
+          checked ? cn('translate-x-5', knob) : 'translate-x-0 bg-smoke group-hover:bg-mist',
         )}
       />
     </button>
@@ -117,7 +121,7 @@ export function SearchField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? label}
-        className="field py-2.5 pl-10 text-sm"
+        className="field rounded-full py-2.5 pl-10 text-sm"
       />
     </label>
   );
@@ -126,7 +130,10 @@ export function SearchField({
 export function SelectBox({ className, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <span className={cn('relative block', className)}>
-      <select {...props} className="field cursor-pointer appearance-none py-2.5 pr-9 text-sm disabled:cursor-not-allowed disabled:opacity-50">
+      <select
+        {...props}
+        className="field cursor-pointer appearance-none rounded-2xl py-2.5 pr-9 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+      >
         {children}
       </select>
       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" strokeWidth={1.5} aria-hidden />
@@ -159,7 +166,7 @@ export function Segmented<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(o.id)}
             className={cn(
-              'inline-flex items-center gap-2 border px-3 py-2 text-[0.66rem] font-medium uppercase tracking-[0.18em] transition-colors duration-300',
+              'inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[0.66rem] font-medium uppercase tracking-[0.18em] transition-colors duration-300',
               active ? 'border-gold/70 bg-gold/10 text-gold-light' : 'border-line text-mist hover:border-ivory/25 hover:text-ivory',
             )}
           >
@@ -207,7 +214,7 @@ export function IconButton({
       title={label}
       aria-pressed={active}
       className={cn(
-        'grid h-9 w-9 shrink-0 place-items-center border border-transparent transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-35',
+        'grid h-9 w-9 shrink-0 place-items-center rounded-full border border-transparent transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-35',
         tone === 'danger' ? 'text-smoke hover:border-danger/40 hover:text-danger' : 'text-mist hover:border-line-gold hover:text-gold-light',
         className,
       )}
@@ -245,7 +252,7 @@ export function Thumb({ src, alt, className }: { src: string | null | undefined;
 
 export function LoadingRows({ rows = 5, label }: { rows?: number; label: string }) {
   return (
-    <div role="status" aria-live="polite" className="divide-y divide-line border border-line">
+    <div role="status" aria-live="polite" className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
       <span className="sr-only">{label}</span>
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="flex items-center gap-4 px-4 py-4" aria-hidden>
@@ -273,7 +280,7 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center border border-line px-6 py-16 text-center">
+    <div className="flex flex-col items-center rounded-3xl border border-line px-6 py-16 text-center">
       <span className="grid h-14 w-14 place-items-center rounded-full border border-line-gold text-gold">
         <Icon className="h-5 w-5" strokeWidth={1.25} aria-hidden />
       </span>
@@ -286,7 +293,7 @@ export function EmptyState({
 
 export function ErrorState({ message, onRetry, retrying }: { message: string; onRetry: () => void; retrying?: boolean }) {
   return (
-    <div className="flex flex-col items-center border border-danger/30 bg-danger/[0.04] px-6 py-14 text-center" role="alert">
+    <div className="flex flex-col items-center rounded-3xl border border-danger/30 bg-danger/[0.04] px-6 py-14 text-center" role="alert">
       <CircleAlert className="h-6 w-6 text-danger" strokeWidth={1.25} aria-hidden />
       <p className="mt-4 font-display text-2xl text-ivory">Algo não saiu como previsto</p>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-mist">{message}</p>
@@ -299,7 +306,7 @@ export function ErrorState({ message, onRetry, retrying }: { message: string; on
 
 export function InlineError({ message, onRetry, retrying }: { message: string; onRetry: () => void; retrying?: boolean }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border border-danger/30 bg-danger/[0.04] px-4 py-3 text-sm" role="alert">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-danger/30 bg-danger/[0.04] px-4 py-3 text-sm" role="alert">
       <span className="flex items-center gap-2 text-parchment">
         <CircleAlert className="h-4 w-4 shrink-0 text-danger" strokeWidth={1.75} aria-hidden />
         {message}
@@ -331,9 +338,37 @@ export function DangerButton({
       onClick={onClick}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={cn('btn btn-sm border border-danger/50 text-danger hover:border-danger hover:bg-danger/10', className)}
+      className={cn('btn btn-sm rounded-full border border-danger/50 text-danger hover:border-danger hover:bg-danger/10', className)}
     >
       {loading && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden />}
+      {children}
+    </button>
+  );
+}
+
+/** Pílula de opção (plano, duração, tipo de desconto). */
+export function PillOption({
+  active,
+  onClick,
+  disabled,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'rounded-full border px-4 py-2 text-xs font-semibold transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-40',
+        active ? 'border-gold bg-gold/10 text-gold-light' : 'border-line text-mist hover:border-ivory/25 hover:text-ivory',
+      )}
+    >
       {children}
     </button>
   );
@@ -358,7 +393,7 @@ export function ConfirmDialog({
   onCancel: () => void;
 }) {
   return (
-    <Modal onClose={onCancel} title={title} showTitle size="sm">
+    <Modal onClose={onCancel} title={title} showTitle size="sm" className="rounded-3xl">
       <div className="px-6 pb-6 pt-3 sm:px-8 sm:pb-8">
         <div className="text-sm leading-relaxed text-mist">{children}</div>
         <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

@@ -31,7 +31,10 @@ export function Swatch({
   className?: string;
 }) {
   const front = (
-    <span className={cn('pinked block overflow-hidden', flip ? 'absolute inset-0' : 'relative aspect-[3/4] w-full')} style={{ backgroundColor: hex }}>
+    <span
+      className={cn('pinked block overflow-hidden rounded-t-[6px]', flip ? 'absolute inset-0' : 'relative aspect-[3/4] w-full')}
+      style={{ backgroundColor: hex }}
+    >
       <span
         className="absolute inset-0 opacity-[0.16] mix-blend-overlay"
         style={{
@@ -56,7 +59,7 @@ export function Swatch({
           <span className="relative block h-full w-full transform-3d transition-transform duration-700 ease-[var(--ease-couture)] group-hover/sw:[transform:rotateY(180deg)] motion-reduce:transition-none">
             <span className="absolute inset-0 backface-hidden">{front}</span>
             <span
-              className="absolute inset-0 grid place-content-center gap-0.5 rounded-[3px] border border-line-gold bg-surface-2 p-1 text-center backface-hidden"
+              className="absolute inset-0 grid place-content-center gap-0.5 rounded-lg border border-line-gold bg-surface-2 p-1 text-center backface-hidden"
               style={{ transform: 'rotateY(180deg)' }}
             >
               <span className="text-[9px] font-semibold leading-tight text-ivory">{name}</span>

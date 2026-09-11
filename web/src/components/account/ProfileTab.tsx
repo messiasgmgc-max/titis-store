@@ -112,7 +112,7 @@ export function ProfileTab({ onSignOut, signingOut }: { onSignOut: () => void; s
   return (
     <section aria-label="Perfil" className="space-y-10">
       <TabIntro
-        numeral="IV"
+        numeral="V"
         eyebrow="Perfil"
         title={
           <>
@@ -123,7 +123,7 @@ export function ProfileTab({ onSignOut, signingOut }: { onSignOut: () => void; s
       />
 
       <div className="grid gap-8 lg:grid-cols-12 lg:gap-12">
-        <form onSubmit={handleSubmit} className="panel relative p-6 sm:p-10 lg:col-span-7" noValidate>
+        <form onSubmit={handleSubmit} className="panel relative rounded-3xl p-6 sm:p-10 lg:col-span-7" noValidate>
           <span className="numeral absolute right-6 top-6 text-[0.62rem] text-smoke" aria-hidden>
             FICHA
           </span>
@@ -210,15 +210,15 @@ export function ProfileTab({ onSignOut, signingOut }: { onSignOut: () => void; s
         </form>
 
         <aside className="space-y-8 lg:col-span-5" aria-label="Privacidade e sessão">
-          <div className="border border-line p-6 sm:p-8">
+          <div className="rounded-3xl border border-line p-6 sm:p-8">
             <h3 className="kicker">Neste aparelho</h3>
             <ul className="mt-5 divide-y divide-line">
               <li className="flex items-center gap-4 py-4">
                 {faceImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={faceImage} alt="Foto do rosto guardada neste aparelho" className="h-14 w-14 shrink-0 object-cover img-editorial" />
+                  <img src={faceImage} alt="Foto do rosto guardada neste aparelho" className="h-14 w-14 shrink-0 rounded-full object-cover img-editorial ring-1 ring-line-gold" />
                 ) : (
-                  <span className="grid h-14 w-14 shrink-0 place-items-center border border-dashed border-line text-[10px] font-semibold uppercase tracking-[0.14em] text-smoke" aria-hidden>
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-dashed border-line text-[10px] font-semibold uppercase tracking-[0.14em] text-smoke" aria-hidden>
                     Foto
                   </span>
                 )}

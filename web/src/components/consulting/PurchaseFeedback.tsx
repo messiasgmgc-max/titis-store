@@ -25,7 +25,7 @@ export function PurchaseFeedback({
   if (state.status === 'whatsapp') {
     const digital = plan.accessDays !== null;
     return (
-      <div role="status" className={cn('border border-line-gold bg-gold/[0.05] p-5 sm:p-6', className)}>
+      <div role="status" className={cn('rounded-2xl border border-line-gold bg-gold/[0.05] p-5 sm:p-6', className)}>
         <p className="flex items-center gap-2.5 text-lg font-extrabold tracking-[-0.02em] text-ivory">
           <CircleCheck className="h-5 w-5 shrink-0 text-gold" strokeWidth={1.75} aria-hidden />
           {digital ? 'Pedido de ativação enviado' : 'Conversa aberta com o Titi'}
@@ -48,7 +48,7 @@ export function PurchaseFeedback({
 
   if (state.status === 'error') {
     return (
-      <div role="alert" className={cn('border border-danger/35 bg-danger/[0.05] p-5 sm:p-6', className)}>
+      <div role="alert" className={cn('rounded-2xl border border-danger/35 bg-danger/[0.05] p-5 sm:p-6', className)}>
         <p className="flex items-start gap-2.5 text-sm font-semibold leading-snug text-danger">
           <CircleAlert className="mt-px h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
           {state.message}
@@ -74,7 +74,7 @@ export function PurchaseFeedback({
 
   if (state.status === 'needs_account') {
     return (
-      <p role="alert" className={cn('flex items-start gap-2.5 border border-line-gold p-4 text-sm text-parchment', className)}>
+      <p role="alert" className={cn('flex items-start gap-2.5 rounded-2xl border border-line-gold p-4 text-sm text-parchment', className)}>
         <CircleAlert className="mt-px h-4 w-4 shrink-0 text-gold" strokeWidth={1.75} aria-hidden />
         Entre na sua conta para ativar o plano: o acesso é liberado nela.
       </p>

@@ -176,8 +176,34 @@ export interface Profile {
   plan: PlanId | null;
   /** Fim do acesso VIP (null com role 'vip' = sem prazo). */
   access_until: string | null;
+  /** Bloqueio manual pelo admin: derruba o acesso mesmo com plano vigente. */
+  is_blocked: boolean;
+  /** Observações internas do admin sobre o cliente (não aparecem para ele). */
+  admin_notes: string | null;
   created_at?: string;
   updated_at?: string | null;
+}
+
+/** Cupom de desconto (tabela public.coupons), aplicado no checkout. */
+export interface CouponRow {
+  id: string;
+  code: string; // sempre em caixa-alta
+  description: string | null;
+  percent_off: number | null; // 1..100
+  amount_off_cents: number | null;
+  plans: PlanId[]; // [] = todos os planos com checkout
+  max_uses: number | null;
+  used_count: number;
+  expires_at: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface CouponQuote {
+  code: string;
+  originalCents: number;
+  discountCents: number;
+  finalCents: number;
 }
 
 export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'refunded';
@@ -188,6 +214,9 @@ export interface PaymentRow {
   user_id: string;
   plan: PlanId;
   amount_cents: number;
+  /** Desconto aplicado (cupom ou manual); amount_cents já é o valor final. */
+  discount_cents: number;
+  coupon_code: string | null;
   provider: CheckoutProvider | 'manual';
   provider_payment_id: string | null;
   status: PaymentStatus;
@@ -198,6 +227,7 @@ export interface PaymentRow {
 export interface CheckoutResponse {
   provider: 'mercadopago';
   url: string;
+  quote?: CouponQuote;
 }
 
 export interface ConsultationRow {

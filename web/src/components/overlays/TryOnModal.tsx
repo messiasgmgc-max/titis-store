@@ -3,7 +3,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Check,
   CircleAlert,
   Download,
   ImagePlus,
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Controls';
 import { ColorDot, Swatch } from '@/components/ui/Swatch';
 import { WhatsAppIcon } from '@/components/ui/icons';
 import { useCart, type CartInput } from '@/providers/CartProvider';
@@ -62,7 +62,7 @@ function PieceVisual({ piece, product, wide }: { piece: LookPiece; product?: Pro
   const src = product?.image_url;
 
   return (
-    <span className={cn('relative block overflow-hidden bg-coal', wide ? 'aspect-[16/10]' : 'aspect-[4/5]')}>
+    <span className={cn('relative block overflow-hidden rounded-xl bg-coal', wide ? 'aspect-[16/10]' : 'aspect-[4/5]')}>
       {src && !failed ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -92,7 +92,7 @@ function CompositionBoard({ pieces }: { pieces: PieceMatch[] }) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: EASE }}
-      className="border border-line-gold bg-surface-2 p-5 sm:p-6"
+      className="rounded-3xl border border-line-gold bg-surface-2 p-5 sm:p-6"
     >
       <p className="text-sm leading-relaxed text-parchment">
         O provador com foto estará disponível em breve. Veja a composição do seu look:
@@ -106,7 +106,7 @@ function CompositionBoard({ pieces }: { pieces: PieceMatch[] }) {
             <li key={`${piece.slot}-${i}`} className={cn(wide && 'col-span-2')}>
               <div className="relative">
                 <PieceVisual piece={piece} product={product} wide={wide} />
-                <span className="absolute left-2 top-2 bg-obsidian/80 px-2 py-1 font-caps text-[0.55rem] tracking-[0.25em] text-gold-light">
+                <span className="absolute left-2 top-2 rounded-full bg-obsidian/80 px-2.5 py-1 font-caps text-[0.55rem] tracking-[0.25em] text-gold-light backdrop-blur-sm">
                   {ROMAN[i] ?? i + 1}
                 </span>
               </div>
@@ -125,27 +125,7 @@ function CompositionBoard({ pieces }: { pieces: PieceMatch[] }) {
 }
 
 function RememberCheckbox({ id, checked, onChange }: { id: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="relative grid h-4 w-4 shrink-0 place-items-center">
-        <input
-          id={id}
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          className="peer absolute inset-0 m-0 cursor-pointer appearance-none border border-line-gold bg-transparent transition-colors checked:border-gold checked:bg-gold"
-        />
-        <Check
-          aria-hidden
-          strokeWidth={3}
-          className="pointer-events-none relative h-3 w-3 text-obsidian opacity-0 transition-opacity peer-checked:opacity-100"
-        />
-      </span>
-      <label htmlFor={id} className="cursor-pointer text-sm text-parchment">
-        Guardar a foto neste aparelho
-      </label>
-    </div>
-  );
+  return <Checkbox id={id} checked={checked} onChange={onChange} align="center" label="Guardar a foto neste aparelho" />;
 }
 
 type LockReason = 'unauthorized' | 'payment_required';
@@ -365,7 +345,7 @@ function TryOnStudio({ look, onClose }: { look: Look; onClose: () => void }) {
           {phase === 'fallback' ? (
             <CompositionBoard pieces={pieces} />
           ) : (
-            <div className="relative aspect-[3/4] w-full overflow-hidden bg-coal">
+            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-3xl bg-coal">
               <AnimatePresence mode="wait" initial={false}>
                 {!face ? (
                   <motion.div key="upload" {...FADE} className="absolute inset-0 p-3">
@@ -377,7 +357,7 @@ function TryOnStudio({ look, onClose }: { look: Look; onClose: () => void }) {
                       onDragLeave={() => setDragging(false)}
                       onDrop={onDrop}
                       className={cn(
-                        'group relative flex h-full cursor-pointer flex-col items-center justify-center gap-5 border border-dashed px-8 text-center transition-colors duration-500 focus-within:border-gold',
+                        'group relative flex h-full cursor-pointer flex-col items-center justify-center gap-5 rounded-[20px] border border-dashed px-8 text-center transition-colors duration-500 focus-within:border-gold',
                         dragging ? 'border-gold bg-gold/[0.06]' : 'border-line-gold hover:border-gold/70 hover:bg-gold/[0.03]',
                       )}
                     >
@@ -389,12 +369,11 @@ function TryOnStudio({ look, onClose }: { look: Look; onClose: () => void }) {
                         disabled={reading}
                         aria-label="Enviar uma foto do rosto"
                       />
-                      {['left-5 top-5 border-l border-t', 'right-5 top-5 border-r border-t', 'bottom-5 left-5 border-b border-l', 'bottom-5 right-5 border-b border-r'].map(
-                        (corner) => (
-                          <span key={corner} aria-hidden className={cn('absolute h-5 w-5 border-gold/70', corner)} />
-                        ),
-                      )}
-                      <span className="grid h-16 w-16 place-items-center rounded-full border border-line-gold text-gold transition-transform duration-700 ease-[var(--ease-couture)] group-hover:scale-105">
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute inset-2.5 rounded-[14px] border border-gold/20 transition-colors duration-500 group-hover:border-gold/40"
+                      />
+                      <span className="grid h-16 w-16 place-items-center rounded-full border border-line-gold bg-gold/[0.04] text-gold transition-transform duration-700 ease-[var(--ease-couture)] group-hover:scale-105">
                         {reading ? (
                           <LoaderCircle className="h-6 w-6 animate-spin" aria-hidden />
                         ) : (
@@ -443,9 +422,9 @@ function TryOnStudio({ look, onClose }: { look: Look; onClose: () => void }) {
                           </AnimatePresence>
                         </div>
                         <div className="relative mt-5">
-                          <div className="tape opacity-25" />
+                          <div className="tape rounded-full opacity-25" />
                           <div
-                            className="absolute inset-y-0 left-0 overflow-hidden transition-[width] duration-1000 ease-linear"
+                            className="absolute inset-y-0 left-0 overflow-hidden rounded-full transition-[width] duration-1000 ease-linear"
                             style={{ width: `${Math.round(progress * 100)}%` }}
                           >
                             <div className="tape w-[2000px]" style={{ filter: 'drop-shadow(0 0 6px rgba(212,175,55,.45))' }} />
@@ -513,7 +492,7 @@ function TryOnStudio({ look, onClose }: { look: Look; onClose: () => void }) {
             )}
 
             {phase === 'error' && (
-              <div role="alert" className="border border-danger/30 bg-danger/[0.05] p-4">
+              <div role="alert" className="rounded-2xl border border-danger/30 bg-danger/[0.05] p-4">
                 <p className="flex items-start gap-2.5 text-sm leading-snug text-danger">
                   <CircleAlert className="mt-px h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                   {error}
@@ -579,7 +558,7 @@ function TryOnStudio({ look, onClose }: { look: Look; onClose: () => void }) {
             <h4 id={`${uid}-pieces`} className="kicker">
               Peças
             </h4>
-            <ol className="mt-3 divide-y divide-line border-y border-line">
+            <ol className="mt-3 divide-y divide-line rounded-2xl border border-line bg-ivory/[0.015] px-4">
               {pieces.map(({ piece, product }, i) => (
                 <li key={`${piece.slot}-${i}`} className="flex items-center gap-3.5 py-3.5">
                   <span className="numeral w-7 shrink-0 text-[0.68rem]">{ROMAN[i] ?? i + 1}</span>

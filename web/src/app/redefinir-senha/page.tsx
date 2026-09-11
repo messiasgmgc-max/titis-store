@@ -31,7 +31,7 @@ export default function ResetPasswordPage() {
             Crie uma nova senha para voltar à sua conta.
           </p>
 
-          <div className="panel relative mt-10 w-full max-w-md p-6 sm:p-8">
+          <div className="panel relative mt-10 w-full max-w-md overflow-hidden rounded-3xl p-6 sm:p-8">
             <div className="tape absolute inset-x-0 top-0 opacity-25" aria-hidden />
             <div className="pt-3">
               <ResetPasswordPanel />

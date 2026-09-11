@@ -41,7 +41,7 @@ function PlanCards({ plans = CLUB_PLANS, onChoose, busyPlanId, className }: Omit
           <li
             key={plan.id}
             className={cn(
-              'relative flex flex-col border p-6 sm:p-7',
+              'relative flex flex-col rounded-3xl border p-6 sm:p-7',
               featured ? 'border-line-gold bg-gold/[0.05]' : 'border-line bg-surface',
               featured && 'order-first lg:order-none',
             )}
@@ -99,7 +99,7 @@ function PlanSwitcher({ plans = CLUB_PLANS, selectedId, onSelect, className }: O
         {plans.map((plan) => {
           const active = plan.id === selectedId;
           return (
-            <label key={plan.id} data-active={active} className="option flex cursor-pointer items-start gap-3 px-4 py-3.5 focus-within:border-gold">
+            <label key={plan.id} data-active={active} className="option flex cursor-pointer items-start gap-3 rounded-2xl px-4 py-3.5 focus-within:border-gold">
               <input
                 type="radio"
                 name={name}
@@ -111,7 +111,7 @@ function PlanSwitcher({ plans = CLUB_PLANS, selectedId, onSelect, className }: O
               <span
                 aria-hidden
                 className={cn(
-                  'mt-1 grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full border transition-colors',
+                  'mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border transition-colors',
                   active ? 'border-gold' : 'border-ivory/30',
                 )}
               >

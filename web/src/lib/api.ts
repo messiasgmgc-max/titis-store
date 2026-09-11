@@ -5,6 +5,7 @@ import type {
   ApiError,
   ChatMessage,
   CheckoutResponse,
+  CouponQuote,
   PlanId,
   ConciergeResponse,
   Diagnosis,
@@ -92,9 +93,23 @@ export function requestTryOn(input: {
   return post<TryOnResponse>('/api/try-on', input, { timeoutMs: 95_000, auth: true });
 }
 
-/** Cria o checkout do Mercado Pago para um plano e devolve a URL de pagamento. */
-export function startCheckout(plan: PlanId, accessToken: string) {
-  return post<CheckoutResponse>('/api/checkout', { plan }, { timeoutMs: 20_000, token: accessToken });
+/** Cria o checkout do Mercado Pago para um plano (com cupom opcional) e devolve a URL de pagamento. */
+export function startCheckout(plan: PlanId, accessToken: string, coupon?: string | null) {
+  const code = coupon?.trim().toUpperCase();
+  return post<CheckoutResponse>(
+    '/api/checkout',
+    code ? { plan, coupon: code } : { plan },
+    { timeoutMs: 20_000, token: accessToken },
+  );
+}
+
+/** Simula um cupom no plano: devolve valores original, desconto e final (erro 400 com mensagem se inválido). */
+export function quoteCoupon(plan: PlanId, code: string) {
+  return post<{ quote: CouponQuote }>(
+    '/api/coupon-quote',
+    { plan, code: code.trim().toUpperCase() },
+    { timeoutMs: 15_000, auth: true },
+  );
 }
 
 /** Concierge de estilo (chat com histórico). */

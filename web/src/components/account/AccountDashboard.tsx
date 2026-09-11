@@ -13,6 +13,7 @@ import { cn } from '@/lib/format';
 import { getPlan } from '@/lib/site';
 import { AccountLoader } from './AccountLoader';
 import { PlanStatusCard, useConsultingLink } from './PlanStatusCard';
+import { PlanTab } from './PlanTab';
 import { PaletteTab } from './PaletteTab';
 import { SavedLooksTab } from './SavedLooksTab';
 import { OrdersTab } from './OrdersTab';
@@ -22,6 +23,7 @@ import { firstName, toRoman } from './shared';
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 const TABS = [
+  { id: 'plano', label: 'Meu plano' },
   { id: 'cartela', label: 'Minha cartela' },
   { id: 'looks', label: 'Looks salvos' },
   { id: 'pedidos', label: 'Pedidos' },
@@ -30,12 +32,13 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'];
 
-function parseTab(value: string | null): TabId {
-  return TABS.find((t) => t.id === value)?.id ?? 'cartela';
+/** Sem ?aba=, quem tem acesso abre a cartela; quem ainda não tem, abre "Meu plano". */
+function parseTab(value: string | null, hasAccess: boolean): TabId {
+  return TABS.find((t) => t.id === value)?.id ?? (hasAccess ? 'cartela' : 'plano');
 }
 
 function tabHref(id: TabId): string {
-  return id === 'cartela' ? '/dashboard' : `/dashboard?aba=${id}`;
+  return `/dashboard?aba=${id}`;
 }
 
 function monthYear(iso: string | undefined): string | null {
@@ -58,10 +61,10 @@ function HangTag({ role, file, since, season }: { role: string; file: string; si
     >
       <span className="absolute left-1/2 top-0 h-[3.9rem] w-px -translate-x-1/2 bg-gold/60" aria-hidden />
       <div
-        className="relative bg-parchment px-7 pb-7 pt-11 text-obsidian shadow-[0_30px_60px_-30px_rgba(0,0,0,0.9)]"
+        className="relative rounded-b-2xl bg-parchment px-7 pb-7 pt-11 text-obsidian shadow-[0_30px_60px_-30px_rgba(0,0,0,0.9)]"
         style={{ clipPath: 'polygon(20% 0, 80% 0, 100% 11%, 100% 100%, 0 100%, 0 11%)' }}
       >
-        <span className="pointer-events-none absolute inset-2 border border-dashed border-obsidian/15" aria-hidden />
+        <span className="pointer-events-none absolute inset-2 rounded-xl border border-dashed border-obsidian/15" aria-hidden />
         <span className="absolute left-1/2 top-4 h-3 w-3 -translate-x-1/2 rounded-full bg-obsidian ring-2 ring-gold-dark/40" aria-hidden />
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold-dark">Titi&apos;s Store</p>
         <p className="mt-2 font-display text-[1.45rem] font-extrabold leading-[1.05] tracking-[-0.03em]">{role}</p>
@@ -98,20 +101,28 @@ export function AccountDashboard() {
   const [visited, setVisited] = useState<TabId[]>([]);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
-  const tab = parseTab(searchParams.get('aba'));
+  const requestedTab = searchParams.get('aba');
+  const tab = parseTab(requestedTab, hasAccess);
 
   useEffect(() => {
     if (loading || user || leaving) return;
-    router.replace(`/login?next=${encodeURIComponent(tabHref(tab))}`);
-  }, [loading, user, leaving, router, tab]);
+    const next = requestedTab ? tabHref(parseTab(requestedTab, false)) : '/dashboard';
+    router.replace(`/login?next=${encodeURIComponent(next)}`);
+  }, [loading, user, leaving, router, requestedTab]);
 
-  if (loading || !user || leaving) {
-    return <AccountLoader label={leaving ? 'Até breve' : loading ? 'Abrindo sua ficha' : 'Redirecionando para o acesso'} />;
+  // O perfil chega um instante depois da sessão: espera para escolher a aba certa.
+  if (loading || !user || !profile || leaving) {
+    return <AccountLoader label={leaving ? 'Até breve' : loading || user ? 'Abrindo sua ficha' : 'Redirecionando para o acesso'} />;
   }
 
   const selectTab = (id: TabId) => {
     setVisited((prev) => (prev.includes(tab) && prev.includes(id) ? prev : Array.from(new Set([...prev, tab, id]))));
     if (id !== tab) window.history.replaceState(null, '', tabHref(id));
+  };
+
+  const openPlanTab = () => {
+    selectTab('plano');
+    document.getElementById('conta-abas')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const onTabKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -138,8 +149,8 @@ export function AccountDashboard() {
     }
   };
 
-  const name = firstName(profile?.full_name, profile?.email ?? user.email);
-  const roleLabel = isAdmin ? 'Administração' : hasAccess ? (getPlan(profile?.plan)?.name ?? 'Assinante') : 'Cliente';
+  const name = firstName(profile.full_name, profile.email ?? user.email);
+  const roleLabel = isAdmin ? 'Administração' : hasAccess ? (getPlan(profile.plan)?.name ?? 'Assinante') : 'Cliente';
   const isMounted = (id: TabId) => id === tab || visited.includes(id);
 
   return (
@@ -176,11 +187,17 @@ export function AccountDashboard() {
                 Seu plano, sua cartela, os looks que você salvou e o andamento dos pedidos, reunidos em uma só ficha.
               </p>
               <div className="mt-10 flex flex-wrap items-center gap-3">
-                <Button href={consulting.href}>Nova consultoria</Button>
-                <Button variant="outline" href={consulting.href}>
-                  <ScanFace className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-                  Nova leitura por foto
-                </Button>
+                {consulting.hasAccess ? (
+                  <>
+                    <Button href={consulting.href}>Nova consultoria</Button>
+                    <Button variant="outline" href={consulting.href}>
+                      <ScanFace className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                      Nova leitura por foto
+                    </Button>
+                  </>
+                ) : (
+                  <Button onClick={openPlanTab}>Ativar minha consultoria</Button>
+                )}
                 {isAdmin && (
                   <Link href="/admin" className="link-luxe ml-2 text-gold-light">
                     Administração
@@ -194,23 +211,24 @@ export function AccountDashboard() {
               <HangTag
                 role={roleLabel}
                 file={user.id.slice(0, 8).toUpperCase()}
-                since={monthYear(profile?.created_at ?? user.created_at)}
+                since={monthYear(profile.created_at ?? user.created_at)}
                 season={diagnosis?.season ?? null}
               />
             </div>
           </div>
 
-          <PlanStatusCard className="mt-12 lg:mt-14" />
+          <PlanStatusCard className="mt-12 lg:mt-14" onManage={openPlanTab} />
         </div>
         <div className="tape opacity-25" aria-hidden />
       </section>
 
       <div className="container-luxe">
         <div
+          id="conta-abas"
           role="tablist"
           aria-label="Seções da conta"
           onKeyDown={onTabKeyDown}
-          className="no-scrollbar -mx-5 flex overflow-x-auto border-b border-line px-1 sm:mx-0 sm:px-0"
+          className="no-scrollbar -mx-5 flex scroll-mt-24 overflow-x-auto border-b border-line px-1 sm:mx-0 sm:px-0 lg:scroll-mt-28"
         >
           {TABS.map((t, i) => {
             const active = t.id === tab;
@@ -227,7 +245,7 @@ export function AccountDashboard() {
                 aria-controls={isMounted(t.id) ? `painel-${t.id}` : undefined}
                 tabIndex={active ? 0 : -1}
                 onClick={() => selectTab(t.id)}
-                className="group relative flex shrink-0 items-baseline gap-2.5 px-4 py-5 sm:px-6"
+                className="group relative flex shrink-0 items-baseline gap-2.5 rounded-t-2xl px-4 py-5 transition-colors hover:bg-gold/[0.04] sm:px-6"
               >
                 <span
                   className={cn(
@@ -248,7 +266,7 @@ export function AccountDashboard() {
                 {active && (
                   <motion.span
                     layoutId="conta-aba-ativa"
-                    className="absolute inset-x-4 -bottom-px h-px bg-gold sm:inset-x-6"
+                    className="absolute inset-x-4 -bottom-px h-0.5 rounded-full bg-gold sm:inset-x-6"
                     transition={{ duration: 0.6, ease: EASE }}
                     aria-hidden
                   />
@@ -271,6 +289,7 @@ export function AccountDashboard() {
                 className="outline-none"
               >
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }}>
+                  {t.id === 'plano' && <PlanTab userId={user.id} />}
                   {t.id === 'cartela' && <PaletteTab />}
                   {t.id === 'looks' && <SavedLooksTab userId={user.id} />}
                   {t.id === 'pedidos' && <OrdersTab userId={user.id} />}

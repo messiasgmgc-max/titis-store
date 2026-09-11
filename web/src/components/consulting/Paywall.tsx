@@ -6,6 +6,7 @@ import { getSeason } from '@/lib/stylist/knowledge';
 import { useSession } from '@/providers/SessionProvider';
 import { Swatch } from '@/components/ui/Swatch';
 import { BenefitList } from './Benefits';
+import { BlockedNotice } from './BlockedNotice';
 import { PlanPicker } from './PlanPicker';
 import { PurchaseFeedback } from './PurchaseFeedback';
 import { RefreshAccessButton } from './RefreshAccess';
@@ -15,7 +16,7 @@ import { APP_TITLE, EYEBROW } from './shared';
 /** Moldura bloqueada: conteúdo de exemplo desfocado com cadeado. */
 function LockedFrame({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <figure className="relative min-h-[15rem] overflow-hidden border border-line bg-surface">
+    <figure className="relative min-h-[15rem] overflow-hidden rounded-3xl border border-line bg-surface">
       <div aria-hidden className="pointer-events-none select-none p-5 pt-12 opacity-60 blur-[5px]">
         {children}
       </div>
@@ -54,7 +55,7 @@ function LockedPreview() {
       </LockedFrame>
 
       <LockedFrame label="Exemplo · Look">
-        <div className="grid aspect-[4/3] grid-cols-2 gap-px bg-line">
+        <div className="grid aspect-[4/3] grid-cols-2 gap-px overflow-hidden rounded-2xl bg-line">
           {lookColors.map((s) => (
             <span key={s.hex + s.name} className="block" style={{ backgroundColor: s.hex }} />
           ))}
@@ -69,10 +70,31 @@ function LockedPreview() {
 
 /** Logado sem plano: o que é liberado, prévia bloqueada, planos e confirmação de pagamento. */
 export function Paywall() {
-  const { profile } = useSession();
+  const { profile, isBlocked, accessState } = useSession();
   const { state, purchase } = usePlanPurchase();
   const firstName = profile?.full_name?.trim().split(/\s+/)[0];
   const activePlan = state.status !== 'idle' ? getPlan(state.planId) : undefined;
+  const expired = accessState === 'expired';
+
+  // Acesso pausado pelo Titi: não vende, orienta a conversar.
+  if (isBlocked) {
+    return (
+      <div className="container-luxe relative py-12 sm:py-16 lg:py-20">
+        <div aria-hidden className="glow-gold pointer-events-none absolute -left-40 top-0 h-[460px] w-[460px]" />
+        <header className="relative max-w-2xl">
+          <p className={EYEBROW}>Minha consultoria</p>
+          <h1 className={`${APP_TITLE} mt-4 text-[clamp(2rem,4.4vw,3.2rem)] leading-[1.04]`}>
+            Seu acesso está <span className="text-foil">pausado</span>
+          </h1>
+          <p className="mt-4 text-base leading-relaxed text-mist sm:text-lg">
+            {firstName ? `${firstName}, sua` : 'Sua'} conta continua aqui, com a cartela e os looks guardados. Combine com o
+            Titi para reativar a consultoria.
+          </p>
+        </header>
+        <BlockedNotice className="relative mt-10" />
+      </div>
+    );
+  }
 
   return (
     <div className="container-luxe relative py-12 sm:py-16 lg:py-20">
@@ -81,11 +103,20 @@ export function Paywall() {
       <header className="relative max-w-2xl">
         <p className={EYEBROW}>Minha consultoria</p>
         <h1 className={`${APP_TITLE} mt-4 text-[clamp(2rem,4.4vw,3.2rem)] leading-[1.04]`}>
-          Sua consultoria está <span className="text-foil">a um passo</span>
+          {expired ? (
+            <>
+              Seu plano <span className="text-foil">expirou</span>
+            </>
+          ) : (
+            <>
+              Sua consultoria está <span className="text-foil">a um passo</span>
+            </>
+          )}
         </h1>
         <p className="mt-4 text-base leading-relaxed text-mist sm:text-lg">
-          {firstName ? `${firstName}, sua conta está pronta.` : 'Sua conta está pronta.'} Ative um plano para liberar a
-          leitura por foto, a sua cartela e os looks montados com peças da loja.
+          {expired
+            ? `${firstName ? `${firstName}, sua` : 'Sua'} cartela e seus looks continuam guardados. Renove para voltar a usar a leitura por foto, a cartela e o provador.`
+            : `${firstName ? `${firstName}, sua conta está pronta.` : 'Sua conta está pronta.'} Ative um plano para liberar a leitura por foto, a sua cartela e os looks montados com peças da loja.`}
         </p>
       </header>
 
@@ -129,7 +160,7 @@ export function Paywall() {
 
       <section
         aria-labelledby="paywall-paid"
-        className="relative mt-10 flex flex-col gap-5 border border-line-gold bg-gold/[0.04] p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8"
+        className="relative mt-10 flex flex-col gap-5 rounded-3xl border border-line-gold bg-gold/[0.04] p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8"
       >
         <div className="max-w-xl">
           <h2 id="paywall-paid" className="text-lg font-extrabold tracking-[-0.02em] text-ivory">
