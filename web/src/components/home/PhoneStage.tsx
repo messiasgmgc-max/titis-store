@@ -16,7 +16,8 @@ export function PhoneStage({ children, className }: { children: React.ReactNode;
       style={{ transformPerspective: 1400 }}
     >
       <div className="animate-float motion-reduce:animate-none">
-        <Tilt3D max={11} lift={20} glareClassName="rounded-[2.75rem]">
+        {/* O reflexo fica dentro da tela do celular (PhoneMockup), não no bloco inteiro. */}
+        <Tilt3D max={11} lift={20} glare={false}>
           {children}
         </Tilt3D>
       </div>

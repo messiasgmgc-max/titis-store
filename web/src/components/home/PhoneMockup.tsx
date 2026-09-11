@@ -47,6 +47,15 @@ export function PhoneMockup({ className }: { className?: string }) {
 
       <div className="rounded-[2.75rem] border border-line-gold bg-coal p-[9px] shadow-[0_50px_100px_-45px_rgb(0_0_0/0.95)]">
         <div className="relative overflow-hidden rounded-[2.2rem] border border-line bg-obsidian">
+          {/* Reflexo dourado que acompanha o ponteiro (posição vem do Tilt3D via --gx/--gy) */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-10 opacity-0 transition-opacity duration-500 group-hover/tilt:opacity-100"
+            style={{
+              background:
+                'radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgb(245 215 127 / 0.2), transparent 45%)',
+            }}
+          />
           {/* Barra de status */}
           <div aria-hidden className="flex h-9 items-center justify-between px-6 text-[10px] font-semibold text-mist">
             <span>9:41</span>
