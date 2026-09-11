@@ -1,190 +1,117 @@
-"use client";
+import type { Metadata } from 'next';
+import Image from 'next/image';
+import { Suspense } from 'react';
+import { Header } from '@/components/site/Header';
+import { Footer } from '@/components/site/Footer';
+import { LoginRedirectForm } from '@/components/auth/AuthForm';
+import { WhatsAppIcon } from '@/components/ui/icons';
+import { whatsappLink } from '@/lib/format';
 
-import React, { useState } from 'react';
-import { Crown, Lock, Mail, User, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
-import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
+export const metadata: Metadata = {
+  title: 'Entrar',
+  description: "Acesse sua conta na Titi's Store: cartela de cores, looks do Atelier e histórico de pedidos.",
+  robots: { index: false, follow: true },
+};
+
+/** Estrutura do formulário enquanto os parâmetros da URL são lidos no navegador. */
+function FormFallback() {
+  return (
+    <div aria-hidden className="animate-pulse">
+      <div className="grid grid-cols-2 border-b border-line pb-3.5">
+        <span className="mx-auto h-2.5 w-14 bg-line" />
+        <span className="mx-auto h-2.5 w-20 bg-line" />
+      </div>
+      <div className="mt-7 space-y-5">
+        <div>
+          <span className="block h-2 w-12 bg-line" />
+          <span className="mt-3 block h-12 w-full border border-line" />
+        </div>
+        <div>
+          <span className="block h-2 w-10 bg-line" />
+          <span className="mt-3 block h-12 w-full border border-line" />
+        </div>
+        <span className="block h-12 w-full bg-gold/20" />
+      </div>
+    </div>
+  );
+}
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    try {
-      if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-
-        setSuccessMessage('Login efetuado! Redirecionando para o painel...');
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 800);
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: fullName },
-          },
-        });
-
-        if (error) throw error;
-
-        setSuccessMessage('Conta VIP criada com sucesso! Faça login abaixo.');
-        setTimeout(() => setMode('login'), 1500);
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Erro ao processar autenticação.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[#0B0C10] text-slate-100 flex flex-col justify-between">
-      <Header onStartConsultation={() => window.location.href = '/#consultoria'} />
+    <>
+      <Header />
+      <main id="conteudo" className="relative overflow-hidden">
+        <div aria-hidden className="glow-gold pointer-events-none absolute -right-40 top-24 h-[560px] w-[560px]" />
 
-      <main className="max-w-md mx-auto px-4 py-16 w-full">
-        <div className="glass-card border border-amber-500/30 rounded-3xl p-8 shadow-2xl space-y-6">
-          
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-full bg-gold-gradient mx-auto flex items-center justify-center shadow-lg shadow-amber-500/20">
-              <Crown className="w-6 h-6 text-[#0B0C10]" />
-            </div>
-            <h1 className="text-2xl font-extrabold text-white font-[family-name:var(--font-serif)]">
-              TITI'S CLUB VIP
-            </h1>
-            <p className="text-xs text-slate-400">
-              {mode === 'login' ? 'Entre na sua conta para acessar seus lookbooks' : 'Cadastre-se para salvar suas consultorias'}
-            </p>
-          </div>
-
-          {/* Mode Switcher */}
-          <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-            <button
-              type="button"
-              onClick={() => { setMode('login'); setErrorMessage(''); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                mode === 'login'
-                  ? 'bg-gold-gradient text-[#0B0C10] shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Entrar
-            </button>
-
-            <button
-              type="button"
-              onClick={() => { setMode('register'); setErrorMessage(''); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                mode === 'register'
-                  ? 'bg-gold-gradient text-[#0B0C10] shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Criar Conta VIP
-            </button>
-          </div>
-
-          {errorMessage && (
-            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {successMessage && (
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>{successMessage}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {mode === 'register' && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Nome Completo
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    placeholder="Seu nome"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-                  />
+        <div className="container-luxe relative grid gap-12 pb-20 pt-28 sm:pt-32 lg:grid-cols-12 lg:gap-16 lg:pb-28 lg:pt-36">
+          {/* Coluna editorial */}
+          <section aria-label="Titi's Store" className="order-2 lg:order-1 lg:col-span-6">
+            <figure className="frame relative aspect-[4/5] w-full overflow-hidden bg-coal sm:aspect-[16/11] lg:aspect-auto lg:h-full lg:min-h-[640px]">
+              <Image
+                src="/skin_clara.jpg"
+                alt="Cliente de terno azul-marinho em fundo escuro"
+                fill
+                sizes="(min-width: 1024px) 50vw, 100vw"
+                className="img-editorial object-cover object-[center_22%]"
+              />
+              <div aria-hidden className="absolute inset-0 bg-linear-to-t from-obsidian via-obsidian/35 to-obsidian/10" />
+              <span
+                aria-hidden
+                className="vertical-text absolute right-7 top-8 z-[3] font-caps text-[0.6rem] tracking-[0.5em] text-gold/70"
+              >
+                Atelier · Est. 2023
+              </span>
+              <figcaption className="absolute inset-x-0 bottom-0 z-[3] p-8 sm:p-10">
+                <div className="flex items-center gap-4">
+                  <span className="numeral text-xs">I</span>
+                  <span className="stitch w-10" aria-hidden />
+                  <span className="eyebrow">Consultoria de imagem</span>
                 </div>
-              </div>
-            )}
+                <p className="mt-5 max-w-md font-display text-[clamp(2rem,3.6vw,3.1rem)] leading-[1.04] text-ivory">
+                  A elegância começa pela <em className="italic text-foil">precisão</em>.
+                </p>
+                <div className="tape mt-8 opacity-50" aria-hidden />
+              </figcaption>
+            </figure>
+          </section>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                E-mail
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  required
-                  placeholder="seu.email@exemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-                />
+          {/* Coluna do formulário */}
+          <section aria-labelledby="login-title" className="order-1 flex flex-col justify-center lg:order-2 lg:col-span-6">
+            <div className="mx-auto w-full max-w-md">
+              <div className="flex items-center gap-4">
+                <span className="stitch w-10" aria-hidden />
+                <span className="eyebrow">Área do cliente</span>
               </div>
+              <h1 id="login-title" className="mt-6 font-display text-[clamp(2.5rem,5vw,3.9rem)] leading-[1.02] text-ivory">
+                Entre no <em className="italic text-foil">Atelier</em>
+              </h1>
+              <p className="mt-5 text-base leading-relaxed text-mist">
+                Acesse sua cartela de cores, os looks salvos e o histórico dos seus pedidos.
+              </p>
+
+              <div className="panel relative mt-10 p-6 sm:p-8">
+                <Suspense fallback={<FormFallback />}>
+                  <LoginRedirectForm />
+                </Suspense>
+              </div>
+
+              <p className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-mist">
+                Prefere atendimento direto?
+                <a
+                  href={whatsappLink("Olá, Titi! Preciso de ajuda com a minha conta no site da Titi's Store.")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="link-luxe text-gold-light"
+                >
+                  <WhatsAppIcon className="h-3.5 w-3.5" />
+                  Falar com o Titi
+                </a>
+              </p>
             </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Senha
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-xl bg-gold-gradient text-[#0B0C10] font-bold text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
-            >
-              <span>{loading ? 'Carregando...' : mode === 'login' ? 'Entrar' : 'Cadastrar'}</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-
+          </section>
         </div>
       </main>
-
       <Footer />
-    </div>
+    </>
   );
 }

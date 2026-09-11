@@ -1,0 +1,371 @@
+'use client';
+
+import { useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { CircleAlert } from 'lucide-react';
+import type {
+  ClimateId,
+  ContrastLevel,
+  Diagnosis,
+  LooksResponse,
+  OccasionId,
+  Product,
+  SkinToneId,
+  StylePreference,
+  StyleRequest,
+  Subtone,
+  TimeOfDayId,
+} from '@/lib/types';
+import { getSeason, occasionTitle } from '@/lib/stylist/knowledge';
+import { generateLooks } from '@/lib/stylist/engine';
+import { requestLooks } from '@/lib/api';
+import { fetchCatalog, useCatalog } from '@/lib/catalog';
+import { supabase } from '@/lib/supabaseClient';
+import { diagnosisFromChoice, useDiagnosis } from '@/providers/DiagnosisProvider';
+import { useSession } from '@/providers/SessionProvider';
+import { useUI } from '@/providers/UIProvider';
+import { Button } from '@/components/ui/Button';
+import { SectionHeading } from '@/components/ui/SectionHeading';
+import { TapeMeasure } from '@/components/ui/TapeMeasure';
+import { StepTone } from './StepTone';
+import { StepContext } from './StepContext';
+import { StepLooks } from './StepLooks';
+import { ComposingState } from './ComposingState';
+
+const STEPS = ['Leitura', 'Contexto', 'Looks'];
+const MIN_COMPOSE_MS = 1400;
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+const FACTS = [
+  { value: '12', label: 'estações cromáticas' },
+  { value: '3', label: 'etapas' },
+  { value: '3', label: 'looks por contexto' },
+];
+
+const slide = {
+  enter: (dir: number) => ({ opacity: 0, x: dir * 40 }),
+  center: { opacity: 1, x: 0 },
+  exit: (dir: number) => ({ opacity: 0, x: dir * -40 }),
+};
+
+interface Composition {
+  response: LooksResponse;
+  request: StyleRequest;
+  seasonName: string;
+}
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function isUsableResponse(r: unknown): r is LooksResponse {
+  if (!r || typeof r !== 'object') return false;
+  const looks = (r as LooksResponse).looks;
+  return (
+    Array.isArray(looks) &&
+    looks.length > 0 &&
+    looks.every((l) => l && typeof l.title === 'string' && Array.isArray(l.pieces) && l.pieces.length > 0 && Array.isArray(l.palette))
+  );
+}
+
+/** Looks do servidor quando disponíveis; o motor local do Atelier garante o resultado em qualquer falha. */
+async function composeLooks(request: StyleRequest, products: Product[]): Promise<LooksResponse> {
+  try {
+    const remote = await requestLooks(request);
+    if (isUsableResponse(remote)) return remote;
+  } catch {
+    // segue para o motor local
+  }
+  const catalog = products.length > 0 ? products : (await fetchCatalog()).products;
+  return generateLooks(request, catalog);
+}
+
+function seasonNameFor(request: StyleRequest, diagnosis: Diagnosis | null) {
+  if (diagnosis && diagnosis.skinTone === request.skinTone && diagnosis.subtone === request.subtone && diagnosis.season) {
+    return diagnosis.season;
+  }
+  return getSeason(request.skinTone, request.subtone).name;
+}
+
+export function Atelier() {
+  const { diagnosis, setDiagnosis } = useDiagnosis();
+  const { user } = useSession();
+  const { openOverlay, toast } = useUI();
+  const { products } = useCatalog();
+  const reduceMotion = useReducedMotion();
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const runRef = useRef(0);
+
+  const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [maxStep, setMaxStep] = useState(0);
+
+  const [tone, setTone] = useState<SkinToneId>(diagnosis?.skinTone ?? 'morena');
+  const [subtone, setSubtone] = useState<Subtone>(diagnosis?.subtone ?? 'quente');
+  const [contrast, setContrast] = useState<ContrastLevel>(diagnosis?.contrast ?? 'medio');
+
+  const [occasion, setOccasion] = useState<OccasionId>('jantar');
+  const [customVenue, setCustomVenue] = useState('');
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDayId>('noite');
+  const [climate, setClimate] = useState<ClimateId>('ameno');
+  const [style, setStyle] = useState<StylePreference>('contemporaneo');
+
+  const [result, setResult] = useState<Composition | null>(null);
+  const [composing, setComposing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedFor, setSavedFor] = useState<Composition | null>(null);
+
+  // Quando o diagnóstico muda fora daqui (leitura por foto, perfil da conta), a seleção acompanha.
+  // Uma nova leitura por foto traz a pessoa de volta à etapa I para ver o resultado.
+  const [syncedDiagnosis, setSyncedDiagnosis] = useState<Diagnosis | null>(diagnosis);
+  if (diagnosis !== syncedDiagnosis) {
+    setSyncedDiagnosis(diagnosis);
+    if (diagnosis) {
+      setTone(diagnosis.skinTone);
+      setSubtone(diagnosis.subtone);
+      setContrast(diagnosis.contrast ?? 'medio');
+      const isNewPhotoReading = diagnosis.source !== 'manual' && diagnosis.createdAt !== syncedDiagnosis?.createdAt;
+      if (isNewPhotoReading) {
+        if (step !== 0) {
+          setDirection(-1);
+          setStep(0);
+        }
+        setResult(null);
+        setError(null);
+      }
+    }
+  }
+
+  const scrollToSteps = () => {
+    const el = anchorRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.top >= 0 && rect.top <= window.innerHeight * 0.4) return;
+    window.scrollTo({ top: Math.max(0, rect.top + window.scrollY - 96), behavior: reduceMotion ? 'auto' : 'smooth' });
+  };
+
+  const commitTone = () => {
+    const same =
+      !!diagnosis && diagnosis.skinTone === tone && diagnosis.subtone === subtone && diagnosis.contrast === contrast;
+    if (!same) setDiagnosis(diagnosisFromChoice(tone, subtone, contrast));
+  };
+
+  const goTo = (next: number) => {
+    if (next === step || composing) return;
+    if (step === 0 && next > 0) commitTone();
+    setDirection(next > step ? 1 : -1);
+    setStep(next);
+    setMaxStep((m) => Math.max(m, next));
+    scrollToSteps();
+  };
+
+  const canVisit = (i: number) => !composing && (i === 0 || (i === 1 && maxStep >= 1) || (i === 2 && !!result));
+
+  const compose = async () => {
+    if (composing) return;
+    const venue = customVenue.trim();
+    const request: StyleRequest = {
+      skinTone: tone,
+      subtone,
+      contrast,
+      occasion,
+      timeOfDay,
+      climate,
+      style,
+      ...(venue ? { customVenue: venue } : {}),
+    };
+    const run = ++runRef.current;
+    setComposing(true);
+    setError(null);
+    setResult(null);
+    setDirection(1);
+    setStep(2);
+    setMaxStep(2);
+    scrollToSteps();
+
+    try {
+      const [response] = await Promise.all([composeLooks(request, products), wait(MIN_COMPOSE_MS)]);
+      if (run !== runRef.current) return;
+      setResult({ response, request, seasonName: seasonNameFor(request, diagnosis) });
+    } catch {
+      if (run !== runRef.current) return;
+      setError('Não conseguimos compor os looks agora. Tente novamente em instantes.');
+    } finally {
+      if (run === runRef.current) setComposing(false);
+    }
+  };
+
+  const save = async () => {
+    if (!result || saving) return;
+    if (!user) {
+      openOverlay({ type: 'auth', mode: 'register' });
+      toast('Crie sua conta para guardar seus looks.', 'info');
+      return;
+    }
+    const current = result;
+    const { request, response, seasonName } = current;
+    setSaving(true);
+    try {
+      const title = [occasionTitle(request.occasion), request.customVenue].filter(Boolean).join(' · ').slice(0, 140);
+      let { error: dbError } = await supabase.from('consultations').insert({
+        user_id: user.id,
+        title,
+        skin_tone: request.skinTone,
+        skin_subtone: request.subtone,
+        contrast_level: request.contrast,
+        seasonal_palette: seasonName,
+        occasion: request.occasion,
+        custom_venue: request.customVenue ?? null,
+        time_of_day: request.timeOfDay,
+        climate: request.climate,
+        style_preference: request.style,
+        results: response.looks,
+        source: response.source,
+      });
+      if (dbError?.code === 'PGRST204') {
+        // Banco ainda no esquema anterior: grava as colunas essenciais.
+        ({ error: dbError } = await supabase.from('consultations').insert({
+          user_id: user.id,
+          skin_tone: request.skinTone,
+          skin_subtone: request.subtone,
+          seasonal_palette: seasonName,
+          occasion: request.occasion,
+          time_of_day: request.timeOfDay,
+          climate: request.climate,
+          results: response.looks,
+        }));
+      }
+      if (dbError) throw dbError;
+      setSavedFor(current);
+      toast('Looks guardados no seu acervo.', 'success');
+    } catch {
+      toast('Não foi possível salvar agora. Tente novamente.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const restorePhotoReading = () => {
+    if (!diagnosis) return;
+    setTone(diagnosis.skinTone);
+    setSubtone(diagnosis.subtone);
+    setContrast(diagnosis.contrast ?? 'medio');
+  };
+
+  const viewKey = step === 2 ? (composing ? 'composing' : error ? 'error' : result ? 'looks' : 'composing') : `step-${step}`;
+
+  let view: React.ReactNode;
+  if (step === 0) {
+    view = (
+      <StepTone
+        tone={tone}
+        subtone={subtone}
+        contrast={contrast}
+        onToneChange={setTone}
+        onSubtoneChange={setSubtone}
+        onContrastChange={setContrast}
+        diagnosis={diagnosis}
+        onScan={() => openOverlay({ type: 'scanner' })}
+        onRestorePhoto={restorePhotoReading}
+        onContinue={() => goTo(1)}
+      />
+    );
+  } else if (step === 1) {
+    view = (
+      <StepContext
+        occasion={occasion}
+        customVenue={customVenue}
+        timeOfDay={timeOfDay}
+        climate={climate}
+        style={style}
+        onOccasionChange={setOccasion}
+        onVenueChange={setCustomVenue}
+        onTimeChange={setTimeOfDay}
+        onClimateChange={setClimate}
+        onStyleChange={setStyle}
+        onBack={() => goTo(0)}
+        onCompose={() => void compose()}
+        composing={composing}
+      />
+    );
+  } else if (error && !composing) {
+    view = (
+      <div className="panel px-6 py-14 text-center sm:px-12" role="alert">
+        <CircleAlert className="mx-auto h-6 w-6 text-danger" strokeWidth={1.5} aria-hidden />
+        <p className="mt-4 font-display text-2xl text-ivory sm:text-3xl">A composição foi interrompida.</p>
+        <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-mist">{error}</p>
+        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <Button onClick={() => void compose()}>Tentar novamente</Button>
+          <Button variant="ghost" onClick={() => goTo(1)}>
+            Ajustar contexto
+          </Button>
+        </div>
+      </div>
+    );
+  } else if (result && !composing) {
+    view = (
+      <StepLooks
+        result={result.response}
+        request={result.request}
+        seasonName={result.seasonName}
+        products={products}
+        saving={saving}
+        saved={savedFor === result}
+        onSave={() => void save()}
+        onAdjust={() => goTo(1)}
+        onRestart={() => goTo(0)}
+      />
+    );
+  } else {
+    view = <ComposingState seasonName={getSeason(tone, subtone).name} />;
+  }
+
+  return (
+    <section id="atelier" aria-label="O Atelier" className="relative overflow-x-clip border-t border-line py-24 sm:py-32">
+      <div className="glow-gold pointer-events-none absolute -left-40 top-16 h-[28rem] w-[28rem] opacity-70" aria-hidden />
+
+      <div className="container-luxe relative">
+        <div className="grid gap-10 lg:grid-cols-12 lg:items-end">
+          <SectionHeading
+            className="lg:col-span-8"
+            numeral="II"
+            eyebrow="O Atelier"
+            title={
+              <>
+                Sua cartela, seu contexto, <em className="italic text-foil">seus looks</em>.
+              </>
+            }
+            lead="Escolha sua pele e subtom, ou faça a leitura por foto. Conte onde vai estar e receba três looks montados com critério de alfaiate e peças do nosso acervo."
+          />
+          <dl className="grid grid-cols-3 gap-4 border-l border-line-gold pl-6 lg:col-span-4 lg:justify-self-end">
+            {FACTS.map((f) => (
+              <div key={f.label} className="flex flex-col-reverse">
+                <dt className="mt-1 text-[0.6rem] uppercase leading-snug tracking-[0.2em] text-mist">{f.label}</dt>
+                <dd className="font-display text-4xl leading-none text-gold-light">{f.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div ref={anchorRef} className="mt-16">
+          <TapeMeasure steps={STEPS} current={step} onStepClick={goTo} canVisit={canVisit} />
+        </div>
+
+        <div className="relative mt-12">
+          <AnimatePresence mode="wait" initial={false} custom={reduceMotion ? 0 : direction}>
+            <motion.div
+              key={viewKey}
+              custom={reduceMotion ? 0 : direction}
+              variants={slide}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.55, ease: EASE }}
+            >
+              {view}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+    </section>
+  );
+}
