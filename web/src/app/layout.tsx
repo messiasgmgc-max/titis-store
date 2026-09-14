@@ -52,6 +52,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: '#0B0C10',
   colorScheme: 'dark',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -61,7 +65,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       data-scroll-behavior="smooth"
       className={urbanist.variable}
     >
-      <body className="min-h-dvh bg-obsidian font-sans text-ivory antialiased">
+      <body className="min-h-dvh bg-obsidian font-sans text-ivory antialiased overflow-x-hidden w-full max-w-full relative">
         <a
           href="#conteudo"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-gold focus:px-4 focus:py-2 focus:text-obsidian"
