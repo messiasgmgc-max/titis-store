@@ -8,11 +8,11 @@ interface Tilt3DProps {
   children: React.ReactNode;
   className?: string;
   style?: CSSProperties;
-  /** Rotação máxima, em graus, em cada eixo. */
+  /** Rotação máxima, em graus, em cada eixo (Padrão: 22 deg para alta visibilidade). */
   max?: number;
   /** Elevação (translateZ, em px) enquanto o ponteiro está sobre o elemento. */
   lift?: number;
-  /** Reflexo dourado que acompanha o ponteiro. */
+  /** Reflexo dourado que acompanha o ponteiro/giroscópio. */
   glare?: boolean;
   glareClassName?: string;
   perspective?: number;
@@ -24,24 +24,23 @@ interface OrientationEventCtor {
   requestPermission?: () => Promise<'granted' | 'denied'>;
 }
 
-/** Interpolação suave entre o valor atual e o alvo. */
+/** Interpolação suave e rápida entre o valor atual e o alvo. */
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
 const clamp = (v: number, limit: number) => Math.max(-limit, Math.min(limit, v));
 
 /**
- * Inclina o conteúdo em 3D. No computador acompanha o ponteiro; no celular acompanha
- * a inclinação do aparelho (giroscópio), sempre em relação à posição em que ele foi
- * pego. Filhos com `translateZ` ganham profundidade real. Desligado com "reduzir movimento".
+ * Inclina o conteúdo em 3D de alta resposta. No computador acompanha o ponteiro; no celular
+ * acompanha com alta sensibilidade a inclinação do aparelho (giroscópio).
  */
 export function Tilt3D({
   children,
   className,
   style,
-  max = 12,
-  lift = 0,
+  max = 22,
+  lift = 12,
   glare = true,
   glareClassName,
-  perspective = 1200,
+  perspective = 750,
   gyro = true,
 }: Tilt3DProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -59,8 +58,8 @@ export function Tilt3D({
       const y = (event.clientY - rect.top) / rect.height;
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const ry = (x - 0.5) * 2 * max;
-        const rx = (0.5 - y) * 2 * max * 0.75;
+        const ry = (x - 0.5) * 2 * max * 1.15;
+        const rx = (0.5 - y) * 2 * max * 0.95;
         el.style.transform = `perspective(${perspective}px) rotateY(${ry.toFixed(2)}deg) rotateX(${rx.toFixed(2)}deg) translateZ(${lift}px)`;
         el.style.setProperty('--gx', `${(x * 100).toFixed(1)}%`);
         el.style.setProperty('--gy', `${(y * 100).toFixed(1)}%`);
@@ -80,7 +79,7 @@ export function Tilt3D({
     };
   }, [max, lift, perspective, reduceMotion]);
 
-  // Giroscópio (telas de toque)
+  // Giroscópio (telas de toque - alta sensibilidade e resposta)
   useEffect(() => {
     const el = ref.current;
     if (!el || !gyro || reduceMotion) return;
@@ -93,13 +92,19 @@ export function Tilt3D({
     let running = false;
     let visible = true;
 
+    // Menos graus físicos de inclinação do celular necessários para atingir o máximo (muito mais forte)
+    const gyroAngleLimit = 16; 
+
     const tick = () => {
-      current = { rx: lerp(current.rx, target.rx, 0.12), ry: lerp(current.ry, target.ry, 0.12) };
+      // Lerp rápido de 0.22 para resposta instantânea ao movimento do pulso
+      current = { rx: lerp(current.rx, target.rx, 0.22), ry: lerp(current.ry, target.ry, 0.22) };
       el.style.transform = `perspective(${perspective}px) rotateY(${current.ry.toFixed(2)}deg) rotateX(${current.rx.toFixed(2)}deg)`;
-      // O reflexo segue a inclinação, como se a luz viesse de cima.
-      el.style.setProperty('--gx', `${(50 + (current.ry / max) * 35).toFixed(1)}%`);
-      el.style.setProperty('--gy', `${(50 - (current.rx / max) * 35).toFixed(1)}%`);
-      const settled = Math.abs(current.rx - target.rx) < 0.05 && Math.abs(current.ry - target.ry) < 0.05;
+      
+      // O reflexo segue a inclinação em 3D
+      el.style.setProperty('--gx', `${(50 + (current.ry / max) * 42).toFixed(1)}%`);
+      el.style.setProperty('--gy', `${(50 - (current.rx / max) * 42).toFixed(1)}%`);
+      
+      const settled = Math.abs(current.rx - target.rx) < 0.02 && Math.abs(current.ry - target.ry) < 0.02;
       if (settled && !visible) {
         running = false;
         return;
@@ -114,15 +119,17 @@ export function Tilt3D({
 
     const onOrientation = (event: DeviceOrientationEvent) => {
       if (event.beta === null || event.gamma === null) return;
-      // Ponto de partida: a inclinação em que o aparelho está quando a leitura começa.
       if (!baseline) baseline = { beta: event.beta, gamma: event.gamma };
-      const dGamma = clamp(event.gamma - baseline.gamma, 30); // esquerda/direita
-      const dBeta = clamp(event.beta - baseline.beta, 30); // frente/trás
-      target = { ry: (dGamma / 30) * max, rx: (-dBeta / 30) * max * 0.75 };
+      const dGamma = clamp(event.gamma - baseline.gamma, gyroAngleLimit); // esquerda/direita
+      const dBeta = clamp(event.beta - baseline.beta, gyroAngleLimit); // frente/trás
+      
+      target = { 
+        ry: (dGamma / gyroAngleLimit) * max * 1.25, 
+        rx: (-dBeta / gyroAngleLimit) * max * 1.1 
+      };
       start();
     };
 
-    // Só anima enquanto o elemento estiver na tela.
     const observer = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
       if (visible) start();
@@ -138,7 +145,6 @@ export function Tilt3D({
       el.dataset.gyro = 'on';
       window.addEventListener('deviceorientation', onOrientation);
     };
-    // iOS exige permissão, que só pode ser pedida a partir de um toque.
     const requestOnGesture = () => {
       Ctor.requestPermission?.()
         .then((state) => {
@@ -166,7 +172,7 @@ export function Tilt3D({
     <div
       ref={ref}
       className={cn(
-        'group/tilt relative transform-3d transition-transform duration-300 ease-out will-change-transform',
+        'group/tilt relative transform-3d transition-transform duration-200 ease-out will-change-transform',
         className,
       )}
       style={style}
@@ -176,12 +182,12 @@ export function Tilt3D({
         <span
           aria-hidden
           className={cn(
-            'pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-500 group-hover/tilt:opacity-100 group-data-[gyro=on]/tilt:opacity-100',
+            'pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-300 group-hover/tilt:opacity-100 group-data-[gyro=on]/tilt:opacity-100',
             glareClassName,
           )}
           style={{
             background:
-              'radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgb(245 215 127 / 0.22), transparent 45%)',
+              'radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgb(245 215 127 / 0.35), transparent 50%)',
           }}
         />
       )}

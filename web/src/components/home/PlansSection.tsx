@@ -36,8 +36,9 @@ function PlanCard({ plan, index }: { plan: ClubPlan; index: number }) {
   return (
     <FadeIn as="li" rise delay={index * 0.08} className={cn('flex', featured && 'order-first lg:order-none')}>
       <Tilt3D
-        max={8}
-        lift={12}
+        max={18}
+        lift={24}
+        perspective={750}
         className={cn(
           'flex w-full flex-col rounded-[1.75rem] p-7 sm:p-8',
           featured ? 'panel-gold shadow-[0_40px_90px_-45px_rgb(212_175_55/0.45)] lg:px-9 lg:py-12' : 'panel',
