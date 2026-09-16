@@ -18,8 +18,6 @@ import { useCatalog } from '@/lib/catalog';
 import { formatBRL } from '@/lib/format';
 import { useCart } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
-import { Header } from '@/components/site/Header';
-import { Footer } from '@/components/site/Footer';
 import { Button } from '@/components/ui/Button';
 
 interface ProductPageProps {
@@ -44,32 +42,24 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
   if (loading) {
     return (
-      <>
-        <Header />
-        <main className="min-h-screen bg-obsidian text-ivory flex items-center justify-center">
-          <div className="text-center space-y-3">
-            <div className="w-10 h-10 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-xs uppercase tracking-widest text-mist">Carregando detalhes da peça...</p>
-          </div>
-        </main>
-        <Footer />
-      </>
+      <main className="min-h-[70vh] bg-obsidian text-ivory flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs uppercase tracking-widest text-mist">Carregando detalhes da peça...</p>
+        </div>
+      </main>
     );
   }
 
   if (!product) {
     return (
-      <>
-        <Header />
-        <main className="min-h-screen bg-obsidian text-ivory flex flex-col items-center justify-center p-6 text-center">
-          <h1 className="text-2xl font-bold text-ivory">Produto não encontrado</h1>
-          <p className="mt-2 text-sm text-mist">Esta peça pode ter sido esgotada ou movida.</p>
-          <Button href="/colecao" variant="gold" className="mt-6">
-            Voltar para a Coleção
-          </Button>
-        </main>
-        <Footer />
-      </>
+      <main className="min-h-[70vh] bg-obsidian text-ivory flex flex-col items-center justify-center p-6 text-center">
+        <h1 className="text-2xl font-bold text-ivory">Produto não encontrado</h1>
+        <p className="mt-2 text-sm text-mist">Esta peça pode ter sido esgotada ou movida.</p>
+        <Button href="/colecao" variant="gold" className="mt-6">
+          Voltar para a Coleção
+        </Button>
+      </main>
     );
   }
 
@@ -112,9 +102,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   };
 
   return (
-    <>
-      <Header />
-      <main id="conteudo" className="min-h-screen bg-obsidian text-ivory pt-28 pb-20 sm:pt-36 sm:pb-28">
+    <main id="conteudo" className="min-h-screen bg-obsidian text-ivory pt-28 pb-20 sm:pt-36 sm:pb-28">
         <div className="container-luxe">
           
           {/* Navegação de retorno */}
@@ -283,7 +271,5 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
           </div>
         </div>
       </main>
-      <Footer />
-    </>
   );
 }

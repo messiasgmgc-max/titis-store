@@ -18,8 +18,6 @@ import {
 } from 'lucide-react';
 import { useCart } from '@/providers/CartProvider';
 import { formatBRL } from '@/lib/format';
-import { Header } from '@/components/site/Header';
-import { Footer } from '@/components/site/Footer';
 
 export default function TransparentCheckoutPage() {
   const router = useRouter();
@@ -154,24 +152,18 @@ export default function TransparentCheckoutPage() {
 
   if (items.length === 0 && !pixResult && !cardSuccess) {
     return (
-      <>
-        <Header />
-        <main className="min-h-screen bg-obsidian text-ivory flex flex-col items-center justify-center p-6 text-center">
-          <h1 className="text-2xl font-bold">Nenhum item para checkout</h1>
-          <p className="mt-2 text-sm text-mist">Adicione peças à sua sacola para prosseguir.</p>
-          <Link href="/colecao" className="btn btn-gold btn-md mt-6">
-            Ver Coleção
-          </Link>
-        </main>
-        <Footer />
-      </>
+      <main className="min-h-[70vh] bg-obsidian text-ivory flex flex-col items-center justify-center p-6 text-center">
+        <h1 className="text-2xl font-bold">Nenhum item para checkout</h1>
+        <p className="mt-2 text-sm text-mist">Adicione peças à sua sacola para prosseguir.</p>
+        <Link href="/colecao" className="btn btn-gold btn-md mt-6">
+          Ver Coleção
+        </Link>
+      </main>
     );
   }
 
   return (
-    <>
-      <Header />
-      <main id="conteudo" className="min-h-screen bg-obsidian text-ivory pt-28 pb-20 sm:pt-36 sm:pb-28">
+    <main id="conteudo" className="min-h-screen bg-obsidian text-ivory pt-28 pb-20 sm:pt-36 sm:pb-28">
         <div className="container-luxe max-w-5xl">
           
           <div className="mb-8">
@@ -627,7 +619,5 @@ export default function TransparentCheckoutPage() {
 
         </div>
       </main>
-      <Footer />
-    </>
   );
 }

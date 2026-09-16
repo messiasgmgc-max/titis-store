@@ -6,8 +6,6 @@ import Image from 'next/image';
 import { Trash2, ShoppingBag, ArrowRight, ArrowLeft, ShieldCheck, Ticket } from 'lucide-react';
 import { useCart } from '@/providers/CartProvider';
 import { formatBRL } from '@/lib/format';
-import { Header } from '@/components/site/Header';
-import { Footer } from '@/components/site/Footer';
 import { Button } from '@/components/ui/Button';
 
 export default function CartPage() {
@@ -19,29 +17,23 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <>
-        <Header />
-        <main className="min-h-screen bg-obsidian text-ivory flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-16 h-16 rounded-full border border-line-gold bg-gold/10 flex items-center justify-center text-gold mb-4">
-            <ShoppingBag className="h-8 w-8" />
-          </div>
-          <h1 className="text-2xl font-bold text-ivory">Sua sacola está vazia</h1>
-          <p className="mt-2 text-sm text-mist max-w-sm">
-            Explore nossa coleção de alta costura masculina e selecione peças que valorizem seu estilo.
-          </p>
-          <Button href="/colecao" variant="gold" className="mt-6">
-            Explorar Coleção
-          </Button>
-        </main>
-        <Footer />
-      </>
+      <main className="min-h-[70vh] bg-obsidian text-ivory flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-full border border-line-gold bg-gold/10 flex items-center justify-center text-gold mb-4">
+          <ShoppingBag className="h-8 w-8" />
+        </div>
+        <h1 className="text-2xl font-bold text-ivory">Sua sacola está vazia</h1>
+        <p className="mt-2 text-sm text-mist max-w-sm">
+          Explore nossa coleção de alta costura masculina e selecione peças que valorizem seu estilo.
+        </p>
+        <Button href="/colecao" variant="gold" className="mt-6">
+          Explorar Coleção
+        </Button>
+      </main>
     );
   }
 
   return (
-    <>
-      <Header />
-      <main id="conteudo" className="min-h-screen bg-obsidian text-ivory pt-28 pb-20 sm:pt-36 sm:pb-28">
+    <main id="conteudo" className="min-h-screen bg-obsidian text-ivory pt-28 pb-20 sm:pt-36 sm:pb-28">
         <div className="container-luxe">
           
           <div className="flex items-center justify-between border-b border-line pb-6 mb-8">
@@ -200,7 +192,5 @@ export default function CartPage() {
 
         </div>
       </main>
-      <Footer />
-    </>
   );
 }
