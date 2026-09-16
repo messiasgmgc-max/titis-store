@@ -16,7 +16,7 @@ export function PhoneStage({ children, className }: { children: React.ReactNode;
       style={{ transformPerspective: 1000 }}
     >
       <div className="animate-float motion-reduce:animate-none">
-        <Tilt3D max={28} lift={32} perspective={650} glare={true}>
+        <Tilt3D max={14} lift={14} perspective={1000} glare={true}>
           {children}
         </Tilt3D>
       </div>
