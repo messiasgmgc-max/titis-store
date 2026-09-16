@@ -2,6 +2,7 @@ import path from 'node:path';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   poweredByHeader: false,
   // Há um package-lock.json também na pasta pai; fixa a raiz do app nesta pasta.
   turbopack: {

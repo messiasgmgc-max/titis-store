@@ -13,6 +13,7 @@ import {
   type MercadoPagoPayment,
 } from '@/lib/server/mercadopago';
 import { PAYMENT_COLUMNS, applyPaymentAccess, type PaymentRecord } from '@/lib/server/payments';
+import { NotificationService } from '@/lib/server/notifications';
 import type { PaymentStatus } from '@/lib/types';
 
 export const maxDuration = 30;
@@ -159,6 +160,41 @@ export async function POST(req: Request) {
     }
 
     const db = createServiceSupabase();
+
+    // 1. Tratamento de pedidos do E-Commerce (orders table)
+    if (payment.external_reference && payment.external_reference.startsWith('TITIS-')) {
+      const { data: order } = await db
+        .from('orders')
+        .select('id, status, customer_name, customer_phone, total_cents')
+        .eq('id', payment.external_reference)
+        .maybeSingle();
+
+      if (order) {
+        // Idempotência: não processa se já estiver pago
+        if (order.status === 'paid') {
+          return jsonOk({ received: true, status: 'already_paid' });
+        }
+
+        if (payment.status === 'approved') {
+          await db
+            .from('orders')
+            .update({ status: 'paid', paid_at: new Date().toISOString() })
+            .eq('id', order.id);
+
+          if (order.customer_phone) {
+            NotificationService.sendOrderNotification({
+              phone: order.customer_phone,
+              customerName: order.customer_name || 'Cliente',
+              orderId: order.id,
+              amountCents: order.total_cents || 0,
+              type: 'PAYMENT_CONFIRMED',
+            }).catch((e) => console.error('[Webhook MP] Erro notificação WhatsApp:', e));
+          }
+        }
+        return jsonOk({ received: true, status: payment.status });
+      }
+    }
+
     const row = await findPaymentRow(db, payment);
     if (!row) {
       console.warn(`[webhook/mercadopago] pagamento ${payment.id} sem registro correspondente`);

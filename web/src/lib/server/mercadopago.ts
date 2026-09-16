@@ -229,3 +229,87 @@ export function verifyWebhookSignature(req: Request, dataId: string): boolean {
   const b = Buffer.from(v1, 'utf8');
   return a.length === b.length && timingSafeEqual(a, b);
 }
+
+// ------------------------------------------------------------
+// Pagamento Transparente (Pix com QR Code & Cartão de Crédito)
+// ------------------------------------------------------------
+
+export interface TransparentPaymentInput {
+  orderId: string;
+  amountCents: number;
+  paymentMethod: 'pix' | 'credit_card';
+  payer: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    cpf: string;
+    phone?: string;
+  };
+  cardToken?: string;
+  paymentMethodId?: string;
+  installments?: number;
+  origin: string;
+}
+
+export interface TransparentPaymentResult {
+  id: string;
+  status: string;
+  statusDetail: string | null;
+  qrCodeBase64?: string | null;
+  qrCode?: string | null;
+  ticketUrl?: string | null;
+}
+
+export async function createTransparentPayment(
+  input: TransparentPaymentInput,
+): Promise<TransparentPaymentResult> {
+  const base = input.origin.replace(/\/+$/, '');
+  const secure = base.startsWith('https://');
+
+  const cleanCpf = input.payer.cpf.replace(/\D/g, '');
+
+  const payload: Record<string, unknown> = {
+    transaction_amount: input.amountCents / 100,
+    description: `Pedido #${input.orderId} · Titi's Store`,
+    payment_method_id: input.paymentMethod === 'pix' ? 'pix' : input.paymentMethodId || 'master',
+    external_reference: input.orderId,
+    payer: {
+      email: input.payer.email,
+      first_name: input.payer.firstName,
+      last_name: input.payer.lastName,
+      identification: {
+        type: 'CPF',
+        number: cleanCpf,
+      },
+    },
+    ...(secure ? { notification_url: `${base}/api/webhooks/mercadopago` } : {}),
+  };
+
+  if (input.paymentMethod === 'credit_card' && input.cardToken) {
+    payload.token = input.cardToken;
+    payload.installments = Number(input.installments || 1);
+  }
+
+  const raw = (await mpFetch('/v1/payments', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    idempotencyKey: `${input.orderId}-${input.paymentMethod}-${Date.now()}`,
+  })) as Record<string, unknown> | null;
+
+  if (!raw || (!raw.id && !raw.status)) {
+    throw new MercadoPagoError('Resposta inválida do Mercado Pago.', 502);
+  }
+
+  const pointOfInteraction = raw.point_of_interaction as Record<string, unknown> | undefined;
+  const transactionData = pointOfInteraction?.transaction_data as Record<string, unknown> | undefined;
+
+  return {
+    id: String(raw.id),
+    status: typeof raw.status === 'string' ? raw.status : 'pending',
+    statusDetail: typeof raw.status_detail === 'string' ? raw.status_detail : null,
+    qrCodeBase64: typeof transactionData?.qr_code_base64 === 'string' ? transactionData.qr_code_base64 : null,
+    qrCode: typeof transactionData?.qr_code === 'string' ? transactionData.qr_code : null,
+    ticketUrl: typeof transactionData?.ticket_url === 'string' ? transactionData.ticket_url : null,
+  };
+}
+
