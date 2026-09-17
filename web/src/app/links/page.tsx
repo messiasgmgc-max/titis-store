@@ -19,6 +19,9 @@ import {
   Users,
   Compass,
   ArrowUpRight,
+  Bot,
+  Wand2,
+  Zap,
 } from 'lucide-react';
 
 // Galeria 1: Qualidade e Variedade
@@ -208,140 +211,250 @@ export default function LinksPage() {
           </div>
         </header>
 
-        {/* 2. BOTÕES DE AÇÃO PRIMÁRIOS (LINKS DA BIO) */}
-        <section className="mt-8 space-y-3" aria-label="Ações Principais">
-          
-          {/* BOTÃO 1: COMPRE AQUI PELO SITE (DESTAQUE OURO) */}
+        {/* 2. DESTAQUES PRINCIPAIS (CONSULTOR DE IA, LOJA & WHATSAPP) */}
+        <section className="mt-8 space-y-4" aria-label="Destaques Principais">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gold">
+              Destaques Oficiais
+            </span>
+            <span className="text-[10px] text-mist font-medium">
+              Escolha como deseja ser atendido
+            </span>
+          </div>
+
+          {/* DESTAQUE 1: PAINEL DO CONSULTOR DE IA (consultor.titisstore.com.br) */}
           <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }}>
-            <Link
-              href="/store"
-              className="group relative flex items-center justify-between overflow-hidden rounded-2xl bg-gold-gradient p-4 text-obsidian shadow-xl shadow-gold/15 transition-all duration-300 hover:shadow-gold/30"
+            <a
+              href="https://consultor.titisstore.com.br"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative block overflow-hidden rounded-3xl border-2 border-line-gold bg-gradient-to-b from-[#181a20] via-surface to-obsidian p-5 shadow-2xl shadow-gold/15 transition-all duration-300 hover:border-gold hover:shadow-gold/25"
             >
-              <div className="flex items-center gap-3.5">
-                <div className="grid h-11 w-11 place-items-center rounded-xl bg-obsidian text-gold shadow-md">
-                  <ShoppingBag className="h-5 w-5" />
+              {/* Efeito Glow / Shimmer Dourado */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-gold/15 blur-2xl transition-opacity group-hover:opacity-100"
+              />
+
+              {/* Tag Superior Exclusiva */}
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-line-gold/60 bg-obsidian/80 px-2.5 py-1 backdrop-blur-md">
+                  <Sparkles className="h-3 w-3 text-gold" />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gold-light">
+                    Tecnologia Exclusiva · IA
+                  </span>
                 </div>
-                <div className="text-left">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-black uppercase tracking-wider">
-                      Compre Aqui pelo Site
-                    </span>
-                    <span className="rounded-full bg-obsidian/15 px-1.5 py-0.2 text-[9px] font-extrabold uppercase text-obsidian">
-                      Loja Oficial
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-medium opacity-85">
-                    Catálogo completo, frete calculado e parcelamento
+                <span className="text-[10px] font-bold text-gold flex items-center gap-0.5">
+                  consultor.titisstore.com.br
+                  <ArrowUpRight className="h-3 w-3" />
+                </span>
+              </div>
+
+              {/* Corpo do Card */}
+              <div className="flex items-start gap-3.5">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-line-gold bg-obsidian text-gold shadow-md group-hover:scale-105 transition-transform">
+                  <Bot className="h-6 w-6 text-gold" />
+                </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <h2 className="text-base font-black tracking-wide text-ivory group-hover:text-gold-light transition-colors">
+                    Consultor de Imagem com IA
+                  </h2>
+                  <p className="mt-1 text-xs text-parchment leading-relaxed">
+                    Diagnóstico de estilo gratuito, análise de biotipo e recomendações de looks sob medida geradas por Inteligência Artificial.
                   </p>
                 </div>
               </div>
-              <ChevronRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" />
+
+              {/* Pílulas de Benefícios */}
+              <div className="mt-3.5 flex flex-wrap gap-1.5 text-[9px] font-semibold text-parchment">
+                <span className="rounded-md border border-line-gold/30 bg-surface/80 px-2 py-0.5">
+                  ✦ Diagnóstico Gratuito
+                </span>
+                <span className="rounded-md border border-line-gold/30 bg-surface/80 px-2 py-0.5">
+                  ✦ Looks Personalizados
+                </span>
+                <span className="rounded-md border border-line-gold/30 bg-surface/80 px-2 py-0.5">
+                  ✦ Provador Virtual
+                </span>
+              </div>
+
+              {/* Botão de Ação Dentro do Card */}
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-line-gold/40 bg-gold/10 px-3.5 py-2 text-xs font-bold text-gold-light transition-colors group-hover:bg-gold group-hover:text-obsidian">
+                <span>Acessar Painel do Consultor de IA</span>
+                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </a>
+          </motion.div>
+
+          {/* DESTAQUE 2: LOJA OFICIAL ONLINE (www.titisstore.com.br) */}
+          <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }}>
+            <Link
+              href="/store"
+              className="group relative block overflow-hidden rounded-3xl bg-gold-gradient p-5 text-obsidian shadow-2xl shadow-gold/20 transition-all duration-300 hover:shadow-gold/35"
+            >
+              {/* Tag Superior */}
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-obsidian/15 px-2.5 py-1">
+                  <ShoppingBag className="h-3 w-3 text-obsidian" />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-obsidian">
+                    E-commerce Oficial
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold text-obsidian flex items-center gap-0.5">
+                  www.titisstore.com.br
+                  <ChevronRight className="h-3 w-3" />
+                </span>
+              </div>
+
+              {/* Conteúdo */}
+              <div className="flex items-start gap-3.5">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-obsidian text-gold shadow-lg group-hover:scale-105 transition-transform">
+                  <ShoppingBag className="h-6 w-6" />
+                </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <h2 className="text-base font-black tracking-wide text-obsidian">
+                    Compre Aqui na Loja Oficial
+                  </h2>
+                  <p className="mt-1 text-xs font-medium text-obsidian/85 leading-relaxed">
+                    Catálogo completo de alta alfaiataria masculina, calças com regulador, polos em tricô e camisas de linho.
+                  </p>
+                </div>
+              </div>
+
+              {/* Pílulas de Benefícios */}
+              <div className="mt-3.5 flex flex-wrap gap-1.5 text-[9px] font-bold text-obsidian">
+                <span className="rounded-md bg-obsidian/10 px-2 py-0.5">
+                  ✓ Envio para todo o Brasil
+                </span>
+                <span className="rounded-md bg-obsidian/10 px-2 py-0.5">
+                  ✓ Até 12x no Cartão
+                </span>
+                <span className="rounded-md bg-obsidian/10 px-2 py-0.5">
+                  ✓ 1ª Troca Grátis
+                </span>
+              </div>
+
+              {/* Botão de Ação */}
+              <div className="mt-4 flex items-center justify-between rounded-xl bg-obsidian px-3.5 py-2 text-xs font-bold text-gold transition-colors group-hover:bg-obsidian/90">
+                <span>Ver Coleção Completa & Comprar</span>
+                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </div>
             </Link>
           </motion.div>
 
-          {/* BOTÃO 2: COMPRE AQUI PELO WHATSAPP */}
+          {/* DESTAQUE 3: COMPRE AQUI PELO WHATSAPP */}
           <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }}>
             <a
               href="https://api.whatsapp.com/send?phone=5531996000213&text=Ol%C3%A1%2C%20vim%20pelo%20link%20da%20bio%20e%20gostaria%20de%20fazer%20um%20pedido%21"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between rounded-2xl border border-line-gold/50 bg-surface/85 p-4 backdrop-blur-md transition-all duration-300 hover:border-gold hover:bg-surface hover:shadow-lg hover:shadow-gold/10"
+              className="group relative block overflow-hidden rounded-3xl border border-emerald-500/50 bg-surface/90 p-5 backdrop-blur-md transition-all duration-300 hover:border-emerald-400 hover:shadow-xl hover:shadow-emerald-500/10"
             >
-              <div className="flex items-center gap-3.5">
-                <div className="grid h-11 w-11 place-items-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-                  <WhatsAppIcon className="h-5 w-5" />
-                </div>
-                <div className="text-left">
-                  <span className="text-sm font-bold tracking-wide text-ivory block group-hover:text-gold-light transition-colors">
-                    Compre Aqui pelo WhatsApp
+              {/* Tag Superior */}
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1">
+                  <WhatsAppIcon className="h-3 w-3 text-emerald-400" />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">
+                    Atendimento Humanizado
                   </span>
-                  <p className="text-[11px] text-smoke">
-                    Atendimento ágil e personalizado com nossa equipe
+                </div>
+                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-0.5">
+                  (31) 99600-0213
+                  <ArrowUpRight className="h-3 w-3" />
+                </span>
+              </div>
+
+              {/* Conteúdo */}
+              <div className="flex items-start gap-3.5">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-400 shadow-md group-hover:scale-105 transition-transform">
+                  <WhatsAppIcon className="h-6 w-6" />
+                </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <h2 className="text-base font-black tracking-wide text-ivory group-hover:text-emerald-300 transition-colors">
+                    Compre pelo WhatsApp VIP
+                  </h2>
+                  <p className="mt-1 text-xs text-parchment leading-relaxed">
+                    Atendimento direto com nossos especialistas e com o consultor Fernando para tirar dúvidas de medidas e fechar pedidos.
                   </p>
                 </div>
               </div>
-              <ArrowUpRight className="h-4 w-4 text-mist transition-all group-hover:text-gold group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </a>
-          </motion.div>
 
-          {/* BOTÃO 3: CONSULTOR FERNANDO */}
-          <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }}>
-            <a
-              href="https://api.whatsapp.com/send?phone=5531996000213&text=Ol%C3%A1%2C%20gostaria%20de%20uma%20consultoria%20de%20imagem%20com%20o%20Fernando%21"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center justify-between rounded-2xl border border-line bg-surface/70 p-4 backdrop-blur-md transition-all duration-300 hover:border-line-gold hover:bg-surface"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="grid h-11 w-11 place-items-center rounded-xl border border-line-gold/30 bg-gold/10 text-gold">
-                  <Compass className="h-5 w-5" />
-                </div>
-                <div className="text-left">
-                  <span className="text-sm font-bold tracking-wide text-ivory block group-hover:text-gold-light transition-colors">
-                    Consultor Fernando
-                  </span>
-                  <p className="text-[11px] text-smoke">
-                    Consultoria de estilo para trabalho, eventos e dia a dia
-                  </p>
-                </div>
+              {/* Pílulas de Benefícios */}
+              <div className="mt-3.5 flex flex-wrap gap-1.5 text-[9px] font-semibold text-parchment">
+                <span className="rounded-md border border-line bg-surface px-2 py-0.5">
+                  ✓ Resposta Rápida
+                </span>
+                <span className="rounded-md border border-line bg-surface px-2 py-0.5">
+                  ✓ Suporte de Tamanho
+                </span>
+                <span className="rounded-md border border-line bg-surface px-2 py-0.5">
+                  ✓ Pronta Entrega
+                </span>
               </div>
-              <ArrowUpRight className="h-4 w-4 text-mist transition-all group-hover:text-gold group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+
+              {/* Botão de Ação */}
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-2 text-xs font-bold text-emerald-300 transition-colors group-hover:bg-emerald-500 group-hover:text-obsidian">
+                <span>Iniciar Conversa no WhatsApp</span>
+                <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </div>
             </a>
           </motion.div>
 
-          {/* BOTÃO 4: CATÁLOGO */}
-          <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }}>
+          {/* ACESSOS COMPLEMENTARES */}
+          <div className="pt-2 space-y-2.5">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-mist px-1">
+              Mais Acessos
+            </div>
+
+            {/* CATÁLOGO DE PEÇAS */}
             <Link
               href="/store/colecao"
-              className="group flex items-center justify-between rounded-2xl border border-line bg-surface/70 p-4 backdrop-blur-md transition-all duration-300 hover:border-line-gold hover:bg-surface"
+              className="group flex items-center justify-between rounded-2xl border border-line bg-surface/70 p-3.5 backdrop-blur-md transition-all duration-300 hover:border-line-gold hover:bg-surface"
             >
-              <div className="flex items-center gap-3.5">
-                <div className="grid h-11 w-11 place-items-center rounded-xl border border-line bg-obsidian/70 text-parchment">
-                  <Sparkles className="h-5 w-5 text-gold" />
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-obsidian/70 text-gold">
+                  <Sparkles className="h-4 w-4" />
                 </div>
                 <div className="text-left">
-                  <span className="text-sm font-bold tracking-wide text-ivory block group-hover:text-gold-light transition-colors">
-                    Catálogo de Peças
+                  <span className="text-xs font-bold text-ivory block group-hover:text-gold-light transition-colors">
+                    Catálogo Completo de Peças
                   </span>
-                  <p className="text-[11px] text-smoke">
-                    Alfaiataria, linho, polos de tricô e bermudas
+                  <p className="text-[10px] text-smoke">
+                    Alfaiataria, linho, polos e bermudas
                   </p>
                 </div>
               </div>
               <ChevronRight className="h-4 w-4 text-mist transition-all group-hover:text-gold group-hover:translate-x-0.5" />
             </Link>
-          </motion.div>
 
-          {/* BOTÃO 5: GUIA PRÁTICO */}
-          <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }}>
+            {/* GUIA PRÁTICO DE ESTILO */}
             <a
               href="https://pay.kiwify.com.br/aX2SlBh"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between rounded-2xl border border-line bg-surface/70 p-4 backdrop-blur-md transition-all duration-300 hover:border-line-gold hover:bg-surface"
+              className="group flex items-center justify-between rounded-2xl border border-line bg-surface/70 p-3.5 backdrop-blur-md transition-all duration-300 hover:border-line-gold hover:bg-surface"
             >
-              <div className="flex items-center gap-3.5">
-                <div className="grid h-11 w-11 place-items-center rounded-xl border border-line bg-obsidian/70 text-parchment">
-                  <BookOpen className="h-5 w-5 text-gold" />
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-obsidian/70 text-gold">
+                  <BookOpen className="h-4 w-4" />
                 </div>
                 <div className="text-left">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold tracking-wide text-ivory block group-hover:text-gold-light transition-colors">
-                      Guia Prático de Estilo
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-ivory block group-hover:text-gold-light transition-colors">
+                      Guia Prático de Estilo Masculino
                     </span>
-                    <span className="rounded-full bg-gold/15 border border-line-gold/40 px-2 py-0.5 text-[9px] font-bold text-gold-light">
+                    <span className="rounded bg-gold/15 px-1.5 py-0.2 text-[8px] font-bold text-gold-light">
                       E-book
                     </span>
                   </div>
-                  <p className="text-[11px] text-smoke">
-                    Aprenda a montar looks impecáveis com facilidade
+                  <p className="text-[10px] text-smoke">
+                    Manual prático para montar looks elegantes
                   </p>
                 </div>
               </div>
               <ArrowUpRight className="h-4 w-4 text-mist transition-all group-hover:text-gold group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </a>
-          </motion.div>
-
+          </div>
         </section>
 
         {/* 3. SEÇÃO: QUALIDADE E VARIEDADE (CARROSSEL COM FOTOS ORIGINAIS) */}
