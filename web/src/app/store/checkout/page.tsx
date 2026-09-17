@@ -17,10 +17,20 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { useCart } from '@/providers/CartProvider';
 import { formatBRL } from '@/lib/format';
+
+interface ShippingOption {
+  id: string;
+  name: string;
+  carrier: string;
+  priceCents: number;
+  deliveryDays: number;
+  isFree?: boolean;
+}
 
 export default function TransparentCheckoutPage() {
   const router = useRouter();
@@ -42,6 +52,11 @@ export default function TransparentCheckoutPage() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('MG');
 
+  // Shipping calculation states
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
+  const [loadingShipping, setLoadingShipping] = useState(false);
+
   // Payment states
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix');
   const [cardNumber, setCardNumber] = useState('');
@@ -61,6 +76,10 @@ export default function TransparentCheckoutPage() {
   } | null>(null);
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+
+  // Total calculado (subtotal + frete)
+  const shippingCents = selectedShipping?.priceCents ?? 0;
+  const grandTotalCents = subtotalCents + shippingCents;
 
   // Formatações de input
   const handleCpfChange = (val: string) => {
@@ -84,7 +103,33 @@ export default function TransparentCheckoutPage() {
     else setCep(`${raw.slice(0, 5)}-${raw.slice(5)}`);
   };
 
-  // Busca CEP via ViaCEP
+  // Busca frete no Melhor Envio
+  const fetchShipping = async (cleanCep: string) => {
+    setLoadingShipping(true);
+    try {
+      const res = await fetch('/api/shipping/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destinationCep: cleanCep,
+          itemsCount: items.reduce((acc, i) => acc + i.quantity, 0),
+          subtotalCents,
+        }),
+      });
+      const data = await res.json();
+      if (data.options && data.options.length > 0) {
+        setShippingOptions(data.options);
+        // Seleciona a primeira opção por padrão (geralmente a mais econômica)
+        setSelectedShipping(data.options[0]);
+      }
+    } catch {
+      // ignora erro
+    } finally {
+      setLoadingShipping(false);
+    }
+  };
+
+  // Busca CEP via ViaCEP + Dispara cálculo de frete
   const handleCepBlur = async () => {
     const cleanCep = cep.replace(/\D/g, '');
     if (cleanCep.length === 8) {
@@ -100,6 +145,9 @@ export default function TransparentCheckoutPage() {
       } catch {
         // ignora erro silencioso
       }
+
+      // Calcula as opções de frete
+      await fetchShipping(cleanCep);
     }
   };
 
@@ -119,7 +167,6 @@ export default function TransparentCheckoutPage() {
           setPaymentConfirmed(true);
           setPixResult(null);
 
-          // Efeito comemorativo de confirmação
           try {
             confetti({
               particleCount: 120,
@@ -132,7 +179,7 @@ export default function TransparentCheckoutPage() {
           }
         }
       } catch {
-        // ignora erro transitório de polling
+        // ignora erro transitório
       }
     }, 3000);
 
@@ -146,7 +193,7 @@ export default function TransparentCheckoutPage() {
 
     try {
       const payload = {
-        amountCents: subtotalCents,
+        amountCents: grandTotalCents,
         paymentMethod,
         payer: {
           firstName,
@@ -164,6 +211,14 @@ export default function TransparentCheckoutPage() {
           city,
           state,
         },
+        shippingService: selectedShipping
+          ? {
+              id: selectedShipping.id,
+              name: `${selectedShipping.carrier} - ${selectedShipping.name}`,
+              priceCents: selectedShipping.priceCents,
+              deliveryDays: selectedShipping.deliveryDays,
+            }
+          : undefined,
         items: items.map((i) => ({
           name: i.name,
           priceCents: i.priceCents,
@@ -522,6 +577,66 @@ export default function TransparentCheckoutPage() {
                     />
                   </div>
                 </div>
+
+                {/* OPÇÕES DE FRETE (MELHOR ENVIO) */}
+                <div className="border-t border-line/60 pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-parchment">
+                      Opções de Envio (Correios & Jadlog):
+                    </span>
+                    {loadingShipping && (
+                      <span className="flex items-center gap-1.5 text-[11px] text-gold animate-pulse">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Calculando fretes...</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {shippingOptions.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {shippingOptions.map((opt) => {
+                        const isSelected = selectedShipping?.id === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setSelectedShipping(opt)}
+                            className={`p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                              isSelected
+                                ? 'border-gold bg-gold/10 text-gold shadow-md'
+                                : 'border-line bg-obsidian text-mist hover:border-line-gold'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-bold text-xs text-ivory">{opt.carrier}</span>
+                                <span className="text-[10px] text-smoke uppercase">{opt.name}</span>
+                              </div>
+                              <p className="text-[11px] text-mist mt-1">
+                                Até {opt.deliveryDays} {opt.deliveryDays === 1 ? 'dia útil' : 'dias úteis'}
+                              </p>
+                            </div>
+                            <div className="mt-3">
+                              {opt.isFree ? (
+                                <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                  Grátis
+                                </span>
+                              ) : (
+                                <span className="font-bold text-xs text-ivory">
+                                  {formatBRL(opt.priceCents)}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-smoke italic">
+                      Digite seu CEP acima para carregar as opções de envio dos Correios e Jadlog.
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* FORMA DE PAGAMENTO */}
@@ -620,12 +735,12 @@ export default function TransparentCheckoutPage() {
                         onChange={(e) => setInstallments(Number(e.target.value))}
                         className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                       >
-                        <option value={1}>1x de {formatBRL(subtotalCents)} sem juros</option>
-                        <option value={2}>2x de {formatBRL(subtotalCents / 2)} sem juros</option>
-                        <option value={3}>3x de {formatBRL(subtotalCents / 3)} sem juros</option>
-                        <option value={6}>6x de {formatBRL(subtotalCents / 6)} sem juros</option>
-                        <option value={10}>10x de {formatBRL(subtotalCents / 10)}</option>
-                        <option value={12}>12x de {formatBRL(subtotalCents / 12)}</option>
+                        <option value={1}>1x de {formatBRL(grandTotalCents)} sem juros</option>
+                        <option value={2}>2x de {formatBRL(grandTotalCents / 2)} sem juros</option>
+                        <option value={3}>3x de {formatBRL(grandTotalCents / 3)} sem juros</option>
+                        <option value={6}>6x de {formatBRL(grandTotalCents / 6)} sem juros</option>
+                        <option value={10}>10x de {formatBRL(grandTotalCents / 10)}</option>
+                        <option value={12}>12x de {formatBRL(grandTotalCents / 12)}</option>
                       </select>
                     </div>
                   </div>
@@ -648,8 +763,8 @@ export default function TransparentCheckoutPage() {
                     {loading 
                       ? 'Processando no Mercado Pago...' 
                       : paymentMethod === 'pix' 
-                        ? `Gerar QR Code Pix · ${formatBRL(subtotalCents)}` 
-                        : `Finalizar Pedido · ${formatBRL(subtotalCents)}`}
+                        ? `Gerar QR Code Pix · ${formatBRL(grandTotalCents)}` 
+                        : `Finalizar Pedido · ${formatBRL(grandTotalCents)}`}
                   </span>
                 </button>
               </div>
@@ -689,13 +804,26 @@ export default function TransparentCheckoutPage() {
                     <span>Subtotal</span>
                     <span className="text-ivory font-bold">{formatBRL(subtotalCents)}</span>
                   </div>
-                  <div className="flex justify-between text-mist">
-                    <span>Frete Expresso</span>
-                    <span className="text-emerald-400 font-bold">Grátis para todo o Brasil</span>
+                  <div className="flex justify-between text-mist items-center">
+                    <span>Frete</span>
+                    {selectedShipping ? (
+                      selectedShipping.isFree ? (
+                        <span className="text-emerald-400 font-bold">Grátis</span>
+                      ) : (
+                        <span className="text-ivory font-bold">{formatBRL(selectedShipping.priceCents)}</span>
+                      )
+                    ) : (
+                      <span className="text-smoke italic">Informe o CEP</span>
+                    )}
                   </div>
+                  {selectedShipping && (
+                    <p className="text-[10px] text-mist text-right">
+                      {selectedShipping.carrier} ({selectedShipping.name}) · {selectedShipping.deliveryDays}d úteis
+                    </p>
+                  )}
                   <div className="border-t border-line pt-3 flex justify-between text-sm font-bold text-ivory">
                     <span>Total a Pagar</span>
-                    <span className="text-gold text-xl font-extrabold">{formatBRL(subtotalCents)}</span>
+                    <span className="text-gold text-xl font-extrabold">{formatBRL(grandTotalCents)}</span>
                   </div>
                 </div>
 

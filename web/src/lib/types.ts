@@ -156,6 +156,10 @@ export interface OrderRow {
   tracking_code?: string | null;
   tracking_carrier?: string | null;
   tracking_url?: string | null;
+  shipping_label_url?: string | null;
+  shipping_service_name?: string | null;
+  shipping_price_cents?: number | null;
+  melhor_envio_order_id?: string | null;
   notes: string | null;
   items: CartItem[];
   total_cents: number | null;

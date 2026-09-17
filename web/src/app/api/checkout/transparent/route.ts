@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       payer,
       items,
       shipping,
+      shippingService,
       cardToken,
       paymentMethodId,
       installments,
@@ -78,6 +79,10 @@ export async function POST(req: NextRequest) {
         customer_phone: payer.phone || null,
         customer_cpf: payer.cpf.replace(/\D/g, ''),
         shipping_address: shipping || null,
+        shipping_service_id: shippingService?.id || null,
+        shipping_service_name: shippingService?.name || null,
+        shipping_price_cents: shippingService?.priceCents || 0,
+        shipping_delivery_days: shippingService?.deliveryDays || null,
         items: items || [],
         paid_at: isApproved ? new Date().toISOString() : null,
       })

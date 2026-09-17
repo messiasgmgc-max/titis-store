@@ -12,7 +12,9 @@ import {
   Send, 
   CheckCircle,
   ExternalLink,
-  Copy
+  Printer,
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ColorDot } from '@/components/ui/Swatch';
@@ -66,6 +68,7 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [generatingLabel, setGeneratingLabel] = useState<Record<string, boolean>>({});
 
   const counts = useMemo(() => {
     const base: Record<StatusFilter, number> = { 
@@ -150,6 +153,33 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
     }
   };
 
+  const handleGenerateLabel = async (orderId: string) => {
+    setGeneratingLabel((prev) => ({ ...prev, [orderId]: true }));
+    try {
+      toast('Conectando ao Melhor Envio e gerando etiqueta...', 'info');
+      const res = await fetch('/api/admin/orders/generate-label', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao gerar etiqueta.');
+      toast(`Etiqueta gerada! Rastreio: ${data.trackingCode}. Notificações enviadas!`, 'success');
+      await reload();
+      if (data.labelUrl) {
+        window.open(data.labelUrl, '_blank');
+      }
+    } catch (err: any) {
+      toast(err.message || 'Falha ao emitir etiqueta no Melhor Envio.', 'error');
+    } finally {
+      setGeneratingLabel((prev) => {
+        const copy = { ...prev };
+        delete copy[orderId];
+        return copy;
+      });
+    }
+  };
+
   let body: React.ReactNode;
   if (loading) {
     body = <LoadingRows rows={4} label="Carregando os pedidos" />;
@@ -191,9 +221,11 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
             order={order}
             open={Boolean(expanded[order.id])}
             saving={Boolean(saving[order.id])}
+            generatingLabel={Boolean(generatingLabel[order.id])}
             onToggle={() => toggleItems(order.id)}
             onStatusChange={(next) => void changeStatus(order, next)}
             onDispatch={(code, carrier) => handleDispatch(order.id, code, carrier)}
+            onGenerateLabel={() => handleGenerateLabel(order.id)}
           />
         ))}
       </ul>
@@ -248,16 +280,20 @@ function OrderCard({
   order,
   open,
   saving,
+  generatingLabel,
   onToggle,
   onStatusChange,
   onDispatch,
+  onGenerateLabel,
 }: {
   order: OrderRow;
   open: boolean;
   saving: boolean;
+  generatingLabel: boolean;
   onToggle: () => void;
   onStatusChange: (next: OrderStatus) => void;
   onDispatch: (code: string, carrier: string) => Promise<void>;
+  onGenerateLabel: () => Promise<void>;
 }) {
   const tone = STATUS_TONE[order.status] || STATUS_TONE.novo;
   const pieces = itemCount(order);
@@ -351,6 +387,11 @@ function OrderCard({
               {order.payment_method === 'pix' ? 'Pix Instantâneo' : 'Cartão de Crédito'}
             </p>
           )}
+          {order.shipping_service_name && (
+            <p className="text-[10px] text-mist">
+              Frete: {order.shipping_service_name}
+            </p>
+          )}
         </div>
 
         {/* Status e Ações */}
@@ -371,7 +412,7 @@ function OrderCard({
             </SelectBox>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {chatLink && (
               <a
                 href={chatLink}
@@ -384,14 +425,41 @@ function OrderCard({
               </a>
             )}
 
+            {/* Ação de Etiqueta Melhor Envio */}
+            {order.shipping_label_url ? (
+              <a
+                href={order.shipping_label_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-gold btn-sm flex-1 justify-center text-xs gap-1 shadow-md shadow-gold/20"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>Imprimir Etiqueta</span>
+              </a>
+            ) : order.shipping_address ? (
+              <button
+                type="button"
+                onClick={onGenerateLabel}
+                disabled={generatingLabel}
+                className="btn btn-gold btn-sm flex-1 justify-center text-xs gap-1"
+              >
+                {generatingLabel ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
+                <span>{generatingLabel ? 'Emitindo...' : 'Gerar Etiqueta'}</span>
+              </button>
+            ) : null}
+
             {!order.tracking_code ? (
               <button
                 type="button"
                 onClick={() => setShowDispatchInput(!showDispatchInput)}
-                className="btn btn-gold btn-sm flex-1 justify-center text-xs"
+                className="btn btn-outline btn-sm flex-1 justify-center text-xs"
               >
                 <Truck className="h-3.5 w-3.5" />
-                <span>Despachar</span>
+                <span>Manual</span>
               </button>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold">
@@ -403,7 +471,7 @@ function OrderCard({
         </div>
       </div>
 
-      {/* PAINEL DE DESPACHO / RASTREAMENTO */}
+      {/* PAINEL DE DESPACHO MANUAL */}
       {showDispatchInput && (
         <form
           onSubmit={handleDispatchSubmit}
@@ -411,7 +479,7 @@ function OrderCard({
         >
           <div className="flex items-center gap-2 text-xs font-bold text-parchment">
             <Truck className="h-4 w-4 text-gold" />
-            <span>Despachar Pedido:</span>
+            <span>Despachar Manualmente:</span>
           </div>
 
           <input
@@ -452,18 +520,31 @@ function OrderCard({
               {order.tracking_code}
             </span>
           </div>
-          <a
-            href={
-              order.tracking_url ||
-              `https://rastreamento.correios.com.br/app/index.php?codigo=${encodeURIComponent(order.tracking_code)}`
-            }
-            target="_blank"
-            rel="noreferrer"
-            className="text-gold hover:underline inline-flex items-center gap-1 font-bold"
-          >
-            <span>Acompanhar nos Correios</span>
-            <ExternalLink className="h-3 w-3" />
-          </a>
+          <div className="flex items-center gap-3">
+            {order.shipping_label_url && (
+              <a
+                href={order.shipping_label_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-gold font-bold hover:underline inline-flex items-center gap-1"
+              >
+                <Printer className="h-3 w-3" />
+                <span>Ver Etiqueta Impressa</span>
+              </a>
+            )}
+            <a
+              href={
+                order.tracking_url ||
+                `https://rastreamento.correios.com.br/app/index.php?codigo=${encodeURIComponent(order.tracking_code)}`
+              }
+              target="_blank"
+              rel="noreferrer"
+              className="text-gold hover:underline inline-flex items-center gap-1 font-bold"
+            >
+              <span>Acompanhar nos Correios</span>
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
         </div>
       )}
 
