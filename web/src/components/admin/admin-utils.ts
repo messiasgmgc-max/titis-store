@@ -40,8 +40,10 @@ export const FORMALITY_LABELS = ['Descontraído', 'Casual refinado', 'Esporte fi
 
 export const ORDER_STATUSES: { id: OrderStatus; label: string; plural: string }[] = [
   { id: 'novo', label: 'Novo', plural: 'Novos' },
-  { id: 'em_atendimento', label: 'Em atendimento', plural: 'Em atendimento' },
-  { id: 'concluido', label: 'Concluído', plural: 'Concluídos' },
+  { id: 'pending', label: 'Aguardando Pagamento', plural: 'Aguardando' },
+  { id: 'paid', label: 'Pago', plural: 'Pagos' },
+  { id: 'em_atendimento', label: 'Em Preparação', plural: 'Em Preparação' },
+  { id: 'concluido', label: 'Enviado / Concluído', plural: 'Enviados / Concluídos' },
   { id: 'cancelado', label: 'Cancelado', plural: 'Cancelados' },
 ];
 
@@ -561,18 +563,29 @@ function normalizeCartItem(raw: unknown, index: number): CartItem {
 export function normalizeOrder(row: Record<string, unknown>): OrderRow {
   const name = typeof row.customer_name === 'string' ? row.customer_name.trim() : '';
   const notes = typeof row.notes === 'string' ? row.notes.trim() : '';
+  const channel = String(row.channel || 'whatsapp');
   return {
     id: String(row.id),
     user_id: typeof row.user_id === 'string' ? row.user_id : null,
     customer_name: name || 'Cliente sem nome',
     customer_phone: typeof row.customer_phone === 'string' && row.customer_phone ? row.customer_phone : null,
+    customer_email: typeof row.customer_email === 'string' && row.customer_email ? row.customer_email : null,
+    customer_cpf: typeof row.customer_cpf === 'string' && row.customer_cpf ? row.customer_cpf : null,
+    payment_method: typeof row.payment_method === 'string' && row.payment_method ? row.payment_method : null,
+    payment_provider_id: typeof row.payment_provider_id === 'string' && row.payment_provider_id ? row.payment_provider_id : null,
+    shipping_address: row.shipping_address && typeof row.shipping_address === 'object' ? row.shipping_address : null,
+    tracking_code: typeof row.tracking_code === 'string' && row.tracking_code ? row.tracking_code : null,
+    tracking_carrier: typeof row.tracking_carrier === 'string' && row.tracking_carrier ? row.tracking_carrier : null,
+    tracking_url: typeof row.tracking_url === 'string' && row.tracking_url ? row.tracking_url : null,
     notes: notes || null,
     items: Array.isArray(row.items) ? row.items.map(normalizeCartItem) : [],
     total_cents: typeof row.total_cents === 'number' ? row.total_cents : null,
     status: ORDER_STATUS_IDS.has(String(row.status)) ? (row.status as OrderStatus) : 'novo',
-    channel: 'whatsapp',
+    channel: channel === 'mercadopago' || channel === 'online' ? channel : 'whatsapp',
     created_at: typeof row.created_at === 'string' ? row.created_at : '',
     updated_at: typeof row.updated_at === 'string' ? row.updated_at : undefined,
+    paid_at: typeof row.paid_at === 'string' ? row.paid_at : null,
+    dispatched_at: typeof row.dispatched_at === 'string' ? row.dispatched_at : null,
   };
 }
 

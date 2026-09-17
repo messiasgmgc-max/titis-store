@@ -9,6 +9,7 @@ import {
   MercadoPagoError,
 } from '@/lib/server/mercadopago';
 import { NotificationService } from '@/lib/server/notifications';
+import { EmailService } from '@/lib/server/email';
 
 function siteOrigin(req: Request): string {
   const configured = (process.env.NEXT_PUBLIC_SITE_URL ?? '').trim().replace(/\/+$/, '');
@@ -60,13 +61,16 @@ export async function POST(req: NextRequest) {
       origin: siteOrigin(req),
     });
 
+    const isApproved = result.status === 'approved';
+
     // 2. Registra o pedido no Supabase
     await service
       .from('orders')
       .insert({
         id: orderId,
         total_cents: amountCents,
-        status: result.status === 'approved' ? 'paid' : 'pending',
+        status: isApproved ? 'paid' : 'pending',
+        channel: 'mercadopago',
         payment_method: paymentMethod,
         payment_provider_id: result.id,
         customer_name: `${payer.firstName} ${payer.lastName || ''}`.trim(),
@@ -75,21 +79,59 @@ export async function POST(req: NextRequest) {
         customer_cpf: payer.cpf.replace(/\D/g, ''),
         shipping_address: shipping || null,
         items: items || [],
+        paid_at: isApproved ? new Date().toISOString() : null,
       })
       .then(undefined, (err) => {
         console.warn('[api/checkout/transparent] Falha ao gravar pedido em orders:', err?.message);
       });
 
-    // 3. Dispara notificação via WhatsApp se for Pix gerado
-    if (paymentMethod === 'pix' && payer.phone && result.qrCode) {
-      NotificationService.sendOrderNotification({
-        phone: payer.phone,
-        customerName: payer.firstName,
-        orderId,
-        amountCents,
-        type: 'PIX_GENERATED',
-        pixCode: result.qrCode,
-      }).catch((err) => console.error(err));
+    // 3. Notificações automáticas (WhatsApp + E-mail)
+    if (paymentMethod === 'pix') {
+      // Disparo WhatsApp
+      if (payer.phone && result.qrCode) {
+        NotificationService.sendOrderNotification({
+          phone: payer.phone,
+          customerName: payer.firstName,
+          orderId,
+          amountCents,
+          type: 'PIX_GENERATED',
+          pixCode: result.qrCode,
+        }).catch((err) => console.error('[NotificationService Pix WhatsApp]', err));
+      }
+
+      // Disparo E-mail
+      if (payer.email) {
+        EmailService.sendOrderPixGenerated({
+          orderId,
+          customerName: payer.firstName,
+          customerEmail: payer.email,
+          amountCents,
+          items: items || [],
+          pixCode: result.qrCode || undefined,
+        }).catch((err) => console.error('[EmailService Pix]', err));
+      }
+    } else if (isApproved) {
+      // Cartão aprovado na hora
+      if (payer.phone) {
+        NotificationService.sendOrderNotification({
+          phone: payer.phone,
+          customerName: payer.firstName,
+          orderId,
+          amountCents,
+          type: 'PAYMENT_CONFIRMED',
+        }).catch((err) => console.error('[NotificationService Card WhatsApp]', err));
+      }
+
+      if (payer.email) {
+        EmailService.sendOrderPaymentConfirmed({
+          orderId,
+          customerName: payer.firstName,
+          customerEmail: payer.email,
+          amountCents,
+          items: items || [],
+          shippingAddress: shipping,
+        }).catch((err) => console.error('[EmailService Card]', err));
+      }
     }
 
     return NextResponse.json({

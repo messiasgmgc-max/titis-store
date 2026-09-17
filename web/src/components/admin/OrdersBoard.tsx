@@ -1,7 +1,19 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronDown, Inbox, SearchX, StickyNote } from 'lucide-react';
+import { 
+  ChevronDown, 
+  Inbox, 
+  SearchX, 
+  StickyNote, 
+  Truck, 
+  Mail, 
+  CreditCard, 
+  Send, 
+  CheckCircle,
+  ExternalLink,
+  Copy
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ColorDot } from '@/components/ui/Swatch';
 import { WhatsAppIcon } from '@/components/ui/icons';
@@ -28,6 +40,8 @@ type StatusFilter = 'all' | OrderStatus;
 
 const STATUS_TONE: Record<OrderStatus, { bar: string; text: string }> = {
   novo: { bar: 'bg-gold', text: 'text-gold-light' },
+  pending: { bar: 'bg-amber-500', text: 'text-amber-400' },
+  paid: { bar: 'bg-emerald-500', text: 'text-emerald-400' },
   em_atendimento: { bar: 'bg-gold-dark', text: 'text-gold' },
   concluido: { bar: 'bg-success', text: 'text-success' },
   cancelado: { bar: 'bg-smoke', text: 'text-smoke' },
@@ -43,7 +57,7 @@ function itemCount(order: OrderRow): number {
   return order.items.reduce((sum, i) => sum + i.quantity, 0);
 }
 
-/** Pedidos enviados pela sacola: status, itens, contato e observações. */
+/** Pedidos da loja e consultoria: status, itens, endereço, rastreamento e notificações */
 export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
   const { data: orders, loading, refreshing, error, reload, setData } = resource;
   const { toast } = useUI();
@@ -54,9 +68,19 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
   const [saving, setSaving] = useState<Record<string, boolean>>({});
 
   const counts = useMemo(() => {
-    const base: Record<StatusFilter, number> = { all: orders.length, novo: 0, em_atendimento: 0, concluido: 0, cancelado: 0 };
+    const base: Record<StatusFilter, number> = { 
+      all: orders.length, 
+      novo: 0, 
+      pending: 0,
+      paid: 0,
+      em_atendimento: 0, 
+      concluido: 0, 
+      cancelado: 0 
+    };
     orders.forEach((o) => {
-      base[o.status] += 1;
+      if (base[o.status] !== undefined) {
+        base[o.status] += 1;
+      }
     });
     return base;
   }, [orders]);
@@ -68,7 +92,9 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
       if (filter !== 'all' && o.status !== filter) return false;
       if (!q) return true;
       if (normalizeSearch(o.customer_name).includes(q)) return true;
-      if (o.id.toLowerCase().startsWith(q)) return true;
+      if (o.id.toLowerCase().includes(q)) return true;
+      if (o.customer_email && normalizeSearch(o.customer_email).includes(q)) return true;
+      if (o.tracking_code && normalizeSearch(o.tracking_code).includes(q)) return true;
       return digits.length >= 3 && (o.customer_phone ?? '').replace(/\D/g, '').includes(digits);
     });
   }, [orders, filter, query]);
@@ -81,10 +107,14 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
     setSaving((prev) => ({ ...prev, [order.id]: true }));
     setData((list) => list.map((o) => (o.id === order.id ? { ...o, status: next } : o)));
     try {
-      const { data, error: updateError } = await supabase.from('orders').update({ status: next }).eq('id', order.id).select('id');
+      const { data, error: updateError } = await supabase
+        .from('orders')
+        .update({ status: next })
+        .eq('id', order.id)
+        .select('id');
       if (updateError) throw updateError;
       if (!data || data.length === 0) {
-        throw new Error('Nenhuma alteração foi aplicada. Confirme que sua conta tem papel de administração.');
+        throw new Error('Nenhuma alteração foi aplicada. Confirme privilégios de admin.');
       }
       toast(`Pedido de ${firstName(order.customer_name)} marcado como “${statusLabel(next)}”.`, 'success');
       await reload();
@@ -100,6 +130,26 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
     }
   };
 
+  const handleDispatch = async (orderId: string, trackingCode: string, carrier: string) => {
+    try {
+      const res = await fetch('/api/admin/orders/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          trackingCode,
+          trackingCarrier: carrier,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao despachar pedido.');
+      toast('Pedido despachado! Notificações enviadas por WhatsApp e E-mail.', 'success');
+      await reload();
+    } catch (err: any) {
+      toast(err.message || 'Falha ao despachar pedido.', 'error');
+    }
+  };
+
   let body: React.ReactNode;
   if (loading) {
     body = <LoadingRows rows={4} label="Carregando os pedidos" />;
@@ -108,7 +158,7 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
   } else if (orders.length === 0) {
     body = (
       <EmptyState icon={Inbox} title="Nenhum pedido por enquanto">
-        Quando um cliente finalizar a sacola pelo WhatsApp, o pedido aparece aqui com itens, contato e observações.
+        Quando um cliente finalizar compras pelo checkout ou WhatsApp, os pedidos aparecerão aqui.
       </EmptyState>
     );
   } else if (filtered.length === 0) {
@@ -121,20 +171,20 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
             variant="ghost"
             size="sm"
             onClick={() => {
-              setQuery('');
               setFilter('all');
+              setQuery('');
             }}
           >
             Limpar filtros
           </Button>
         }
       >
-        Ajuste a busca ou o status para ver outros pedidos.
+        Tente buscar com outros termos ou altere o status selecionado.
       </EmptyState>
     );
   } else {
     body = (
-      <ul className="space-y-3">
+      <ul className="divide-y divide-line">
         {filtered.map((order) => (
           <OrderCard
             key={order.id}
@@ -143,6 +193,7 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
             saving={Boolean(saving[order.id])}
             onToggle={() => toggleItems(order.id)}
             onStatusChange={(next) => void changeStatus(order, next)}
+            onDispatch={(code, carrier) => handleDispatch(order.id, code, carrier)}
           />
         ))}
       </ul>
@@ -150,53 +201,48 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
   }
 
   return (
-    <section aria-labelledby="pedidos-titulo">
-      <div>
-        <SectionLabel numeral="II">Pedidos</SectionLabel>
-        <h2 id="pedidos-titulo" className="mt-3 font-display text-3xl text-ivory sm:text-4xl">
-          Livro de <em className="italic text-gold-light">encomendas</em>
-        </h2>
-        <p className="mt-2 max-w-lg text-sm leading-relaxed text-mist">
-          Pedidos enviados pela sacola do site. O atendimento continua pelo WhatsApp; atualize o status para manter a ficha em dia.
-        </p>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <SectionLabel numeral="IV">Vendas & Pedidos</SectionLabel>
+          <h2 className="mt-1 font-display text-2xl text-ivory">Quadro de Pedidos</h2>
+        </div>
+        <RefreshButton onClick={() => void reload()} busy={refreshing} />
       </div>
 
-      {!loading && orders.length > 0 && (
-        <div className="mt-8 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <SearchField
-              value={query}
-              onChange={setQuery}
-              label="Buscar pedido"
-              placeholder="Buscar por cliente, telefone ou número"
-            />
-            <RefreshButton onClick={() => void reload()} busy={refreshing} />
-          </div>
-          <Segmented<StatusFilter>
-            label="Filtrar pedidos por status"
-            value={filter}
-            onChange={setFilter}
-            options={[
-              { id: 'all', label: 'Todos', count: counts.all },
-              ...ORDER_STATUSES.map((s) => ({ id: s.id, label: s.plural, count: counts[s.id] })),
-            ]}
+      {error && orders.length > 0 && (
+        <InlineError message={error} onRetry={() => void reload()} retrying={refreshing} />
+      )}
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <Segmented
+          label="Filtro de pedidos"
+          value={filter}
+          onChange={(v) => setFilter(v as StatusFilter)}
+          options={[
+            { id: 'all', label: `Todos (${counts.all})` },
+            { id: 'pending', label: `Aguardando (${counts.pending})` },
+            { id: 'paid', label: `Pagos (${counts.paid})` },
+            { id: 'em_atendimento', label: `Preparação (${counts.em_atendimento})` },
+            { id: 'concluido', label: `Enviados (${counts.concluido})` },
+            { id: 'cancelado', label: `Cancelados (${counts.cancelado})` },
+          ]}
+        />
+        <div className="w-full sm:w-64">
+          <SearchField 
+            label="Buscar pedidos"
+            value={query} 
+            onChange={setQuery} 
+            placeholder="Buscar por cliente, id, rastreio..." 
           />
         </div>
-      )}
+      </div>
 
-      {error && orders.length > 0 && (
-        <div className="mt-6">
-          <InlineError message={error} onRetry={() => void reload()} retrying={refreshing} />
-        </div>
-      )}
-
-      <div className="mt-6">{body}</div>
-    </section>
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface/30">{body}</div>
+    </div>
   );
 }
 
-// ------------------------------------------------------------
-// Cartão do pedido
 // ------------------------------------------------------------
 function OrderCard({
   order,
@@ -204,78 +250,118 @@ function OrderCard({
   saving,
   onToggle,
   onStatusChange,
+  onDispatch,
 }: {
   order: OrderRow;
   open: boolean;
   saving: boolean;
   onToggle: () => void;
   onStatusChange: (next: OrderStatus) => void;
+  onDispatch: (code: string, carrier: string) => Promise<void>;
 }) {
-  const tone = STATUS_TONE[order.status];
+  const tone = STATUS_TONE[order.status] || STATUS_TONE.novo;
   const pieces = itemCount(order);
   const hasUnpriced = order.items.some((i) => i.priceCents === null);
   const phone = displayPhone(order.customer_phone);
   const dateLabel = order.created_at ? formatDateBR(order.created_at) : 'Data não registrada';
   const timeLabel = order.created_at ? formatTimeBR(order.created_at) : '';
-  const number = order.id.replace(/-/g, '').slice(0, 6).toUpperCase();
+
+  const [showDispatchInput, setShowDispatchInput] = useState(false);
+  const [trackingInput, setTrackingInput] = useState(order.tracking_code || '');
+  const [carrierInput, setCarrierInput] = useState(order.tracking_carrier || 'Correios');
+  const [dispatching, setDispatching] = useState(false);
+
   const chatLink = waLinkFor(
     order.customer_phone,
-    `Olá, ${firstName(order.customer_name)}! Aqui é da Titi's Store, sobre o seu pedido nº ${number}${
-      order.created_at ? ` de ${dateLabel}` : ''
-    }.`,
+    `Olá, ${firstName(order.customer_name)}! Aqui é da Titi's Store sobre o seu pedido #${order.id}.`,
   );
   const itemsId = `pedido-${order.id}-itens`;
 
-  return (
-    <li className={cn('relative border border-line bg-surface/40 transition-opacity', order.status === 'cancelado' && 'opacity-75')}>
-      <span className={cn('absolute inset-y-0 left-0 w-0.5', tone.bar)} aria-hidden />
+  const handleDispatchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackingInput.trim()) return;
+    setDispatching(true);
+    try {
+      await onDispatch(trackingInput.trim(), carrierInput.trim());
+      setShowDispatchInput(false);
+    } finally {
+      setDispatching(false);
+    }
+  };
 
-      <div className="grid gap-5 px-5 py-5 sm:px-6 md:grid-cols-[9.5rem_minmax(0,1fr)_auto] lg:grid-cols-[10rem_minmax(0,1fr)_10rem_15rem] lg:items-center">
-        {/* Data */}
+  return (
+    <li className={cn('relative border-b border-line bg-surface/40 transition-opacity', order.status === 'cancelado' && 'opacity-75')}>
+      <span className={cn('absolute inset-y-0 left-0 w-1', tone.bar)} aria-hidden />
+
+      <div className="grid gap-5 px-5 py-5 sm:px-6 md:grid-cols-[10rem_minmax(0,1fr)_auto] lg:grid-cols-[11rem_minmax(0,1fr)_10rem_15rem] lg:items-center">
+        {/* Data e ID */}
         <div>
-          <p className="font-display text-xl leading-tight text-ivory">{dateLabel}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-display text-lg leading-tight text-ivory">{dateLabel}</p>
+            {order.channel === 'mercadopago' ? (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                Mercado Pago
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gold/10 text-gold border border-line-gold">
+                WhatsApp
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-xs tabular-nums text-smoke">
-            {timeLabel && `${timeLabel} · `}Nº {number}
+            {timeLabel && `${timeLabel} · `}#{order.id}
           </p>
         </div>
 
-        {/* Cliente */}
-        <div className="min-w-0">
-          <p className="truncate text-base text-ivory">{order.customer_name}</p>
-          {phone && chatLink ? (
-            <a
-              href={chatLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1 inline-block text-sm tabular-nums text-mist transition-colors hover:text-gold-light"
-            >
-              {phone}
-            </a>
-          ) : (
-            <p className="mt-1 text-sm text-smoke">{phone || 'Telefone não informado'}</p>
-          )}
-          {order.user_id && <p className="mt-1 text-[0.6rem] uppercase tracking-[0.2em] text-smoke">Cliente com conta</p>}
+        {/* Cliente e Contato */}
+        <div className="min-w-0 space-y-1">
+          <p className="truncate text-base font-bold text-ivory">{order.customer_name}</p>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-mist">
+            {phone && (
+              <a
+                href={chatLink || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 hover:text-gold-light transition-colors"
+              >
+                <WhatsAppIcon className="h-3 w-3 text-emerald-400" />
+                <span>{phone}</span>
+              </a>
+            )}
+            {order.customer_email && (
+              <span className="inline-flex items-center gap-1 text-smoke">
+                <Mail className="h-3 w-3" />
+                <span>{order.customer_email}</span>
+              </span>
+            )}
+            {order.customer_cpf && (
+              <span className="text-smoke">CPF: {order.customer_cpf}</span>
+            )}
+          </div>
         </div>
 
-        {/* Total */}
+        {/* Total e Pagamento */}
         <div className="md:text-right lg:text-left">
           <p className="text-[0.6rem] uppercase tracking-[0.22em] text-smoke">Total</p>
-          <p className="mt-1 font-display text-2xl leading-none tabular-nums text-ivory">
+          <p className="mt-1 font-display text-2xl leading-none tabular-nums text-gold">
             {order.total_cents === null ? <span className="italic text-mist">Sob consulta</span> : formatBRL(order.total_cents)}
           </p>
-          {order.total_cents !== null && hasUnpriced && <p className="mt-1 text-xs text-smoke">+ itens sob consulta</p>}
+          {order.payment_method && (
+            <p className="mt-1 text-[11px] text-smoke uppercase tracking-wider">
+              {order.payment_method === 'pix' ? 'Pix Instantâneo' : 'Cartão de Crédito'}
+            </p>
+          )}
         </div>
 
-        {/* Status e contato */}
+        {/* Status e Ações */}
         <div className="flex flex-col gap-2.5 md:col-span-3 md:flex-row md:items-center md:justify-between lg:col-span-1 lg:flex-col lg:items-stretch">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <span className={cn('h-2 w-2 shrink-0 rounded-full', tone.bar)} aria-hidden />
             <SelectBox
               value={order.status}
               onChange={(e) => onStatusChange(e.target.value as OrderStatus)}
               disabled={saving}
-              aria-label={`Status do pedido de ${order.customer_name}`}
-              className="flex-1 md:w-52 md:flex-none lg:w-auto lg:flex-1"
+              className="flex-1 md:w-52 md:flex-none lg:w-auto lg:flex-1 text-xs"
             >
               {ORDER_STATUSES.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -284,24 +370,116 @@ function OrderCard({
               ))}
             </SelectBox>
           </div>
-          {chatLink ? (
-            <a
-              href={chatLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline btn-sm"
-              aria-label={`Abrir conversa com ${order.customer_name} no WhatsApp`}
-            >
-              <WhatsAppIcon className="h-3.5 w-3.5" />
-              Abrir conversa
-            </a>
-          ) : (
-            <span className="btn btn-ghost btn-sm pointer-events-none opacity-40" aria-disabled="true">
-              Sem telefone
-            </span>
-          )}
+
+          <div className="flex gap-2">
+            {chatLink && (
+              <a
+                href={chatLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-outline btn-sm flex-1 justify-center text-xs"
+              >
+                <WhatsAppIcon className="h-3.5 w-3.5" />
+                <span>WhatsApp</span>
+              </a>
+            )}
+
+            {!order.tracking_code ? (
+              <button
+                type="button"
+                onClick={() => setShowDispatchInput(!showDispatchInput)}
+                className="btn btn-gold btn-sm flex-1 justify-center text-xs"
+              >
+                <Truck className="h-3.5 w-3.5" />
+                <span>Despachar</span>
+              </button>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold">
+                <CheckCircle className="h-3.5 w-3.5" />
+                <span>Despachado</span>
+              </span>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* PAINEL DE DESPACHO / RASTREAMENTO */}
+      {showDispatchInput && (
+        <form
+          onSubmit={handleDispatchSubmit}
+          className="border-t border-line bg-surface-2 p-4 sm:px-6 flex flex-col sm:flex-row items-center gap-3 animate-in fade-in"
+        >
+          <div className="flex items-center gap-2 text-xs font-bold text-parchment">
+            <Truck className="h-4 w-4 text-gold" />
+            <span>Despachar Pedido:</span>
+          </div>
+
+          <input
+            type="text"
+            required
+            placeholder="Código de rastreio (ex: AA123456789BR)"
+            value={trackingInput}
+            onChange={(e) => setTrackingInput(e.target.value)}
+            className="w-full sm:w-64 bg-obsidian border border-line rounded-lg px-3 py-1.5 text-xs text-ivory font-mono focus:border-gold outline-none"
+          />
+
+          <input
+            type="text"
+            placeholder="Transportadora (Correios, etc)"
+            value={carrierInput}
+            onChange={(e) => setCarrierInput(e.target.value)}
+            className="w-full sm:w-40 bg-obsidian border border-line rounded-lg px-3 py-1.5 text-xs text-ivory focus:border-gold outline-none"
+          />
+
+          <button
+            type="submit"
+            disabled={dispatching}
+            className="btn btn-gold btn-sm w-full sm:w-auto px-4 gap-1.5 text-xs uppercase tracking-wider"
+          >
+            <Send className="h-3.5 w-3.5" />
+            <span>{dispatching ? 'Enviando...' : 'Confirmar Envio & Notificar'}</span>
+          </button>
+        </form>
+      )}
+
+      {/* RASTREIO CONFIRMADO */}
+      {order.tracking_code && (
+        <div className="border-t border-line bg-surface/30 px-5 py-2.5 sm:px-6 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <Truck className="h-4 w-4 text-gold" />
+            <span className="text-mist font-semibold">Rastreamento ({order.tracking_carrier || 'Correios'}):</span>
+            <span className="font-mono font-bold text-ivory bg-obsidian px-2 py-0.5 rounded border border-line">
+              {order.tracking_code}
+            </span>
+          </div>
+          <a
+            href={
+              order.tracking_url ||
+              `https://rastreamento.correios.com.br/app/index.php?codigo=${encodeURIComponent(order.tracking_code)}`
+            }
+            target="_blank"
+            rel="noreferrer"
+            className="text-gold hover:underline inline-flex items-center gap-1 font-bold"
+          >
+            <span>Acompanhar nos Correios</span>
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      )}
+
+      {/* ENDEREÇO DE ENTREGA */}
+      {order.shipping_address && (
+        <div className="border-t border-line bg-surface/20 px-5 py-3 sm:px-6 text-xs text-mist flex gap-2 items-start">
+          <Truck className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold text-parchment">Endereço de Entrega: </span>
+            {order.shipping_address.street}, {order.shipping_address.number}
+            {order.shipping_address.complement ? ` (${order.shipping_address.complement})` : ''} -{' '}
+            {order.shipping_address.neighborhood}, {order.shipping_address.city}/{order.shipping_address.state} ·{' '}
+            CEP {order.shipping_address.cep}
+          </div>
+        </div>
+      )}
 
       {order.notes && (
         <div className="flex gap-3 border-t border-line px-5 py-3.5 sm:px-6">
@@ -313,6 +491,7 @@ function OrderCard({
         </div>
       )}
 
+      {/* ITENS DO PEDIDO */}
       <div className="border-t border-line">
         <button
           type="button"
@@ -338,7 +517,7 @@ function OrderCard({
         {open && order.items.length > 0 && (
           <div id={itemsId} className="overflow-x-auto border-t border-line bg-coal/50">
             <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
-              <caption className="sr-only">Itens do pedido de {order.customer_name}</caption>
+              <caption className="sr-only">Itens do pedido #{order.id}</caption>
               <thead>
                 <tr className="text-[0.58rem] uppercase tracking-[0.22em] text-smoke">
                   <th scope="col" className="py-2.5 pl-5 pr-3 font-medium sm:pl-6">
@@ -365,7 +544,7 @@ function OrderCard({
                       <div className="flex items-center gap-3">
                         <Thumb src={item.image} alt={item.name} className="h-12 w-9" />
                         <div className="min-w-0">
-                          <p className="max-w-[16rem] truncate text-ivory">{item.name}</p>
+                          <p className="max-w-[16rem] truncate text-ivory font-semibold">{item.name}</p>
                           <p className="max-w-[16rem] truncate text-xs text-smoke">
                             {item.lookTitle ? `Look “${item.lookTitle}”` : item.detail}
                           </p>
@@ -383,13 +562,13 @@ function OrderCard({
                         <span className="text-smoke">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-center tabular-nums text-parchment">{item.quantity}</td>
+                    <td className="px-3 py-2.5 text-center tabular-nums text-parchment font-bold">{item.quantity}</td>
                     <td className="whitespace-nowrap py-2.5 pl-3 pr-5 text-right tabular-nums sm:pr-6">
                       {item.priceCents === null ? (
                         <span className="italic text-mist">Sob consulta</span>
                       ) : (
                         <>
-                          <span className="text-ivory">{formatBRL(item.priceCents * item.quantity)}</span>
+                          <span className="text-gold font-bold">{formatBRL(item.priceCents * item.quantity)}</span>
                           {item.quantity > 1 && (
                             <span className="block text-xs text-smoke">{formatBRL(item.priceCents)} cada</span>
                           )}

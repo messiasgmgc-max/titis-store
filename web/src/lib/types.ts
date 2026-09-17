@@ -141,20 +141,30 @@ export interface CartItem {
   lookTitle?: string | null;
 }
 
-export type OrderStatus = 'novo' | 'em_atendimento' | 'concluido' | 'cancelado';
+export type OrderStatus = 'novo' | 'em_atendimento' | 'concluido' | 'cancelado' | 'pending' | 'paid';
 
 export interface OrderRow {
   id: string;
   user_id: string | null;
   customer_name: string;
   customer_phone: string | null;
+  customer_email?: string | null;
+  customer_cpf?: string | null;
+  payment_method?: string | null;
+  payment_provider_id?: string | null;
+  shipping_address?: any | null;
+  tracking_code?: string | null;
+  tracking_carrier?: string | null;
+  tracking_url?: string | null;
   notes: string | null;
   items: CartItem[];
   total_cents: number | null;
   status: OrderStatus;
-  channel: 'whatsapp';
+  channel: 'whatsapp' | 'online' | 'mercadopago';
   created_at: string;
   updated_at?: string;
+  paid_at?: string | null;
+  dispatched_at?: string | null;
 }
 
 // ------------------------------------------------------------

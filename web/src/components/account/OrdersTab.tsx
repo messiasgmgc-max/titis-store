@@ -14,15 +14,24 @@ type LoadState = { status: 'loading' } | { status: 'error' } | { status: 'ready'
 
 const STATUS: Record<OrderStatus, { label: string; dot: string; text: string }> = {
   novo: { label: 'Recebido', dot: 'bg-parchment', text: 'text-parchment' },
-  em_atendimento: { label: 'Em atendimento', dot: 'bg-gold', text: 'text-gold-light' },
-  concluido: { label: 'Concluído', dot: 'bg-success', text: 'text-success' },
+  pending: { label: 'Aguardando Pagamento', dot: 'bg-amber-400', text: 'text-amber-400' },
+  paid: { label: 'Pago', dot: 'bg-emerald-400', text: 'text-emerald-400' },
+  em_atendimento: { label: 'Em Preparação', dot: 'bg-gold', text: 'text-gold-light' },
+  concluido: { label: 'Enviado / Concluído', dot: 'bg-success', text: 'text-success' },
   cancelado: { label: 'Cancelado', dot: 'bg-danger', text: 'text-danger' },
 };
 
 const FLOW: OrderStatus[] = ['novo', 'em_atendimento', 'concluido'];
 
 function isStatus(v: unknown): v is OrderStatus {
-  return v === 'novo' || v === 'em_atendimento' || v === 'concluido' || v === 'cancelado';
+  return (
+    v === 'novo' ||
+    v === 'pending' ||
+    v === 'paid' ||
+    v === 'em_atendimento' ||
+    v === 'concluido' ||
+    v === 'cancelado'
+  );
 }
 
 function StatusBadge({ status }: { status: OrderStatus }) {

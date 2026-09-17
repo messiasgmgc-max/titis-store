@@ -1,14 +1,42 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ShieldCheck, Truck, RefreshCw, CreditCard, Sparkles } from 'lucide-react';
+import { ShieldCheck, Truck, RefreshCw, CreditCard, Sparkles, Mail, CheckCircle2 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/ui/icons';
 import { SITE } from '@/lib/site';
 
 export function StoreFooter() {
   const consultorUrl = process.env.NEXT_PUBLIC_CONSULTOR_URL || 'https://consultor.titisstore.com.br';
+
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !email.includes('@')) return;
+    setLoading(true);
+    setErrorMsg('');
+
+    try {
+      const res = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'store' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao se inscrever.');
+      setSubscribed(true);
+      setEmail('');
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Falha ao se inscrever na newsletter.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <footer className="border-t border-line bg-surface text-mist">
@@ -32,7 +60,7 @@ export function StoreFooter() {
             </div>
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-ivory">Até 12x no Cartão</h4>
-              <p className="text-[11px] text-mist">Ou 5% de desconto no pagamento via Pix.</p>
+              <p className="text-[11px] text-mist">Ou pagamento instantâneo via Pix.</p>
             </div>
           </div>
 
@@ -58,7 +86,53 @@ export function StoreFooter() {
         </div>
       </div>
 
-      {/* 2. Conteúdo Principal do Rodapé */}
+      {/* 2. Banner de Newsletter Privada */}
+      <div className="border-b border-line bg-obsidian py-10">
+        <div className="container-luxe flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="text-center lg:text-left space-y-1">
+            <div className="inline-flex items-center gap-2 text-gold text-xs font-bold uppercase tracking-widest">
+              <Mail className="h-3.5 w-3.5" />
+              <span>Círculo Privado Titi&apos;s Store</span>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-ivory">
+              Receba lançamentos exclusivos e 10% OFF
+            </h3>
+            <p className="text-xs text-mist">
+              Inscreva-se para receber convites de coleções cápsula e seu cupom exclusivo de boas-vindas por e-mail.
+            </p>
+          </div>
+
+          <div className="w-full lg:w-auto">
+            {subscribed ? (
+              <div className="flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-5 py-3 rounded-full text-xs font-bold">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <span>Pronto! Seu cupom exclusivo foi enviado para o seu e-mail.</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2 w-full max-w-md">
+                <input
+                  type="email"
+                  required
+                  placeholder="Seu melhor e-mail..."
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-surface border border-line rounded-full px-4 py-3 text-xs text-ivory placeholder-smoke focus:outline-none focus:border-gold sm:w-72"
+                />
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn btn-gold btn-md rounded-full text-xs font-bold uppercase tracking-wider shrink-0"
+                >
+                  {loading ? 'Cadastrando...' : 'Fazer Parte'}
+                </button>
+              </form>
+            )}
+            {errorMsg && <p className="text-danger text-[11px] mt-1.5">{errorMsg}</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Conteúdo Principal do Rodapé */}
       <div className="container-luxe py-14 sm:py-16">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 md:grid-cols-4 lg:gap-12">
           
@@ -122,7 +196,7 @@ export function StoreFooter() {
               Consultoria Digital
             </h4>
             <p className="text-xs leading-relaxed text-mist">
-              Quer saber exatamente quais cores e modelagens harmonizam com seu subtom de pele?
+              Descubra quais cores e modelagens harmonizam com seu subtom de pele e formato facial.
             </p>
             <a
               href={consultorUrl}
@@ -135,7 +209,7 @@ export function StoreFooter() {
 
         </div>
 
-        {/* 3. Rodapé Inferior */}
+        {/* 4. Rodapé Inferior */}
         <div className="mt-12 border-t border-line/60 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-smoke">
           <p>© {new Date().getFullYear()} Titi&apos;s Store. Todos os direitos reservados.</p>
           <div className="flex items-center gap-3">
