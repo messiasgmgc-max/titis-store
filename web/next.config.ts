@@ -13,6 +13,18 @@ const nextConfig: NextConfig = {
     // para não depender de remotePatterns nem consumir cota de otimização da Vercel.
     unoptimized: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: '/wp-content/uploads/:year/:month/:file',
+        destination: '/produtos/:file',
+      },
+      {
+        source: '/wp-content/uploads/:file',
+        destination: '/produtos/:file',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

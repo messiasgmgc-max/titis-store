@@ -22,6 +22,7 @@ import { useCart } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
 import { Button } from '@/components/ui/Button';
 import { Tilt3D } from '@/components/ui/Tilt3D';
+import { FeaturedCarousel3D } from '@/components/store/FeaturedCarousel3D';
 
 const CATEGORIES = [
   {
@@ -61,11 +62,11 @@ export default function StoreHomePage() {
   const { add } = useCart();
   const { openOverlay } = useUI();
 
-  const featuredLead = products.find((p) => p.is_featured && p.image_url) || products[0];
-  const leadPrice = featuredLead?.price_cents ? formatBRL(featuredLead.price_cents) : 'R$ 289,90';
-  const leadImage = featuredLead?.image_url || '/produtos/calca-alfaiataria-regulador-cinza-grafite.jpg';
-  const leadName = featuredLead?.name || 'Calça de Alfaiataria com Regulador';
-  const leadUrl = featuredLead ? `/produtos/${featuredLead.slug || featuredLead.id}` : '/produtos/calca-alfaiataria-regulador-cinza-grafite';
+  // Peças em destaque para o Carrossel 3D do Hero
+  const featuredLeads = products.filter((p) => p.is_featured && p.image_url);
+  const heroCarouselProducts = featuredLeads.length > 0 
+    ? featuredLeads 
+    : products.filter((p) => p.image_url).slice(0, 6);
 
   const featuredProducts = products.filter((p) => p.is_featured || p.price_cents !== null).slice(0, 8);
   const consultorUrl = process.env.NEXT_PUBLIC_CONSULTOR_URL || 'https://consultor.titisstore.com.br';
@@ -130,34 +131,9 @@ export default function StoreHomePage() {
               </div>
             </div>
 
-            {/* Vitrine Visual com Tilt Suave */}
+            {/* Carrossel 3D Interativo de Peças Destaque */}
             <div className="lg:col-span-5">
-              <Tilt3D max={10} lift={14} perspective={950} className="w-full">
-                <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[2.5rem] border border-line-gold bg-surface shadow-2xl">
-                  <Image
-                    src={leadImage}
-                    alt={leadName}
-                    fill
-                    priority
-                    className="object-cover object-top"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-obsidian via-obsidian/25 to-transparent" />
-                  
-                  <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-line-gold/40 bg-surface/90 p-5 backdrop-blur-md">
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-gold block">
-                      Peça em Destaque
-                    </span>
-                    <h3 className="mt-1 text-base font-bold text-ivory line-clamp-1">{leadName}</h3>
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className="text-sm font-extrabold text-gold">{leadPrice}</span>
-                      <Link href={leadUrl} className="text-xs text-gold hover:underline font-bold flex items-center gap-1">
-                        <span>Ver detalhes</span>
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </Tilt3D>
+              <FeaturedCarousel3D products={heroCarouselProducts} />
             </div>
 
           </div>

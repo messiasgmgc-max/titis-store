@@ -777,8 +777,8 @@ export function ProductForm({ product, products, onClose, onSaved }: ProductForm
                   onChange={(v) => setField('is_active', v)}
                 />
                 <ToggleCell
-                  title="Destaque"
-                  text="Marcada como destaque da coleção"
+                  title="⭐ Carrossel 3D"
+                  text="Exibir no carrossel 3D de peças destaque do Hero"
                   checked={form.is_featured}
                   onChange={(v) => setField('is_featured', v)}
                 />
