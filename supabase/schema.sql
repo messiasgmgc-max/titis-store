@@ -111,6 +111,13 @@ alter table public.profiles
   add column if not exists access_until        timestamptz,
   add column if not exists is_blocked          boolean not null default false,
   add column if not exists admin_notes         text,
+  add column if not exists weight_kg           numeric,
+  add column if not exists height_cm           numeric,
+  add column if not exists age                 integer,
+  add column if not exists gender              text,
+  add column if not exists body_type           text,
+  add column if not exists cpf                 text,
+  add column if not exists shipping_address    jsonb,
   add column if not exists created_at          timestamptz not null default now(),
   add column if not exists updated_at          timestamptz default now();
 

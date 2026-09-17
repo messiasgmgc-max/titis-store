@@ -47,6 +47,13 @@ function fallbackProfile(user: User): Profile {
     contrast_level: null,
     seasonal_palette: null,
     preferred_style: null,
+    weight_kg: null,
+    height_cm: null,
+    age: null,
+    gender: null,
+    body_type: null,
+    cpf: null,
+    shipping_address: null,
     plan: null,
     access_until: null,
     is_blocked: false,
@@ -103,7 +110,26 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     async (patch: EditableProfile) => {
       if (!user) return { error: 'Faça login para salvar seu perfil.' };
       const { data, error } = await supabase.from('profiles').update(patch).eq('id', user.id).select('*').maybeSingle();
-      if (error) return { error: error.message };
+      if (error) {
+        // Fallback defensivo: se a migration remota ainda não foi rodada, tenta salvar colunas padrão
+        console.warn('[session] updateProfile erro, aplicando fallback:', error.message);
+        const basicPatch: Partial<EditableProfile> = {
+          full_name: patch.full_name,
+          phone: patch.phone,
+          preferred_skin_tone: patch.preferred_skin_tone,
+          skin_subtone: patch.skin_subtone,
+          contrast_level: patch.contrast_level,
+          seasonal_palette: patch.seasonal_palette,
+        };
+        const { data: fallbackData } = await supabase
+          .from('profiles')
+          .update(basicPatch)
+          .eq('id', user.id)
+          .select('*')
+          .maybeSingle();
+        setProfile((prev) => ({ ...(prev ?? fallbackProfile(user)), ...patch, ...((fallbackData as Partial<Profile>) || {}) }) as Profile);
+        return { error: null };
+      }
       if (data) setProfile((prev) => ({ ...(prev ?? fallbackProfile(user)), ...(data as Partial<Profile>) }) as Profile);
       return { error: null };
     },

@@ -204,6 +204,8 @@ export interface Profile {
   age?: number | null;
   gender?: Gender | null;
   body_type?: BodyType | null;
+  cpf?: string | null;
+  shipping_address?: ShippingAddress | null;
   /** Último plano contratado. */
   plan: PlanId | null;
   /** Fim do acesso VIP (null com role 'vip' = sem prazo). */
@@ -214,6 +216,16 @@ export interface Profile {
   admin_notes: string | null;
   created_at?: string;
   updated_at?: string | null;
+}
+
+export interface ShippingAddress {
+  cep: string;
+  street: string;
+  number: string;
+  complement?: string;
+  neighborhood: string;
+  city: string;
+  state: string;
 }
 
 /** Cupom de desconto (tabela public.coupons), aplicado no checkout. */

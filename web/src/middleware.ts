@@ -22,6 +22,9 @@ const SHARED_ROUTES = [
   '/termos',
   '/privacidade',
   '/links',
+  '/dashboard',
+  '/minha-conta',
+  '/conta',
 ];
 
 export default function middleware(req: NextRequest) {
