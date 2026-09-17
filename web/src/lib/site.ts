@@ -21,7 +21,7 @@ export const SITE = {
  * 'mercadopago': checkout Pix/cartão com liberação automática (exige variáveis do servidor).
  */
 export const CHECKOUT_PROVIDER: CheckoutProvider =
-  process.env.NEXT_PUBLIC_CHECKOUT_PROVIDER === 'mercadopago' ? 'mercadopago' : 'whatsapp';
+  process.env.NEXT_PUBLIC_CHECKOUT_PROVIDER === 'whatsapp' ? 'whatsapp' : 'mercadopago';
 
 export const NAV_LINKS = [
   { label: 'Como funciona', href: '/#como-funciona' },

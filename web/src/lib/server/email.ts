@@ -22,11 +22,14 @@ function getApiKey(): string {
 }
 
 function getDefaultFrom(): string {
-  return (
+  const raw = (
     process.env.EMAIL_FROM ||
     process.env.RESEND_FROM ||
-    "Titi's Store <contato@titisstore.com.br>"
-  );
+    "Titi's Store <pedidos@titisstore.com.br>"
+  ).trim();
+
+  // Remove aspas que possam ter sido coladas no painel da Vercel ou Coolify
+  return raw.replace(/^["']|["']$/g, '').trim();
 }
 
 /** Formata centavos em moeda Real brasileiro */
