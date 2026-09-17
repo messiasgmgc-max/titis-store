@@ -7,9 +7,10 @@ export const config = {
      * Intercepta todas as rotas exceto:
      * - /api (endpoints REST globais)
      * - /_next (arquivos de compilação interna e chunks do Next.js)
-     * - Arquivos estáticos (.ico, .jpg, .jpeg, .png, .svg, .webp, .css, .js, .pdf, .txt)
+     * - /produtos (fotos estáticas do catálogo em public/produtos)
+     * - Arquivos estáticos com extensão (.ico, .jpg, .jpeg, .png, .svg, .webp, etc.)
      */
-    '/((?!api/|_next/|[\\w-]+\\.\\w+).*)',
+    '/((?!api|_next|produtos|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt)$).*)',
   ],
 };
 
@@ -26,6 +27,16 @@ export default function middleware(req: NextRequest) {
   const url = req.nextUrl.clone();
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
   const pathname = url.pathname;
+
+  // Ignora imediatamente se for asset estático, subpasta pública ou API
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/produtos') ||
+    /\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt)$/i.test(pathname)
+  ) {
+    return NextResponse.next();
+  }
 
   // Sanitiza hostname removendo porta (ex: consultor.localhost:3000 -> consultor.localhost)
   const hostname = host.split(':')[0].toLowerCase();
