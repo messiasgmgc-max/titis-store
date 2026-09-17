@@ -1,8 +1,9 @@
 // ============================================================
-// POST /api/shipping/calculate — Cálculo de Frete (Melhor Envio)
-// Retorna opções de PAC, SEDEX, Jadlog e Loggi para o CEP informado
+// POST /api/shipping/calculate — Cálculo de Frete (SuperFrete / Melhor Envio)
+// Retorna opções de Correios PAC, SEDEX, Mini Envios e Jadlog para o CEP informado
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server';
+import { SuperFreteService } from '@/lib/server/superfrete';
 import { MelhorEnvioService } from '@/lib/server/melhorenvio';
 
 export async function POST(req: NextRequest) {
@@ -19,11 +20,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'CEP deve conter 8 dígitos numéricos.' }, { status: 400 });
     }
 
-    const options = await MelhorEnvioService.calculateShipping({
-      destinationCep: cleanCep,
-      itemsCount: Number(itemsCount) || 1,
-      subtotalCents: Number(subtotalCents) || 0,
-    });
+    const provider = (process.env.FRETE_PROVIDER || 'superfrete').toLowerCase();
+    const hasSuperFrete = Boolean((process.env.SUPERFRETE_TOKEN ?? '').trim());
+    const hasMelhorEnvio = Boolean((process.env.MELHORENVIO_TOKEN ?? '').trim());
+
+    let options;
+    if (provider === 'melhorenvio' || (!hasSuperFrete && hasMelhorEnvio)) {
+      options = await MelhorEnvioService.calculateShipping({
+        destinationCep: cleanCep,
+        itemsCount: Number(itemsCount) || 1,
+        subtotalCents: Number(subtotalCents) || 0,
+      });
+    } else {
+      options = await SuperFreteService.calculateShipping({
+        destinationCep: cleanCep,
+        itemsCount: Number(itemsCount) || 1,
+        subtotalCents: Number(subtotalCents) || 0,
+      });
+    }
 
     return NextResponse.json({ options });
   } catch (err: any) {

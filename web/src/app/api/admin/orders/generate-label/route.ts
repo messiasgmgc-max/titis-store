@@ -4,6 +4,7 @@
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabase } from '@/lib/server/mercadopago';
+import { SuperFreteService } from '@/lib/server/superfrete';
 import { MelhorEnvioService } from '@/lib/server/melhorenvio';
 import { NotificationService } from '@/lib/server/notifications';
 import { EmailService } from '@/lib/server/email';
@@ -46,10 +47,13 @@ export async function POST(req: NextRequest) {
       unitaryValue: i.priceCents ? i.priceCents / 100 : 150,
     }));
 
-    // Gera a etiqueta no Melhor Envio
-    const result = await MelhorEnvioService.generateLabel({
+    const provider = (process.env.FRETE_PROVIDER || 'superfrete').toLowerCase();
+    const hasSuperFrete = Boolean((process.env.SUPERFRETE_TOKEN ?? '').trim());
+    const hasMelhorEnvio = Boolean((process.env.MELHORENVIO_TOKEN ?? '').trim());
+
+    const labelInput = {
       orderId: order.id,
-      serviceId: serviceId || order.shipping_service_id || '3',
+      serviceId: serviceId || order.shipping_service_id || '1',
       to: {
         name: order.customer_name || 'Cliente',
         phone: order.customer_phone || '31999999999',
@@ -64,7 +68,14 @@ export async function POST(req: NextRequest) {
         postalCode: addr.cep,
       },
       products: products.length > 0 ? products : [{ name: 'Vestuário Masculino', quantity: 1, unitaryValue: 200 }],
-    });
+    };
+
+    let result;
+    if (provider === 'melhorenvio' || (!hasSuperFrete && hasMelhorEnvio)) {
+      result = await MelhorEnvioService.generateLabel(labelInput);
+    } else {
+      result = await SuperFreteService.generateShippingLabel(labelInput);
+    }
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
@@ -80,7 +91,7 @@ export async function POST(req: NextRequest) {
         shipping_label_url: result.labelUrl || null,
         tracking_code: tracking,
         tracking_carrier: carrier,
-        melhor_envio_order_id: result.melhorEnvioOrderId || null,
+        melhor_envio_order_id: (result as any).superfreteOrderId || (result as any).melhorEnvioOrderId || null,
         dispatched_at: new Date().toISOString(),
         status: 'concluido',
       })
