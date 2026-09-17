@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { PRODUCT_CATEGORIES, type Diagnosis, type Product } from '@/lib/types';
@@ -74,10 +75,22 @@ function arrange(
 export function Collection() {
   const { products, loading } = useCatalog();
   const { diagnosis } = useDiagnosis();
+  const searchParams = useSearchParams();
   const [category, setCategory] = useState<string>(ALL);
   const [paletteMode, setPaletteMode] = useState(false);
 
   const categories = useMemo(() => orderCategories(products), [products]);
+
+  useEffect(() => {
+    const param = searchParams?.get('categoria');
+    if (param) {
+      const match = categories.find((c) => c.toLowerCase() === param.toLowerCase());
+      if (match) {
+        setCategory(match);
+      }
+    }
+  }, [searchParams, categories]);
+
   const activeCategory = categories.includes(category) ? category : ALL;
   const paletteOn = paletteMode && diagnosis !== null;
   const { list, leadId } = useMemo(

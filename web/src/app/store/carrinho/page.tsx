@@ -63,7 +63,7 @@ export default function CartPage() {
                   <div className="flex items-center gap-4">
                     <div className="relative h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-surface border border-line">
                       <Image
-                        src={item.image || '/skin_morena_model.jpg'}
+                        src={item.image || '/produtos/calca-alfaiataria-regulador-cinza-grafite.jpg'}
                         alt={item.name}
                         fill
                         className="object-cover"

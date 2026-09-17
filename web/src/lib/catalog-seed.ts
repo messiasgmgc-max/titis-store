@@ -3,13 +3,27 @@
 // estão em supabase/produtos.sql. Gerado a partir de uma lista única — edite lá e regenere.
 import type { Product } from './types';
 
+function getProductPriceCents(slug?: string | null): number {
+  const s = slug || '';
+  if (s.includes('alfaiataria-regulador')) return 28990;
+  if (s.includes('alfaiataria-cordao')) return 26990;
+  if (s.includes('chino')) return 24990;
+  if (s.includes('derby')) return 42990;
+  if (s.includes('loafer')) return 38990;
+  if (s.includes('tenis-couro-minimalista')) return 32990;
+  if (s.includes('tenis')) return 34990;
+  if (s.includes('polo')) return 19990;
+  if (s.includes('camiseta-gola-alta')) return 14990;
+  return 24990;
+}
+
 const base = {
   season_compatibility: [] as string[],
   is_active: true,
-  price_cents: null,
+  price_cents: 24990,
 };
 
-export const SEED_PRODUCTS: Product[] = [
+const RAW_SEED_PRODUCTS: Product[] = [
   {
     ...base,
     id: 'seed-calca-alfaiataria-regulador-cinza-grafite',
@@ -494,3 +508,8 @@ export const SEED_PRODUCTS: Product[] = [
     sort_order: 230,
   },
 ];
+
+export const SEED_PRODUCTS: Product[] = RAW_SEED_PRODUCTS.map((p) => ({
+  ...p,
+  price_cents: getProductPriceCents(p.slug),
+}));

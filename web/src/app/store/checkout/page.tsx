@@ -783,7 +783,7 @@ export default function TransparentCheckoutPage() {
                     <div key={item.key} className="flex gap-3 text-xs items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="relative h-12 w-10 shrink-0 overflow-hidden rounded-lg bg-surface border border-line">
-                          <Image src={item.image || '/skin_morena_model.jpg'} alt="" fill className="object-cover" />
+                          <Image src={item.image || '/produtos/calca-alfaiataria-regulador-cinza-grafite.jpg'} alt="" fill className="object-cover" />
                         </div>
                         <div>
                           <p className="font-bold text-ivory line-clamp-1">{item.name}</p>
