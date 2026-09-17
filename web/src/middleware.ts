@@ -7,10 +7,10 @@ export const config = {
      * Intercepta todas as rotas exceto:
      * - /api (endpoints REST globais)
      * - /_next (arquivos de compilação interna e chunks do Next.js)
-     * - /produtos (fotos estáticas do catálogo em public/produtos)
+     * - /produtos e /bio (fotos estáticas em public/)
      * - Arquivos estáticos com extensão (.ico, .jpg, .jpeg, .png, .svg, .webp, etc.)
      */
-    '/((?!api|_next|produtos|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt)$).*)',
+    '/((?!api|_next|produtos|bio|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt)$).*)',
   ],
 };
 
@@ -21,6 +21,7 @@ const SHARED_ROUTES = [
   '/admin',
   '/termos',
   '/privacidade',
+  '/links',
 ];
 
 export default function middleware(req: NextRequest) {
@@ -33,6 +34,7 @@ export default function middleware(req: NextRequest) {
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/produtos') ||
+    pathname.startsWith('/bio') ||
     /\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt)$/i.test(pathname)
   ) {
     return NextResponse.next();
