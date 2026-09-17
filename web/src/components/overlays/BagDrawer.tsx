@@ -14,7 +14,7 @@ import { useSession } from '@/providers/SessionProvider';
 import { useUI } from '@/providers/UIProvider';
 import { supabase } from '@/lib/supabaseClient';
 import { cn, formatBRL, formatPhoneBR, whatsappLink } from '@/lib/format';
-import { SITE } from '@/lib/site';
+import { SITE, STORE_URL } from '@/lib/site';
 import type { CartItem, OrderRow } from '@/lib/types';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -251,7 +251,7 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-mist">
               As peças da loja e dos looks da consultoria que você escolher aparecem aqui.
             </p>
-            <Button href="/colecao" onClick={onClose} className="mt-9">
+            <Button href={`${STORE_URL}/colecao`} onClick={onClose} className="mt-9">
               Explorar a loja
             </Button>
           </div>
@@ -443,7 +443,7 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
 
               {/* BOTÃO PRINCIPAL: CHECKOUT TRANSPARENTE DA LOJA */}
               <Link
-                href="/checkout"
+                href={`${STORE_URL}/checkout`}
                 onClick={onClose}
                 className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-gold-gradient py-3.5 text-xs font-black uppercase tracking-wider text-obsidian shadow-xl shadow-gold/25 transition-all hover:scale-[1.01] active:scale-95"
               >

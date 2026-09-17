@@ -6,7 +6,7 @@ import { ArrowUp, Mail, CheckCircle2 } from 'lucide-react';
 import { LogoFull } from '@/components/ui/Logo';
 import { WhatsAppIcon } from '@/components/ui/icons';
 import { whatsappLink } from '@/lib/format';
-import { CONSULTING_PATH, SITE } from '@/lib/site';
+import { CONSULTING_PATH, SITE, STORE_URL } from '@/lib/site';
 
 const FOOTER_TEXT = 'Olá, Titi! Vim pelo site e gostaria de atendimento.';
 
@@ -139,7 +139,7 @@ export function Footer() {
 
             <Column title="Loja">
               <li>
-                <Link href="/colecao" className={LINK}>
+                <Link href={`${STORE_URL}/colecao`} className={LINK}>
                   Ver a loja
                 </Link>
               </li>

@@ -71,6 +71,14 @@ export default function middleware(req: NextRequest) {
 
   // 1. Roteamento para a aplicação do Consultor
   if (isConsultorHost) {
+    // Se tentar acessar páginas da loja no subdomínio do consultor, redireciona para a loja principal
+    const STORE_SECTIONS = ['/colecao', '/carrinho', '/checkout', '/loja'];
+    if (STORE_SECTIONS.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+      const storeOrigin = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.titisstore.com.br';
+      const redirectUrl = new URL(`${pathname}${req.nextUrl.search}`, storeOrigin);
+      return NextResponse.redirect(redirectUrl);
+    }
+
     url.pathname = `/consultor${pathname === '/' ? '' : pathname}`;
     return NextResponse.rewrite(url);
   }

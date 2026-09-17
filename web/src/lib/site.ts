@@ -12,8 +12,10 @@ export const SITE = {
     'Consultoria de imagem masculina online: descubra sua cartela de cores, receba looks montados para cada ocasião e compre as peças certas com atendimento direto do Titi.',
   whatsapp: '5531996000213',
   whatsappDisplay: '+55 31 99600-0213',
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || '',
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://www.titisstore.com.br',
 } as const;
+
+export const STORE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.titisstore.com.br';
 
 /**
  * Como a compra dos planos é concluída.
@@ -26,7 +28,7 @@ export const CHECKOUT_PROVIDER: CheckoutProvider =
 export const NAV_LINKS = [
   { label: 'Como funciona', href: '/#como-funciona' },
   { label: 'Planos', href: '/#planos' },
-  { label: 'Loja', href: '/colecao' },
+  { label: 'Loja', href: `${STORE_URL}/colecao` },
   { label: 'Dúvidas', href: '/#duvidas' },
 ] as const;
 
