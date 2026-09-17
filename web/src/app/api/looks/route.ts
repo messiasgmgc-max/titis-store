@@ -239,6 +239,28 @@ function normalizePieces(value: unknown, byId: Map<string, Product>, season: Sea
     const slot = product?.slot ?? modelSlot;
     if (!slot) continue;
 
+    if (!product) {
+      // Vínculo inteligente com o acervo da loja por nome/família ou proximidade cromática
+      const entryHex = normalizeHex(entry.hex);
+      const entryName = (cleanText(entry.name, 70) ?? '').toLowerCase();
+      const candidates = Array.from(byId.values()).filter((p) => p.slot === slot);
+      if (candidates.length > 0 && entryHex) {
+        const scored = candidates
+          .map((p) => {
+            const pHex = normalizeHex(p.hex_color);
+            const dist = pHex ? deltaE(pHex, entryHex) : 999;
+            const pName = p.name.toLowerCase();
+            const words = pName.split(/\s+/).filter((w) => w.length > 3);
+            const hasCommonWord = words.some((w) => entryName.includes(w));
+            return { p, score: dist - (hasCommonWord ? 18 : 0) };
+          })
+          .sort((a, b) => a.score - b.score);
+        if (scored.length > 0 && scored[0].score <= 35) {
+          product = scored[0].p;
+        }
+      }
+    }
+
     const name = product?.name ?? cleanText(entry.name, 70);
     const hex = (product && normalizeHex(product.hex_color)) || normalizeHex(entry.hex);
     if (!name || !hex) continue;

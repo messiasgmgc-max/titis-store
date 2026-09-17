@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { ColorDot, Swatch } from '@/components/ui/Swatch';
 import { cn } from '@/lib/format';
+import { HelpButton, type HelpTopic } from './HelpModal';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const ROMAN = ['I', 'II', 'III', 'IV'];
@@ -58,6 +59,7 @@ interface StepToneProps {
   onScan: () => void;
   onRestorePhoto: () => void;
   onContinue: () => void;
+  onOpenHelp: (topic: HelpTopic) => void;
 }
 
 export function StepTone({
@@ -81,6 +83,7 @@ export function StepTone({
   onScan,
   onRestorePhoto,
   onContinue,
+  onOpenHelp,
 }: StepToneProps) {
   const season = getSeason(tone, subtone);
   const fromPhoto = diagnosis && diagnosis.source !== 'manual' ? diagnosis : null;
@@ -98,8 +101,9 @@ export function StepTone({
       <div>
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p id="atelier-tone-label" className="kicker">
-              <span className="numeral mr-3 text-[0.7rem]">i.</span>Profundidade da pele
+            <p id="atelier-tone-label" className="kicker flex items-center gap-2">
+              <span><span className="numeral mr-3 text-[0.7rem]">i.</span>Profundidade da pele</span>
+              <HelpButton topic="tone" onOpen={onOpenHelp} />
             </p>
             <p className="mt-3 max-w-md text-sm leading-relaxed text-mist">
               Escolha o retrato mais próximo de você, ou deixe a leitura por foto indicar o caminho.
@@ -189,8 +193,9 @@ export function StepTone({
         {/* Subtom e contraste */}
         <div className="space-y-12 lg:col-span-5">
           <div>
-            <p id="atelier-subtone-label" className="kicker">
-              <span className="numeral mr-3 text-[0.7rem]">ii.</span>Subtom
+            <p id="atelier-subtone-label" className="kicker flex items-center gap-2">
+              <span><span className="numeral mr-3 text-[0.7rem]">ii.</span>Subtom</span>
+              <HelpButton topic="subtone" onOpen={onOpenHelp} />
             </p>
             <p className="mt-3 text-sm leading-relaxed text-mist">Observe as veias do pulso sob luz natural.</p>
             <div className="mt-5 grid gap-2 sm:grid-cols-3 lg:grid-cols-1" role="group" aria-labelledby="atelier-subtone-label">
@@ -230,8 +235,9 @@ export function StepTone({
           </div>
 
           <div>
-            <p id="atelier-contrast-label" className="kicker">
-              <span className="numeral mr-3 text-[0.7rem]">iii.</span>Contraste
+            <p id="atelier-contrast-label" className="kicker flex items-center gap-2">
+              <span><span className="numeral mr-3 text-[0.7rem]">iii.</span>Contraste</span>
+              <HelpButton topic="contrast" onOpen={onOpenHelp} />
             </p>
             <div className="mt-5 flex flex-wrap gap-2" role="group" aria-labelledby="atelier-contrast-label">
               {CONTRASTS.map((c) => (
@@ -321,8 +327,9 @@ export function StepTone({
       <div className="rounded-[var(--radius-panel)] border border-line bg-surface p-7 sm:p-10 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.8)]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p id="atelier-bio-label" className="kicker">
-              <span className="numeral mr-3 text-[0.7rem]">iv.</span>Biometria & Alfaiataria sob Medida
+            <p id="atelier-bio-label" className="kicker flex items-center gap-2">
+              <span><span className="numeral mr-3 text-[0.7rem]">iv.</span>Biometria & Alfaiataria sob Medida</span>
+              <HelpButton topic="biometrics" onOpen={onOpenHelp} />
             </p>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-mist">
               Suas medidas anatômicas e biotipo orientam a modelagem, as proporções áureas e o cálculo exato dos tamanhos das peças no catálogo da loja.
@@ -424,8 +431,9 @@ export function StepTone({
         {/* Linha 2: Biotipo corporal */}
         <div className="mt-8 border-t border-line/60 pt-6">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-smoke">
-              Biotipo Corporal & Proporção da Silhueta
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-smoke flex items-center gap-2">
+              <span>Biotipo Corporal & Proporção da Silhueta</span>
+              <HelpButton topic="bodyType" onOpen={onOpenHelp} />
             </label>
             <span className="text-xs text-smoke">Sugerido pelas medidas com ajuste livre</span>
           </div>

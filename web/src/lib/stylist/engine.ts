@@ -27,7 +27,7 @@ import type { PieceModel } from './pieces';
 /** Distância mínima (CIE76) entre qualquer cor usada e as cores a evitar da estação. */
 const AVOID_MIN_DELTA_E = 12;
 /** Distância máxima para uma peça do catálogo substituir a peça sugerida. */
-const CATALOG_MAX_DELTA_E = 22;
+const CATALOG_MAX_DELTA_E = 30;
 /** Neutros de alfaiataria só entram quando ficam a esta distância da cartela. */
 const EXTENDED_NEUTRAL_MAX_DELTA_E = 22;
 const MAX_PIECES = 5;
@@ -497,10 +497,12 @@ function productFitsModel(product: Product, model: PieceModel, formality: number
   const hex = normalizeHex(product.hex_color);
   if (!hex || !isSafe(hex, ctx.season)) return false;
   const productFormality = typeof product.formality === 'number' ? product.formality : 3;
-  if (Math.abs(productFormality - formality) > 1) return false;
-  if (product.occasions.length > 0 && ctx.occasion !== 'outro' && !product.occasions.includes(ctx.occasion)) return false;
-  if (product.climates.length > 0 && !product.climates.includes(ctx.req.climate)) return false;
-  if (product.skin_tones.length > 0 && !product.skin_tones.includes(ctx.req.skinTone)) return false;
+  // Permite flexibilidade de formalidade para valorizar as peças do acervo da marca
+  if (Math.abs(productFormality - formality) > 2) return false;
+  if (product.occasions.length > 0 && ctx.occasion !== 'outro' && !product.occasions.includes(ctx.occasion)) {
+    // Permite uso de peças versáteis (calças, sapatos e polos) mesmo que a ocasião não esteja explicitamente listada
+    if (product.slot !== 'inferior' && product.slot !== 'calcado' && product.slot !== 'superior') return false;
+  }
   const families = productFamilies(product);
   if (families.length === 0) return true;
   const wanted = MODEL_FAMILIES[model.id] ?? [];
@@ -613,6 +615,9 @@ function selectModel(
       else score += hasTrait(model, 'dia') ? 1.5 : 0;
       if (req.climate === 'frio' && hasTrait(model, 'camada')) score += 2.5;
       if (usedModels.has(model.id)) score -= 6;
+      // Bônus prioritário para modelos que possuem peças ativas no acervo da loja
+      const inStore = ctx.catalog.some((p) => productFitsModel(p, model, formality, ctx));
+      if (inStore) score += 12;
       score += bonus(model);
       score += noise(seed, `model|${concept}|${model.id}`) * 3;
 
@@ -1247,7 +1252,24 @@ function toPieces(draft: Draft, ctx: Ctx, usedProducts: Map<string, number>): Lo
     );
     // Prefere peças ainda não usadas em outro look; repete apenas se não houver alternativa.
     const fresh = matches.filter((p) => !usedProducts.has(p.id));
-    const product = fresh[0] ?? matches.find((p) => (usedProducts.get(p.id) ?? 0) < 2) ?? null;
+    let product = fresh[0] ?? matches.find((p) => (usedProducts.get(p.id) ?? 0) < 2) ?? null;
+
+    if (!product) {
+      // Fallback inteligente para peça do acervo no mesmo slot com cor segura para a cartela
+      const slotMatches = ctx.catalog
+        .filter(
+          (p) =>
+            p.slot === entry.model.slot &&
+            !takenInLook.has(p.id) &&
+            isSafe(normalizeHex(p.hex_color) as string, ctx.season),
+        )
+        .map((p) => ({ p, d: deltaE(normalizeHex(p.hex_color) as string, targetHex) }))
+        .filter((x) => x.d <= 36)
+        .sort((a, b) => a.d - b.d);
+      if (slotMatches.length > 0) {
+        product = slotMatches[0].p;
+      }
+    }
 
     let piece: LookPiece;
     if (product) {

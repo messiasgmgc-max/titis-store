@@ -189,20 +189,22 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
 
   const buyAtCheckout = () => {
     const unique = new Map<string, CartInput>();
-    if (productEntries.length > 0) {
-      productEntries.forEach(({ piece, product }) => {
-        if (unique.has(product.id)) return;
-        const assignedSize =
-          piece.slot === 'superior' || piece.slot === 'sobreposicao'
-            ? estimatedSizes.top
-            : piece.slot === 'inferior'
-              ? estimatedSizes.bottom
-              : null;
+    entries.forEach(({ piece, product }) => {
+      const assignedSize =
+        piece.slot === 'superior' || piece.slot === 'sobreposicao'
+          ? estimatedSizes.top
+          : piece.slot === 'inferior'
+            ? estimatedSizes.bottom
+            : null;
 
-        unique.set(product.id, {
+      const itemKey = product ? `prod-${product.id}` : `piece-${piece.slot}-${piece.name}`;
+      if (unique.has(itemKey)) return;
+
+      if (product) {
+        unique.set(itemKey, {
           productId: product.id,
           name: product.name,
-          detail: product.category,
+          detail: product.category || SLOT_LABELS[piece.slot],
           color: product.color_name ?? piece.color,
           hex: product.hex_color ?? piece.hex,
           image: product.image_url,
@@ -210,22 +212,23 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
           priceCents: product.price_cents,
           lookTitle: look.title,
         });
-      });
-    } else {
-      unique.set(look.id, {
-        productId: null,
-        name: look.title,
-        detail: 'Look completo sob medida',
-        color: look.palette.map((s) => s.name).join(' · '),
-        hex: look.palette[0]?.hex ?? '#D4AF37',
-        image: null,
-        size: `${estimatedSizes.top}/${estimatedSizes.bottom}`,
-        priceCents: null,
-        lookTitle: look.title,
-      });
-    }
+      } else {
+        unique.set(itemKey, {
+          productId: null,
+          name: piece.name,
+          detail: `${SLOT_LABELS[piece.slot]} sob medida`,
+          color: piece.color,
+          hex: piece.hex,
+          image: null,
+          size: assignedSize,
+          priceCents: null,
+          lookTitle: look.title,
+        });
+      }
+    });
 
     const items = Array.from(unique.values());
+    if (items.length === 0) return;
     addMany(items);
     toast(`${items.length} ${items.length === 1 ? 'peça enviada' : 'peças enviadas'} ao checkout`, 'success');
 

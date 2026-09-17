@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { CircleAlert } from 'lucide-react';
@@ -39,6 +39,7 @@ import { StepTone } from './StepTone';
 import { StepContext } from './StepContext';
 import { StepLooks } from './StepLooks';
 import { ComposingState } from './ComposingState';
+import { HelpModal, type HelpTopic } from './HelpModal';
 
 const STEPS = ['Leitura', 'Contexto', 'Looks'];
 const MIN_COMPOSE_MS = 1400;
@@ -150,6 +151,25 @@ export function Atelier() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedFor, setSavedFor] = useState<Composition | null>(null);
+  const [helpTopic, setHelpTopic] = useState<HelpTopic | null>(null);
+
+  // Recupera histórico de contexto e preferências de consulta anterior
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('titis:last_consultation:v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.request) {
+          const req = parsed.request;
+          if (req.occasion) setOccasion(req.occasion);
+          if (req.timeOfDay) setTimeOfDay(req.timeOfDay);
+          if (req.climate) setClimate(req.climate);
+          if (req.style) setStyle(req.style);
+          if (req.customVenue) setCustomVenue(req.customVenue);
+        }
+      }
+    } catch {}
+  }, []);
 
   // Quando o diagnóstico muda fora daqui (leitura por foto, perfil da conta), a seleção acompanha.
   // Uma nova leitura por foto traz a pessoa de volta à etapa I para ver o resultado.
@@ -238,7 +258,62 @@ export function Atelier() {
     try {
       const [response] = await Promise.all([composeLooks(request, products), wait(MIN_COMPOSE_MS)]);
       if (run !== runRef.current) return;
-      setResult({ response, request, seasonName: seasonNameFor(request, diagnosis) });
+      const comp = { response, request, seasonName: seasonNameFor(request, diagnosis) };
+      setResult(comp);
+
+      // Auto-salva permanentemente os dados biométricos e colorimétricos no perfil
+      commitTone();
+
+      // Salva no localStorage para carregamento instantâneo em consultas futuras
+      try {
+        localStorage.setItem(
+          'titis:last_consultation:v1',
+          JSON.stringify({
+            request,
+            seasonName: comp.seasonName,
+            timestamp: new Date().toISOString(),
+          }),
+        );
+      } catch {}
+
+      // Salva automaticamente no banco Supabase se o usuário estiver autenticado
+      if (user) {
+        void (async () => {
+          try {
+            const title = [occasionTitle(request.occasion), request.customVenue].filter(Boolean).join(' · ').slice(0, 140);
+            let { error: dbError } = await supabase.from('consultations').insert({
+              user_id: user.id,
+              title,
+              skin_tone: request.skinTone,
+              skin_subtone: request.subtone,
+              contrast_level: request.contrast,
+              seasonal_palette: comp.seasonName,
+              occasion: request.occasion,
+              custom_venue: request.customVenue ?? null,
+              time_of_day: request.timeOfDay,
+              climate: request.climate,
+              style_preference: request.style,
+              results: response.looks,
+              source: response.source,
+            });
+            if (dbError?.code === 'PGRST204') {
+              await supabase.from('consultations').insert({
+                user_id: user.id,
+                skin_tone: request.skinTone,
+                skin_subtone: request.subtone,
+                seasonal_palette: comp.seasonName,
+                occasion: request.occasion,
+                time_of_day: request.timeOfDay,
+                climate: request.climate,
+                results: response.looks,
+              });
+            }
+            setSavedFor(comp);
+          } catch (e) {
+            console.warn('[auto-save consultation error]', e);
+          }
+        })();
+      }
     } catch (err) {
       if (run !== runRef.current) return;
       if (isConsultingLockError(err)) {
@@ -339,6 +414,7 @@ export function Atelier() {
         onScan={() => openOverlay({ type: 'scanner' })}
         onRestorePhoto={restorePhotoReading}
         onContinue={() => goTo(1)}
+        onOpenHelp={setHelpTopic}
       />
     );
   } else if (step === 1) {
@@ -357,6 +433,7 @@ export function Atelier() {
         onBack={() => goTo(0)}
         onCompose={() => void compose()}
         composing={composing}
+        onOpenHelp={setHelpTopic}
       />
     );
   } else if (error && !composing) {
@@ -440,6 +517,8 @@ export function Atelier() {
           </AnimatePresence>
         </div>
       </div>
+
+      <HelpModal topic={helpTopic} onClose={() => setHelpTopic(null)} />
     </section>
   );
 }
