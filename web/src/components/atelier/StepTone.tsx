@@ -2,9 +2,17 @@
 
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Check, RotateCcw, ScanFace } from 'lucide-react';
-import type { ContrastLevel, Diagnosis, SkinToneId, Subtone } from '@/lib/types';
-import { CONTRASTS, SKIN_TONES, SUBTONES, getSeason, type SeasonProfile } from '@/lib/stylist/knowledge';
+import { ArrowRight, Check, RotateCcw, Ruler, ScanFace, Sparkles, User } from 'lucide-react';
+import type { BodyType, ContrastLevel, Diagnosis, Gender, SkinToneId, Subtone } from '@/lib/types';
+import {
+  BODY_TYPES,
+  CONTRASTS,
+  SKIN_TONES,
+  SUBTONES,
+  estimateSizes,
+  getSeason,
+  type SeasonProfile,
+} from '@/lib/stylist/knowledge';
 import { Button } from '@/components/ui/Button';
 import { ColorDot, Swatch } from '@/components/ui/Swatch';
 import { cn } from '@/lib/format';
@@ -36,6 +44,16 @@ interface StepToneProps {
   onToneChange: (tone: SkinToneId) => void;
   onSubtoneChange: (subtone: Subtone) => void;
   onContrastChange: (contrast: ContrastLevel) => void;
+  weightKg: number | null;
+  heightCm: number | null;
+  age: number | null;
+  gender: Gender;
+  bodyType: BodyType;
+  onWeightChange: (w: number | null) => void;
+  onHeightChange: (h: number | null) => void;
+  onAgeChange: (a: number | null) => void;
+  onGenderChange: (g: Gender) => void;
+  onBodyTypeChange: (b: BodyType) => void;
   diagnosis: Diagnosis | null;
   onScan: () => void;
   onRestorePhoto: () => void;
@@ -49,6 +67,16 @@ export function StepTone({
   onToneChange,
   onSubtoneChange,
   onContrastChange,
+  weightKg,
+  heightCm,
+  age,
+  gender,
+  bodyType,
+  onWeightChange,
+  onHeightChange,
+  onAgeChange,
+  onGenderChange,
+  onBodyTypeChange,
   diagnosis,
   onScan,
   onRestorePhoto,
@@ -61,6 +89,8 @@ export function StepTone({
   const note = matchesPhoto && fromPhoto?.notes ? fromPhoto.notes : season.note;
   const activeContrast = CONTRASTS.find((c) => c.id === contrast);
   const metal = METALS[season.metals];
+  const estimated = estimateSizes(weightKg, heightCm, bodyType, gender);
+  const activeBodyType = BODY_TYPES.find((b) => b.id === bodyType);
 
   return (
     <div className="space-y-14">
@@ -285,6 +315,154 @@ export function StepTone({
             </motion.div>
           </AnimatePresence>
         </aside>
+      </div>
+
+      {/* iv. Biometria & Alfaiataria sob medida */}
+      <div className="rounded-[var(--radius-panel)] border border-line bg-surface p-7 sm:p-10 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.8)]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p id="atelier-bio-label" className="kicker">
+              <span className="numeral mr-3 text-[0.7rem]">iv.</span>Biometria & Alfaiataria sob Medida
+            </p>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-mist">
+              Suas medidas anatômicas e biotipo orientam a modelagem, as proporções áureas e o cálculo exato dos tamanhos das peças no catálogo da loja.
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 self-start rounded-full border border-line-gold/60 bg-gold/[0.06] px-4 py-2 text-xs text-gold sm:self-auto">
+            <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+            <span>
+              Tamanhos calculados: <strong className="font-semibold text-parchment">Camisas {estimated.top} · Calças {estimated.bottom}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* Linha 1: Gênero, Peso, Altura, Idade */}
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Gênero */}
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-smoke block">Gênero</label>
+            <div className="mt-2 flex rounded-2xl border border-line bg-coal/70 p-1">
+              {(['masculino', 'feminino', 'outro'] as Gender[]).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => onGenderChange(g)}
+                  className={cn(
+                    'flex-1 rounded-xl py-2 text-xs font-semibold uppercase tracking-wider transition-all duration-300 capitalize',
+                    gender === g
+                      ? 'bg-gold text-obsidian shadow-sm'
+                      : 'text-mist hover:text-parchment',
+                  )}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Peso */}
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-smoke flex items-center justify-between">
+              <span>Peso Corporal</span>
+              <span className="font-mono text-xs font-bold text-gold">{weightKg ? `${weightKg} kg` : '—'}</span>
+            </label>
+            <div className="relative mt-2">
+              <input
+                type="number"
+                min="40"
+                max="250"
+                value={weightKg ?? ''}
+                onChange={(e) => onWeightChange(e.target.value ? Number(e.target.value) : null)}
+                placeholder="Ex: 78"
+                className="w-full rounded-2xl border border-line bg-coal px-4 py-2.5 text-sm text-ivory placeholder-smoke focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+              <span className="absolute right-4 top-2.5 text-xs text-smoke">kg</span>
+            </div>
+          </div>
+
+          {/* Altura */}
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-smoke flex items-center justify-between">
+              <span>Altura</span>
+              <span className="font-mono text-xs font-bold text-gold">{heightCm ? `${heightCm} cm` : '—'}</span>
+            </label>
+            <div className="relative mt-2">
+              <input
+                type="number"
+                min="120"
+                max="240"
+                value={heightCm ?? ''}
+                onChange={(e) => onHeightChange(e.target.value ? Number(e.target.value) : null)}
+                placeholder="Ex: 178"
+                className="w-full rounded-2xl border border-line bg-coal px-4 py-2.5 text-sm text-ivory placeholder-smoke focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+              <span className="absolute right-4 top-2.5 text-xs text-smoke">cm</span>
+            </div>
+          </div>
+
+          {/* Idade */}
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-smoke flex items-center justify-between">
+              <span>Idade</span>
+              <span className="font-mono text-xs font-bold text-gold">{age ? `${age} anos` : '—'}</span>
+            </label>
+            <div className="relative mt-2">
+              <input
+                type="number"
+                min="14"
+                max="110"
+                value={age ?? ''}
+                onChange={(e) => onAgeChange(e.target.value ? Number(e.target.value) : null)}
+                placeholder="Ex: 30"
+                className="w-full rounded-2xl border border-line bg-coal px-4 py-2.5 text-sm text-ivory placeholder-smoke focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+              <span className="absolute right-4 top-2.5 text-xs text-smoke">anos</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Linha 2: Biotipo corporal */}
+        <div className="mt-8 border-t border-line/60 pt-6">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-smoke">
+              Biotipo Corporal & Proporção da Silhueta
+            </label>
+            <span className="text-xs text-smoke">Sugerido pelas medidas com ajuste livre</span>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {BODY_TYPES.map((b) => {
+              const active = b.id === bodyType;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => onBodyTypeChange(b.id)}
+                  aria-pressed={active}
+                  data-active={active}
+                  className="chip text-xs"
+                >
+                  {b.name}
+                </button>
+              );
+            })}
+          </div>
+
+          {activeBodyType && (
+            <div className="mt-5 rounded-2xl border border-line-gold/40 bg-gold/[0.04] p-4 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold uppercase tracking-wider text-gold">
+                  {activeBodyType.name}
+                </span>
+                <span className="text-smoke">· {activeBodyType.description}</span>
+              </div>
+              <p className="mt-2 leading-relaxed text-parchment/90">
+                <strong className="text-gold-light">Diretriz de Alfaiataria: </strong>
+                {activeBodyType.tailoringAdvice}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-5 border-t border-line pt-8 sm:flex-row sm:items-center sm:justify-between">

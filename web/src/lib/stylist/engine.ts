@@ -76,7 +76,20 @@ function pickFrom<T>(list: readonly T[], seed: number, key: string): T {
 }
 
 function requestKey(req: StyleRequest): string {
-  return [req.skinTone, req.subtone, req.contrast, req.occasion, req.timeOfDay, req.climate, req.style, normalizeText(req.customVenue ?? '')].join('|');
+  return [
+    req.skinTone,
+    req.subtone,
+    req.contrast,
+    req.occasion,
+    req.timeOfDay,
+    req.climate,
+    req.style,
+    req.gender ?? '',
+    req.bodyType ?? '',
+    req.weightKg ?? '',
+    req.heightCm ?? '',
+    normalizeText(req.customVenue ?? ''),
+  ].join('|');
 }
 
 const lower = (text: string) => text.toLocaleLowerCase('pt-BR');
@@ -1297,6 +1310,11 @@ function sanitize(req: StyleRequest): StyleRequest {
     climate: VALID_CLIMATES.includes(req.climate) ? req.climate : 'ameno',
     style: (VALID_STYLES.includes(req.style) ? req.style : 'contemporaneo') as StylePreference,
     ...(typeof req.customVenue === 'string' && req.customVenue.trim() ? { customVenue: req.customVenue.trim().slice(0, 200) } : {}),
+    ...(req.weightKg ? { weightKg: req.weightKg } : {}),
+    ...(req.heightCm ? { heightCm: req.heightCm } : {}),
+    ...(req.age ? { age: req.age } : {}),
+    ...(req.gender ? { gender: req.gender } : {}),
+    ...(req.bodyType ? { bodyType: req.bodyType } : {}),
   };
 }
 

@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { CircleAlert } from 'lucide-react';
 import type {
+  BodyType,
   ClimateId,
   ContrastLevel,
   Diagnosis,
+  Gender,
   LooksResponse,
   OccasionId,
   Product,
@@ -17,7 +19,7 @@ import type {
   Subtone,
   TimeOfDayId,
 } from '@/lib/types';
-import { getSeason, occasionTitle } from '@/lib/stylist/knowledge';
+import { detectBodyType, getSeason, occasionTitle } from '@/lib/stylist/knowledge';
 import { generateLooks } from '@/lib/stylist/engine';
 import { requestLooks } from '@/lib/api';
 import { fetchCatalog, useCatalog } from '@/lib/catalog';
@@ -113,6 +115,30 @@ export function Atelier() {
   const [subtone, setSubtone] = useState<Subtone>(diagnosis?.subtone ?? 'quente');
   const [contrast, setContrast] = useState<ContrastLevel>(diagnosis?.contrast ?? 'medio');
 
+  const [weightKg, setWeightKg] = useState<number | null>(diagnosis?.weightKg ?? profile?.weight_kg ?? 76);
+  const [heightCm, setHeightCm] = useState<number | null>(diagnosis?.heightCm ?? profile?.height_cm ?? 178);
+  const [age, setAge] = useState<number | null>(diagnosis?.age ?? profile?.age ?? 30);
+  const [gender, setGender] = useState<Gender>(diagnosis?.gender ?? profile?.gender ?? 'masculino');
+  const [bodyType, setBodyType] = useState<BodyType>(
+    diagnosis?.bodyType ??
+      profile?.body_type ??
+      detectBodyType(diagnosis?.weightKg ?? profile?.weight_kg ?? 76, diagnosis?.heightCm ?? profile?.height_cm ?? 178, 'masculino'),
+  );
+
+  const handleWeightChange = (w: number | null) => {
+    setWeightKg(w);
+    if (w && heightCm) {
+      setBodyType(detectBodyType(w, heightCm, gender));
+    }
+  };
+
+  const handleHeightChange = (h: number | null) => {
+    setHeightCm(h);
+    if (weightKg && h) {
+      setBodyType(detectBodyType(weightKg, h, gender));
+    }
+  };
+
   const [occasion, setOccasion] = useState<OccasionId>('jantar');
   const [customVenue, setCustomVenue] = useState('');
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDayId>('noite');
@@ -134,6 +160,11 @@ export function Atelier() {
       setTone(diagnosis.skinTone);
       setSubtone(diagnosis.subtone);
       setContrast(diagnosis.contrast ?? 'medio');
+      if (diagnosis.weightKg !== undefined && diagnosis.weightKg !== null) setWeightKg(diagnosis.weightKg);
+      if (diagnosis.heightCm !== undefined && diagnosis.heightCm !== null) setHeightCm(diagnosis.heightCm);
+      if (diagnosis.age !== undefined && diagnosis.age !== null) setAge(diagnosis.age);
+      if (diagnosis.gender) setGender(diagnosis.gender);
+      if (diagnosis.bodyType) setBodyType(diagnosis.bodyType);
       const isNewPhotoReading = diagnosis.source !== 'manual' && diagnosis.createdAt !== syncedDiagnosis?.createdAt;
       if (isNewPhotoReading) {
         if (step !== 0) {
@@ -155,9 +186,15 @@ export function Atelier() {
   };
 
   const commitTone = () => {
-    const same =
-      !!diagnosis && diagnosis.skinTone === tone && diagnosis.subtone === subtone && diagnosis.contrast === contrast;
-    if (!same) setDiagnosis(diagnosisFromChoice(tone, subtone, contrast));
+    setDiagnosis(
+      diagnosisFromChoice(tone, subtone, contrast, {
+        weightKg,
+        heightCm,
+        age,
+        gender,
+        bodyType,
+      }),
+    );
   };
 
   const goTo = (next: number) => {
@@ -183,6 +220,11 @@ export function Atelier() {
       climate,
       style,
       ...(venue ? { customVenue: venue } : {}),
+      ...(weightKg ? { weightKg } : {}),
+      ...(heightCm ? { heightCm } : {}),
+      ...(age ? { age } : {}),
+      ...(gender ? { gender } : {}),
+      ...(bodyType ? { bodyType } : {}),
     };
     const run = ++runRef.current;
     setComposing(true);
@@ -283,6 +325,16 @@ export function Atelier() {
         onToneChange={setTone}
         onSubtoneChange={setSubtone}
         onContrastChange={setContrast}
+        weightKg={weightKg}
+        heightCm={heightCm}
+        age={age}
+        gender={gender}
+        bodyType={bodyType}
+        onWeightChange={handleWeightChange}
+        onHeightChange={handleHeightChange}
+        onAgeChange={setAge}
+        onGenderChange={setGender}
+        onBodyTypeChange={setBodyType}
         diagnosis={diagnosis}
         onScan={() => openOverlay({ type: 'scanner' })}
         onRestorePhoto={restorePhotoReading}

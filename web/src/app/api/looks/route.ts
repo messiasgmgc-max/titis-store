@@ -22,14 +22,19 @@ import {
 import { deltaE } from '@/lib/stylist/color';
 import { describeContext, generateLooks, interpretVenue, scoreHarmony, targetFormality } from '@/lib/stylist/engine';
 import {
+  BODY_TYPES,
   CLIMATES,
   CONTRASTS,
   OCCASIONS,
   STYLES,
   SUBTONES,
   TIMES_OF_DAY,
+  bodyTypeName,
+  detectBodyType,
   getSeason,
+  isBodyType,
   isContrast,
+  isGender,
   isSkinToneId,
   isSubtone,
   skinToneName,
@@ -75,6 +80,12 @@ function parseStyleRequest(body: Record<string, unknown>): StyleRequest {
     throw new HttpError(400, 'bad_request', 'Preferências incompletas. Revise tom de pele, ocasião, horário, clima e estilo.');
   }
 
+  const weightKg = typeof body.weightKg === 'number' && body.weightKg > 20 && body.weightKg < 350 ? Math.round(body.weightKg) : null;
+  const heightCm = typeof body.heightCm === 'number' && body.heightCm > 80 && body.heightCm < 260 ? Math.round(body.heightCm) : null;
+  const age = typeof body.age === 'number' && body.age > 10 && body.age < 125 ? Math.round(body.age) : null;
+  const gender = isGender(body.gender) ? body.gender : 'masculino';
+  const bodyType = isBodyType(body.bodyType) ? body.bodyType : detectBodyType(weightKg, heightCm, gender);
+
   let customVenue: string | undefined;
   if (body.customVenue !== undefined && body.customVenue !== null) {
     if (typeof body.customVenue !== 'string') throw new HttpError(400, 'bad_request', 'Descrição do local inválida.');
@@ -83,16 +94,33 @@ function parseStyleRequest(body: Record<string, unknown>): StyleRequest {
     if (venue) customVenue = venue;
   }
 
-  return { skinTone, subtone, contrast, occasion, timeOfDay, climate, style, ...(customVenue ? { customVenue } : {}) };
+  return {
+    skinTone,
+    subtone,
+    contrast,
+    occasion,
+    timeOfDay,
+    climate,
+    style,
+    ...(customVenue ? { customVenue } : {}),
+    ...(weightKg ? { weightKg } : {}),
+    ...(heightCm ? { heightCm } : {}),
+    ...(age ? { age } : {}),
+    ...(gender ? { gender } : {}),
+    ...(bodyType ? { bodyType } : {}),
+  };
 }
 
 // ------------------------------------------------------------
 // Prompt
 // ------------------------------------------------------------
 
-const SYSTEM = `Você é o stylist-chefe da Titi's Store (o nome da marca é somente "Titi's Store"; nunca use outros nomes), consultoria de imagem masculina e alfaiataria.
-Compõe looks completos, elegantes e usáveis, com domínio de colorimetria (12 estações), proporção, formalidade e tecidos.
-Escreve em português do Brasil, com tom sofisticado, conciso e confiante. Nunca cita marcas, preços ou disponibilidade.
+const SYSTEM = `Você é o stylist-chefe e consultor sênior da Titi's Store (o nome da marca é somente "Titi's Store"; nunca use outros nomes), consultoria de imagem masculina e alfaiataria premium.
+Compõe looks completos, elegantes e impecáveis, dominando:
+1. Colorimetria científica (Método Sazonal Expandido com 12 estações cromáticas: temperatura quente/fria, intensidade suave/brilhante, profundidade clara/escura e contraste pessoal).
+2. Biometria corporal (peso, altura, idade, proporções corporais e modelagem ideal por biotipo masculino).
+3. Adequação contextual (evento/ocasião, horário, clima e nível de formalidade).
+Escreve em português do Brasil, com tom sofisticado, acolhedor e altamente técnico de alfaiataria. Nunca cita marcas externas, preços ou disponibilidade inventada.
 Responde somente com JSON válido.`;
 
 const swatches = (list: ColorSwatch[]) => list.map((c) => `${c.name} ${c.hex}`).join(', ');
@@ -134,34 +162,53 @@ function buildPrompt(req: StyleRequest, season: SeasonProfile, catalog: Product[
   const style = STYLES.find((s) => s.id === req.style);
   const target = clampInt(targetFormality(req), 1, 5, 3);
 
+  const bioDetails: string[] = [];
+  const parts: string[] = [];
+  if (req.gender) parts.push(`Gênero: ${req.gender}`);
+  if (req.age) parts.push(`Idade: ${req.age} anos`);
+  if (req.heightCm) parts.push(`Altura: ${req.heightCm} cm`);
+  if (req.weightKg) parts.push(`Peso: ${req.weightKg} kg`);
+  if (req.bodyType) parts.push(`Biotipo corporal: ${bodyTypeName(req.bodyType)}`);
+  if (parts.length) {
+    bioDetails.push(`- Dados biométricos: ${parts.join(' | ')}.`);
+  }
+  if (req.bodyType) {
+    const advice = BODY_TYPES.find((b) => b.id === req.bodyType)?.tailoringAdvice;
+    if (advice) bioDetails.push(`- Modelagem e caimento para o biotipo (${bodyTypeName(req.bodyType)}): ${advice}`);
+  }
+
   return [
-    'CLIENTE',
-    `- Pele ${skinToneName(req.skinTone)}, subtom ${labelOf(SUBTONES, req.subtone).toLowerCase()}, contraste ${labelOf(CONTRASTS, req.contrast).toLowerCase()}.`,
-    `- Estação cromática: ${season.name}. Metais: ${season.metals === 'ambos' ? 'ouro ou prata' : season.metals}.`,
-    `- Cores que valorizam (destaque perto do rosto): ${swatches(season.palette)}.`,
-    `- Neutros de base (calças, sapatos, sobreposições): ${swatches(season.neutrals)}.`,
-    `- Cores proibidas (não use em nenhuma peça): ${swatches(season.avoid)}.`,
-    `- Nota da estação: ${season.note}`,
+    'PERFIL BIOMÉTRICO E COLORIMÉTRICO DO CLIENTE',
+    `- Tom de pele: ${skinToneName(req.skinTone)}, subtom: ${labelOf(SUBTONES, req.subtone).toLowerCase()}, contraste pessoal: ${labelOf(CONTRASTS, req.contrast).toLowerCase()}.`,
+    ...bioDetails,
+    `- Estação cromática (Método Sazonal Expandido): ${season.name} (família ${season.family}). Metais indicados: ${season.metals === 'ambos' ? 'ouro ou prata' : season.metals}.`,
+    `- Cores da cartela que valorizam o rosto (obrigatórias em superior/sobreposição): ${swatches(season.palette)}.`,
+    `- Neutros de base elegantes (para calças, calçados e bases sóbrias): ${swatches(season.neutrals)}.`,
+    `- Cores PROIBIDAS (NUNCA utilize em nenhuma peça do look): ${swatches(season.avoid)}.`,
+    `- Parecer da cartela: ${season.note}`,
+    `- Contraste: ${req.contrast === 'alto' ? 'Alto contraste pessoal: priorize composições com diferença nítida de luminosidade entre superior e inferior.' : req.contrast === 'baixo' ? 'Baixo contraste pessoal: priorize composições tom-sobre-tom ou com baixa diferença de luminosidade.' : 'Médio contraste pessoal: equilíbrio clássico sem contrastes extremos.'}`,
     '',
-    'CONTEXTO',
+    'CONTEXTO DO EVENTO',
     `- Ocasião: ${occasion?.title ?? req.occasion}${occasion ? ` (${occasion.description})` : ''}.`,
     venueLine(req),
     `- Horário: ${labelOf(TIMES_OF_DAY, req.timeOfDay)}. Clima: ${climate ? `${climate.title} (${climate.range})` : req.climate}.`,
-    `- Estilo: ${style ? `${style.title} — ${style.description}` : req.style}.`,
+    `- Estilo desejado: ${style ? `${style.title} — ${style.description}` : req.style}.`,
     `- Formalidade alvo: ${target} de 5.`,
     '',
-    'ACERVO DA LOJA (priorize estas peças quando fizerem sentido e copie o "id" exato em productId):',
+    'ACERVO DA LOJA DISPONÍVEL (priorize estas peças reais do catálogo quando fizerem sentido e copie o "id" exato em productId):',
     JSON.stringify(catalogForPrompt(req, catalog)),
     '',
-    'REGRAS',
-    '1. Crie exatamente 3 looks diferentes entre si: um mais sóbrio, um intermediário e um com mais personalidade, todos dentro do estilo pedido.',
-    '2. Cada look tem de 3 a 6 peças, no máximo uma por slot, exceto "acessorio" (até 2). Slots: sobreposicao, superior, inferior, calcado, acessorio.',
-    '3. Peça do acervo: productId com o id exato. Peça genérica: productId null e nome descritivo (ex.: "Camisa de linho com colarinho padre").',
-    '4. hex no formato #RRGGBB coerente com o nome da cor. Nunca use as cores proibidas; perto do rosto, prefira as cores que valorizam.',
-    '5. Respeite horário, clima (peso do tecido) e a formalidade alvo.',
-    '6. title até 40 caracteres; tagline até 90; rationale até 280, explicando por que o look funciona para esta pessoa e este contexto; tip até 160, com um detalhe de alfaiate (caimento, barra, proporção ou textura).',
+    'DIRETRIZES DE CRIAÇÃO DOS LOOKS',
+    '1. Crie exatamente 3 looks completos e distintos: um clássico/sóbrio, um contemporâneo versátil e um de assinatura com presença marcante.',
+    '2. Cada look deve conter de 3 a 5 peças essenciais (slots: sobreposicao, superior, inferior, calcado, acessorio).',
+    '3. Peça do acervo: atribua productId com o id exato do catálogo. Peça genérica: productId null e nome descritivo refinado.',
+    '4. As peças próximas ao rosto (superior e sobreposição) DEVEM valorizar a colorimetria do cliente, usando as cores da cartela sazonal ou neutros autorizados.',
+    '5. As peças inferiores (calça e calçado) devem sustentar o look com os neutros de base.',
+    '6. NUNCA use cores da lista de cores proibidas.',
+    '7. Adapte o corte, caimento e tecidos à biometria, biotipo e clima informados.',
+    '8. title até 40 caracteres; tagline até 90; rationale até 280 (explicando como o look valoriza a colorimetria facial e a silhueta do cliente para o evento); tip até 160 (dica de alfaiate específica de corte, barra, caimento ou truque de estilo).',
     '',
-    'FORMATO',
+    'FORMATO DE RESPOSTA (JSON puro)',
     '{"looks":[{"title":"","tagline":"","rationale":"","tip":"","formality":3,"pieces":[{"slot":"superior","name":"","color":"","hex":"#000000","fabric":"","productId":null}]}]}',
   ]
     .filter((line): line is string => line !== null)

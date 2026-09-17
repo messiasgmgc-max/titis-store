@@ -65,8 +65,11 @@ export interface Product {
 }
 
 // ------------------------------------------------------------
-// Diagnóstico de colorimetria
+// Diagnóstico de colorimetria e biometria
 // ------------------------------------------------------------
+export type Gender = 'masculino' | 'feminino' | 'outro';
+export type BodyType = 'atletico' | 'trapezio' | 'mesomorfo' | 'ectomorfo' | 'endomorfo' | 'oval' | 'retangular';
+
 export interface Diagnosis {
   skinTone: SkinToneId;
   subtone: Subtone;
@@ -79,6 +82,11 @@ export interface Diagnosis {
   source: 'ai' | 'local' | 'manual';
   confidence?: number; // 0..1
   ita?: number; // ângulo ITA° (leitura local)
+  weightKg?: number | null;
+  heightCm?: number | null;
+  age?: number | null;
+  gender?: Gender;
+  bodyType?: BodyType;
   createdAt: string; // ISO
 }
 
@@ -94,6 +102,11 @@ export interface StyleRequest {
   timeOfDay: TimeOfDayId;
   climate: ClimateId;
   style: StylePreference;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  age?: number | null;
+  gender?: Gender;
+  bodyType?: BodyType;
 }
 
 export interface LookPiece {
@@ -186,6 +199,11 @@ export interface Profile {
   contrast_level: ContrastLevel | null;
   seasonal_palette: string | null;
   preferred_style: StylePreference | null;
+  weight_kg?: number | null;
+  height_cm?: number | null;
+  age?: number | null;
+  gender?: Gender | null;
+  body_type?: BodyType | null;
   /** Último plano contratado. */
   plan: PlanId | null;
   /** Fim do acesso VIP (null com role 'vip' = sem prazo). */
