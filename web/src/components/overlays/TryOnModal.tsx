@@ -23,7 +23,7 @@ import { useUI } from '@/providers/UIProvider';
 import { useSession } from '@/providers/SessionProvider';
 import { ConsultingLock } from '@/components/consulting/ConsultingLock';
 import { isConsultingLockError, lockReason, lockToastMessage } from '@/components/consulting/shared';
-import { findProduct, useCatalog } from '@/lib/catalog';
+import { findProduct, matchProductForPiece, useCatalog } from '@/lib/catalog';
 import { ApiRequestError, requestTryOn } from '@/lib/api';
 import { fileToDataUrl } from '@/lib/image';
 import { cn, formatBRL, whatsappLink } from '@/lib/format';
@@ -200,7 +200,7 @@ function TryOnStudio({ look, onClose }: { look: Look; onClose: () => void }) {
     () =>
       [...look.pieces]
         .sort((a, b) => PIECE_SLOTS.indexOf(a.slot) - PIECE_SLOTS.indexOf(b.slot))
-        .map((piece) => ({ piece, product: findProduct(products, piece.productId) })),
+        .map((piece) => ({ piece, product: matchProductForPiece(products, piece) })),
     [look.pieces, products],
   );
   const fromCatalog = pieces.filter((m): m is PieceMatch & { product: Product } => Boolean(m.product));

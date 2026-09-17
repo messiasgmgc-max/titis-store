@@ -18,10 +18,11 @@ import {
   AlertCircle,
   Clock,
   Sparkles,
-  Loader2
+  Loader2,
 } from 'lucide-react';
 import { useCart } from '@/providers/CartProvider';
-import { formatBRL } from '@/lib/format';
+import { useSession } from '@/providers/SessionProvider';
+import { formatBRL, formatCEP, formatCPF, formatPhoneBR } from '@/lib/format';
 
 interface ShippingOption {
   id: string;
@@ -32,9 +33,12 @@ interface ShippingOption {
   isFree?: boolean;
 }
 
+const STORAGE_KEY = 'titis_checkout_customer';
+
 export default function TransparentCheckoutPage() {
   const router = useRouter();
   const { items, subtotalCents, clear } = useCart();
+  const { user, profile, updateProfile } = useSession();
 
   // Form states
   const [firstName, setFirstName] = useState('');
@@ -76,35 +80,47 @@ export default function TransparentCheckoutPage() {
   } | null>(null);
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   // Total calculado (subtotal + frete)
   const shippingCents = selectedShipping?.priceCents ?? 0;
   const grandTotalCents = subtotalCents + shippingCents;
 
-  // Formatações de input
-  const handleCpfChange = (val: string) => {
-    const raw = val.replace(/\D/g, '').slice(0, 11);
-    if (raw.length <= 3) setCpf(raw);
-    else if (raw.length <= 6) setCpf(`${raw.slice(0, 3)}.${raw.slice(3)}`);
-    else if (raw.length <= 9) setCpf(`${raw.slice(0, 3)}.${raw.slice(3, 6)}.${raw.slice(6)}`);
-    else setCpf(`${raw.slice(0, 3)}.${raw.slice(3, 6)}.${raw.slice(6, 9)}-${raw.slice(9)}`);
+  // Função para salvar dados localmente e na conta
+  const persistCustomerData = (patch: Record<string, unknown>) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const updated = { ...existing, ...patch };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+
+    if (user) {
+      const pFirst = patch.firstName !== undefined ? patch.firstName : firstName;
+      const pLast = patch.lastName !== undefined ? patch.lastName : lastName;
+      const fullName = `${pFirst || ''} ${pLast || ''}`.trim();
+      void updateProfile({
+        ...(fullName ? { full_name: fullName } : {}),
+        ...(patch.phone !== undefined ? { phone: String(patch.phone) } : {}),
+        ...(patch.cpf !== undefined ? { cpf: String(patch.cpf) } : {}),
+        shipping_address: {
+          cep: String(patch.cep !== undefined ? patch.cep : cep),
+          street: String(patch.street !== undefined ? patch.street : street),
+          number: String(patch.number !== undefined ? patch.number : number),
+          complement: String(patch.complement !== undefined ? patch.complement : complement),
+          neighborhood: String(patch.neighborhood !== undefined ? patch.neighborhood : neighborhood),
+          city: String(patch.city !== undefined ? patch.city : city),
+          state: String(patch.state !== undefined ? patch.state : state),
+        },
+      });
+    }
   };
 
-  const handlePhoneChange = (val: string) => {
-    const raw = val.replace(/\D/g, '').slice(0, 11);
-    if (raw.length <= 2) setPhone(raw);
-    else if (raw.length <= 7) setPhone(`(${raw.slice(0, 2)}) ${raw.slice(2)}`);
-    else setPhone(`(${raw.slice(0, 2)}) ${raw.slice(2, 7)}-${raw.slice(7)}`);
-  };
-
-  const handleCepChange = (val: string) => {
-    const raw = val.replace(/\D/g, '').slice(0, 8);
-    if (raw.length <= 5) setCep(raw);
-    else setCep(`${raw.slice(0, 5)}-${raw.slice(5)}`);
-  };
-
-  // Busca frete no Melhor Envio
+  // Busca frete nos Correios & Jadlog
   const fetchShipping = async (cleanCep: string) => {
+    if (!cleanCep || cleanCep.length !== 8) return;
     setLoadingShipping(true);
     try {
       const res = await fetch('/api/shipping/calculate', {
@@ -112,42 +128,163 @@ export default function TransparentCheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           destinationCep: cleanCep,
-          itemsCount: items.reduce((acc, i) => acc + i.quantity, 0),
+          itemsCount: Math.max(1, items.reduce((acc, i) => acc + i.quantity, 0)),
           subtotalCents,
         }),
       });
       const data = await res.json();
       if (data.options && data.options.length > 0) {
         setShippingOptions(data.options);
-        // Seleciona a primeira opção por padrão (geralmente a mais econômica)
-        setSelectedShipping(data.options[0]);
+        setSelectedShipping((prev) => {
+          if (prev && data.options.some((o: ShippingOption) => o.id === prev.id)) {
+            return data.options.find((o: ShippingOption) => o.id === prev.id) || data.options[0];
+          }
+          return data.options[0];
+        });
       }
     } catch {
-      // ignora erro
+      // ignora erro silencioso
     } finally {
       setLoadingShipping(false);
     }
   };
 
   // Busca CEP via ViaCEP + Dispara cálculo de frete
-  const handleCepBlur = async () => {
-    const cleanCep = cep.replace(/\D/g, '');
+  const handleCepLookupAndShipping = async (rawCep: string) => {
+    const cleanCep = rawCep.replace(/\D/g, '');
     if (cleanCep.length === 8) {
       try {
         const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
         const data = await res.json();
         if (!data.erro) {
-          setStreet(data.logradouro || '');
-          setNeighborhood(data.bairro || '');
-          setCity(data.localidade || '');
-          setState(data.uf || 'MG');
+          const newStreet = data.logradouro || '';
+          const newNeigh = data.bairro || '';
+          const newCity = data.localidade || '';
+          const newState = data.uf || 'MG';
+
+          setStreet(newStreet);
+          setNeighborhood(newNeigh);
+          setCity(newCity);
+          setState(newState);
+
+          persistCustomerData({
+            cep: formatCEP(cleanCep),
+            street: newStreet,
+            neighborhood: newNeigh,
+            city: newCity,
+            state: newState,
+          });
         }
       } catch {
-        // ignora erro silencioso
+        // ignora erro
       }
 
-      // Calcula as opções de frete
       await fetchShipping(cleanCep);
+    }
+  };
+
+  // Pré-carregamento automático do perfil e do localStorage
+  useEffect(() => {
+    if (hydrated) return;
+
+    let preFirst = '';
+    let preLast = '';
+    let preEmail = '';
+    let prePhone = '';
+    let preCpf = '';
+    let preCep = '';
+    let preStreet = '';
+    let preNumber = '';
+    let preComp = '';
+    let preNeigh = '';
+    let preCity = '';
+    let preState = 'MG';
+
+    // 1. Tenta carregar do perfil autenticado
+    if (profile) {
+      if (profile.full_name) {
+        const parts = profile.full_name.trim().split(/\s+/);
+        preFirst = parts[0] || '';
+        preLast = parts.slice(1).join(' ') || '';
+      }
+      preEmail = profile.email || user?.email || '';
+      prePhone = profile.phone ? formatPhoneBR(profile.phone) : '';
+      preCpf = profile.cpf ? formatCPF(profile.cpf) : '';
+
+      if (profile.shipping_address) {
+        preCep = profile.shipping_address.cep ? formatCEP(profile.shipping_address.cep) : '';
+        preStreet = profile.shipping_address.street || '';
+        preNumber = profile.shipping_address.number || '';
+        preComp = profile.shipping_address.complement || '';
+        preNeigh = profile.shipping_address.neighborhood || '';
+        preCity = profile.shipping_address.city || '';
+        preState = profile.shipping_address.state || 'MG';
+      }
+    }
+
+    // 2. Se faltar dados, complementa com o localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        if (!preFirst && saved.firstName) preFirst = saved.firstName;
+        if (!preLast && saved.lastName) preLast = saved.lastName;
+        if (!preEmail && saved.email) preEmail = saved.email;
+        if (!prePhone && saved.phone) prePhone = saved.phone;
+        if (!preCpf && saved.cpf) preCpf = saved.cpf;
+        if (!preCep && saved.cep) preCep = saved.cep;
+        if (!preStreet && saved.street) preStreet = saved.street;
+        if (!preNumber && saved.number) preNumber = saved.number;
+        if (!preComp && saved.complement) preComp = saved.complement;
+        if (!preNeigh && saved.neighborhood) preNeigh = saved.neighborhood;
+        if (!preCity && saved.city) preCity = saved.city;
+        if (saved.state) preState = saved.state;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (preFirst) setFirstName(preFirst);
+    if (preLast) setLastName(preLast);
+    if (preEmail) setEmail(preEmail);
+    if (prePhone) setPhone(prePhone);
+    if (preCpf) setCpf(preCpf);
+    if (preCep) setCep(preCep);
+    if (preStreet) setStreet(preStreet);
+    if (preNumber) setNumber(preNumber);
+    if (preComp) setComplement(preComp);
+    if (preNeigh) setNeighborhood(preNeigh);
+    if (preCity) setCity(preCity);
+    if (preState) setState(preState);
+
+    setHydrated(true);
+
+    // Se já tinha CEP válido pré-gravado, dispara o frete na hora!
+    const cleanCep = preCep.replace(/\D/g, '');
+    if (cleanCep.length === 8) {
+      void fetchShipping(cleanCep);
+    }
+  }, [profile, user, hydrated]);
+
+  // Formatações e gatilhos de input
+  const handleCpfChange = (val: string) => {
+    const formatted = formatCPF(val);
+    setCpf(formatted);
+    persistCustomerData({ cpf: formatted });
+  };
+
+  const handlePhoneChange = (val: string) => {
+    const formatted = formatPhoneBR(val);
+    setPhone(formatted);
+    persistCustomerData({ phone: formatted });
+  };
+
+  const handleCepChange = (val: string) => {
+    const formatted = formatCEP(val);
+    setCep(formatted);
+    persistCustomerData({ cep: formatted });
+    const raw = val.replace(/\D/g, '');
+    if (raw.length === 8) {
+      void handleCepLookupAndShipping(raw);
     }
   };
 
@@ -430,7 +567,10 @@ export default function TransparentCheckoutPage() {
                       required
                       placeholder="Ex: Lucas"
                       value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                      onChange={(e) => {
+                        setFirstName(e.target.value);
+                        persistCustomerData({ firstName: e.target.value });
+                      }}
                       className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                     />
                   </div>
@@ -441,7 +581,10 @@ export default function TransparentCheckoutPage() {
                       required
                       placeholder="Ex: Silva"
                       value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
+                      onChange={(e) => {
+                        setLastName(e.target.value);
+                        persistCustomerData({ lastName: e.target.value });
+                      }}
                       className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                     />
                   </div>
@@ -455,7 +598,10 @@ export default function TransparentCheckoutPage() {
                       required
                       placeholder="seuemail@exemplo.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        persistCustomerData({ email: e.target.value });
+                      }}
                       className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                     />
                   </div>
@@ -501,7 +647,7 @@ export default function TransparentCheckoutPage() {
                       placeholder="00000-000"
                       value={cep}
                       onChange={(e) => handleCepChange(e.target.value)}
-                      onBlur={handleCepBlur}
+                      onBlur={() => handleCepLookupAndShipping(cep)}
                       className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                     />
                   </div>
@@ -512,7 +658,10 @@ export default function TransparentCheckoutPage() {
                       required
                       placeholder="Nome da rua"
                       value={street}
-                      onChange={(e) => setStreet(e.target.value)}
+                      onChange={(e) => {
+                        setStreet(e.target.value);
+                        persistCustomerData({ street: e.target.value });
+                      }}
                       className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                     />
                   </div>
@@ -526,7 +675,10 @@ export default function TransparentCheckoutPage() {
                       required
                       placeholder="123"
                       value={number}
-                      onChange={(e) => setNumber(e.target.value)}
+                      onChange={(e) => {
+                        setNumber(e.target.value);
+                        persistCustomerData({ number: e.target.value });
+                      }}
                       className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                     />
                   </div>
@@ -536,7 +688,10 @@ export default function TransparentCheckoutPage() {
                       type="text"
                       placeholder="Ex: Apto 301 Bloco B"
                       value={complement}
-                      onChange={(e) => setComplement(e.target.value)}
+                      onChange={(e) => {
+                        setComplement(e.target.value);
+                        persistCustomerData({ complement: e.target.value });
+                      }}
                       className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                     />
                   </div>
@@ -550,7 +705,10 @@ export default function TransparentCheckoutPage() {
                       required
                       placeholder="Bairro"
                       value={neighborhood}
-                      onChange={(e) => setNeighborhood(e.target.value)}
+                      onChange={(e) => {
+                        setNeighborhood(e.target.value);
+                        persistCustomerData({ neighborhood: e.target.value });
+                      }}
                       className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                     />
                   </div>
@@ -561,7 +719,10 @@ export default function TransparentCheckoutPage() {
                       required
                       placeholder="Cidade"
                       value={city}
-                      onChange={(e) => setCity(e.target.value)}
+                      onChange={(e) => {
+                        setCity(e.target.value);
+                        persistCustomerData({ city: e.target.value });
+                      }}
                       className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                     />
                   </div>
@@ -572,7 +733,10 @@ export default function TransparentCheckoutPage() {
                       required
                       placeholder="MG"
                       value={state}
-                      onChange={(e) => setState(e.target.value)}
+                      onChange={(e) => {
+                        setState(e.target.value);
+                        persistCustomerData({ state: e.target.value });
+                      }}
                       className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory uppercase focus:outline-none focus:border-gold"
                     />
                   </div>

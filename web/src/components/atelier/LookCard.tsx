@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight, CreditCard, MessageCircle, ScanFace, ShoppingBag } from 'lucide-react';
 import type { Look, LookPiece, PieceSlot, Product } from '@/lib/types';
 import { SLOT_LABELS, bodyTypeName, estimateSizes } from '@/lib/stylist/knowledge';
-import { findProduct } from '@/lib/catalog';
+import { findProduct, matchProductForPiece } from '@/lib/catalog';
 import { useDiagnosis } from '@/providers/DiagnosisProvider';
 import { useUI } from '@/providers/UIProvider';
 import { useCart, type CartInput } from '@/providers/CartProvider';
@@ -167,7 +167,7 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
   const { diagnosis } = useDiagnosis();
   const router = useRouter();
 
-  const entries: Entry[] = look.pieces.map((piece) => ({ piece, product: findProduct(products, piece.productId) }));
+  const entries: Entry[] = look.pieces.map((piece) => ({ piece, product: matchProductForPiece(products, piece) }));
   const productEntries = entries.filter((e): e is ProductEntry => !!e.product);
   const numeral = ROMAN[index] ?? String(index + 1);
   const harmony = Math.round(Math.min(100, Math.max(0, look.harmony)));
