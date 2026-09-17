@@ -24,20 +24,29 @@ const SHARED_ROUTES = [
 
 export default function middleware(req: NextRequest) {
   const url = req.nextUrl.clone();
-  const host = req.headers.get('host') || '';
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
   const pathname = url.pathname;
 
   // Sanitiza hostname removendo porta (ex: consultor.localhost:3000 -> consultor.localhost)
   const hostname = host.split(':')[0].toLowerCase();
 
+  // Permite forçar via query param para testes (ex: ?app=consultor ou ?app=store)
+  const queryApp = req.nextUrl.searchParams.get('app');
+
   // Domínios configurados
   const consultorDomain = (process.env.NEXT_PUBLIC_CONSULTOR_DOMAIN || 'consultor.titisstore.com.br').toLowerCase();
 
+  // Em deploys da Vercel (*.vercel.app), a raiz deve sempre abrir a Loja Principal por padrão
+  const isVercel = hostname.endsWith('.vercel.app');
+
   // Detecção de host do consultor (produção e dev)
   const isConsultorHost =
-    hostname === consultorDomain ||
-    hostname === 'consultor.localhost' ||
-    hostname.startsWith('consultor.');
+    queryApp === 'consultor' ||
+    (!isVercel && (
+      hostname === consultorDomain ||
+      hostname === 'consultor.localhost' ||
+      hostname.startsWith('consultor.')
+    ));
 
   // Se for rota compartilhada (login, admin, legal), não aplica rewrite de tenant
   if (SHARED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
@@ -56,6 +65,11 @@ export default function middleware(req: NextRequest) {
   }
 
   // 2. Roteamento para o E-commerce / Loja Principal
-  url.pathname = `/store${pathname === '/' ? '' : pathname}`;
+  if (pathname === '/') {
+    // A raiz já renderiza a Loja diretamente via app/page.tsx
+    return NextResponse.next();
+  }
+
+  url.pathname = `/store${pathname}`;
   return NextResponse.rewrite(url);
 }
