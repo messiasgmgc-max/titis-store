@@ -58,13 +58,43 @@ async function run() {
   fs.writeFileSync(dumpPath, JSON.stringify(products, null, 2), 'utf-8');
 
   let sql = `-- =============================================================================
---  TITI'S STORE · Migração de Produtos da Loja Antiga (${products.length} peças)
+--  TITI'S STORE · Catálogo Oficial da Loja (${products.length} peças reais)
 -- -----------------------------------------------------------------------------
---  Extraído automaticamente via API pública da antiga loja (WooCommerce/WordPress).
---  Importa: nome, slug, preço original, fotos de alta resolução, descrição, tamanhos.
+--  1. Remove as peças de mock/teste da consultoria ("Sob consulta", sem fotos reais).
+--  2. Insere todas as 41 peças reais da loja antiga (WooCommerce) com fotos
+--     em alta definição, preços oficiais e galerias de ângulos.
 -- =============================================================================
 
 begin;
+
+-- 1. Remove os produtos fictícios/mock antigos que não tinham preço nem fotos reais
+delete from public.products
+ where price_cents is null
+    or slug in (
+      'calca-alfaiataria-regulador-cinza-grafite',
+      'calca-chino-slim-azul-marinho',
+      'calca-chino-slim-off-white',
+      'calca-alfaiataria-regulador-preto',
+      'calca-alfaiataria-cordao-azul-marinho',
+      'loafer-camurca-azul-nevoa',
+      'tenis-couro-tricolor-caramelo',
+      'tenis-listras-calcanhar-vermelho',
+      'tenis-colorblock-preto-branco',
+      'tenis-couro-minimalista-branco',
+      'tenis-listras-calcanhar-caramelo',
+      'derby-couro-solado-tratorado-conhaque',
+      'polo-trico-off-white',
+      'polo-trico-azul-ceu',
+      'polo-trico-preto',
+      'camiseta-gola-alta-caramelo',
+      'camiseta-gola-alta-branco',
+      'camiseta-gola-alta-preto',
+      'camiseta-gola-alta-verde-floresta',
+      'camiseta-gola-alta-azul-marinho',
+      'camiseta-gola-alta-creme',
+      'camiseta-gola-alta-cinza-chumbo',
+      'camiseta-gola-alta-marrom-cafe'
+    );
 
 `;
 
