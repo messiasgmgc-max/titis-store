@@ -19,6 +19,9 @@ import {
   Clock,
   Sparkles,
   Loader2,
+  Plus,
+  Minus,
+  Trash2,
 } from 'lucide-react';
 import { useCart } from '@/providers/CartProvider';
 import { useSession } from '@/providers/SessionProvider';
@@ -37,7 +40,7 @@ const STORAGE_KEY = 'titis_checkout_customer';
 
 export default function TransparentCheckoutPage() {
   const router = useRouter();
-  const { items, subtotalCents, clear } = useCart();
+  const { items, subtotalCents, setQuantity, remove, clear } = useCart();
   const { user, profile, updateProfile } = useSession();
 
   // Form states
@@ -359,6 +362,15 @@ export default function TransparentCheckoutPage() {
       void fetchShipping(cleanCep);
     }
   }, [profile, user, hydrated]);
+
+  // Recalcula o frete e faixa de frete grátis caso o subtotal mude ao alterar quantidades
+  useEffect(() => {
+    if (!hydrated) return;
+    const cleanCep = cep.replace(/\D/g, '');
+    if (cleanCep.length === 8) {
+      void fetchShipping(cleanCep);
+    }
+  }, [subtotalCents, hydrated]);
 
   // Formatações e gatilhos de input
   const handleCpfChange = (val: string) => {
@@ -1109,23 +1121,85 @@ export default function TransparentCheckoutPage() {
                   Resumo do Pedido ({items.length} {items.length === 1 ? 'item' : 'itens'})
                 </h3>
 
-                <div className="space-y-3.5 max-h-72 overflow-y-auto pr-1">
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-1 divide-y divide-line/30">
                   {items.map((item) => (
-                    <div key={item.key} className="flex gap-3 text-xs items-center justify-between">
-                      <div className="flex items-center gap-3">
+                    <div key={item.key} className="pt-3 first:pt-0 flex gap-3 text-xs items-center justify-between">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         <div className="relative h-12 w-10 shrink-0 overflow-hidden rounded-lg bg-surface border border-line">
-                          <Image src={item.image || '/produtos/calca-alfaiataria-regulador-cinza-grafite.jpg'} alt="" fill className="object-cover" />
+                          <Image 
+                            src={item.image || '/produtos/calca-alfaiataria-regulador-cinza-grafite.jpg'} 
+                            alt={item.name} 
+                            fill 
+                            className="object-cover" 
+                          />
                         </div>
-                        <div>
-                          <p className="font-bold text-ivory line-clamp-1">{item.name}</p>
-                          <p className="text-[10px] text-mist">
-                            {item.size && `Tam: ${item.size}`} · Qtd: {item.quantity}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-ivory text-xs line-clamp-1" title={item.name}>
+                            {item.name}
                           </p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {item.size && (
+                              <span className="text-[10px] text-mist font-medium">
+                                Tam: <span className="text-ivory font-bold">{item.size}</span>
+                              </span>
+                            )}
+
+                            {/* Controles compactos de quantidade: [-] Qtd [+] */}
+                            <div className="inline-flex items-center rounded-md border border-line bg-black/40 px-1 py-0.5 gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (item.quantity > 1) {
+                                    setQuantity(item.key, item.quantity - 1);
+                                  } else {
+                                    remove(item.key);
+                                  }
+                                }}
+                                title={item.quantity === 1 ? 'Remover item' : 'Diminuir quantidade'}
+                                className="w-4 h-4 rounded flex items-center justify-center text-mist hover:text-white hover:bg-white/10 transition-colors"
+                              >
+                                {item.quantity === 1 ? (
+                                  <Trash2 className="w-2.5 h-2.5 text-rose-400" />
+                                ) : (
+                                  <Minus className="w-2.5 h-2.5" />
+                                )}
+                              </button>
+                              <span className="text-[10px] font-bold text-ivory min-w-[14px] text-center select-none">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setQuantity(item.key, item.quantity + 1)}
+                                title="Adicionar mais unidade"
+                                className="w-4 h-4 rounded flex items-center justify-center text-mist hover:text-white hover:bg-white/10 transition-colors"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+
+                            {/* Botão de remoção direta */}
+                            <button
+                              type="button"
+                              onClick={() => remove(item.key)}
+                              title="Remover produto do pedido"
+                              className="text-mist/60 hover:text-rose-400 p-0.5 rounded transition-colors"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <span className="font-bold text-gold shrink-0">
-                        {item.priceCents ? formatBRL(item.priceCents * item.quantity) : 'Sob consulta'}
-                      </span>
+
+                      <div className="text-right shrink-0">
+                        <span className="font-bold text-gold text-xs block">
+                          {item.priceCents ? formatBRL(item.priceCents * item.quantity) : 'Sob consulta'}
+                        </span>
+                        {item.quantity > 1 && item.priceCents && (
+                          <span className="text-[9px] text-mist block">
+                            {formatBRL(item.priceCents)} un.
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
