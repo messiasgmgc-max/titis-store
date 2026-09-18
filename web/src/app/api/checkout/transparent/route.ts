@@ -162,3 +162,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Erro ao processar transação.' }, { status: 500 });
   }
 }
+
+export async function GET() {
+  return NextResponse.json({
+    status: 'online',
+    endpoint: '/api/checkout/transparent',
+    mercadoPagoConfigured: mercadoPagoConfigured(),
+    timestamp: new Date().toISOString(),
+  });
+}

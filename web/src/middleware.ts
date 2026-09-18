@@ -5,12 +5,12 @@ export const config = {
   matcher: [
     /*
      * Intercepta todas as rotas exceto:
-     * - /api (endpoints REST globais)
-     * - /_next (arquivos de compilação interna e chunks do Next.js)
-     * - /produtos e /bio (fotos estáticas em public/)
-     * - Arquivos estáticos com extensão (.ico, .jpg, .jpeg, .png, .svg, .webp, etc.)
+     * - api (endpoints REST globais)
+     * - _next/static, _next/image (arquivos internos do Next.js)
+     * - produtos e bio (fotos públicas)
+     * - favicon.ico
      */
-    '/((?!api|_next|produtos|bio|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt)$).*)',
+    '/((?!api|_next/static|_next/image|produtos|bio|favicon.ico).*)',
   ],
 };
 
@@ -29,10 +29,9 @@ const SHARED_ROUTES = [
 
 export default function middleware(req: NextRequest) {
   const url = req.nextUrl.clone();
-  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
   const pathname = url.pathname;
 
-  // Ignora imediatamente se for asset estático, subpasta pública ou API
+  // Garante bypass absoluto e imediato para todas as APIs e recursos estáticos
   if (
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
