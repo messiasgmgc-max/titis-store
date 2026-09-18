@@ -24,10 +24,10 @@ import { Button } from '@/components/ui/Button';
 import { Tilt3D } from '@/components/ui/Tilt3D';
 
 const CATEGORIES = [
-  { name: 'Alfaiataria', slug: 'Alfaiataria', image: '/skin_morena_model.jpg', desc: 'Blazers, costumes e paletós sob medida' },
-  { name: 'Camisaria', slug: 'Camisaria', image: '/skin_clara_model.jpg', desc: 'Algodão egípcio e cortes impecáveis' },
-  { name: 'Calças', slug: 'Calças', image: '/skin_parda_model.jpg', desc: 'Alfaiataria clássica e sarja nobre' },
-  { name: 'Calçados', slug: 'Calçados', image: '/skin_negra_model.jpg', desc: 'Couro legítimo e design artesanal' },
+  { name: 'Alfaiataria', slug: 'Alfaiataria', image: '/skin_morena.jpg', desc: 'Blazers, costumes e paletós sob medida' },
+  { name: 'Camisaria', slug: 'Camisaria', image: 'https://titisstore.com.br/wp-content/uploads/2026/03/IMG_4688.jpeg', desc: 'Algodão egípcio e cortes impecáveis' },
+  { name: 'Calças', slug: 'Calças', image: 'https://titisstore.com.br/wp-content/uploads/2026/03/IMG_4401.jpeg', desc: 'Alfaiataria clássica e sarja nobre' },
+  { name: 'Calçados', slug: 'Calçados', image: 'https://titisstore.com.br/wp-content/uploads/2026/05/IMG_8749-2.jpeg', desc: 'Couro legítimo e design artesanal' },
 ];
 
 const REVIEWS = [
@@ -109,7 +109,7 @@ export default function StoreHomePage() {
               <Tilt3D max={10} lift={14} perspective={950} className="w-full">
                 <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[2.5rem] border border-line-gold bg-surface shadow-2xl">
                   <Image
-                    src="/skin_morena_model.jpg"
+                    src="/hero_titis_style.jpg"
                     alt="Costume Lã Fria Titi's Store"
                     fill
                     priority
@@ -205,7 +205,7 @@ export default function StoreHomePage() {
                   <div>
                     <Link href={productUrl} className="relative block aspect-[4/5] w-full overflow-hidden rounded-xl bg-surface">
                       <Image
-                        src={product.image_url || '/skin_morena_model.jpg'}
+                        src={product.image_url || '/skin_morena.jpg'}
                         alt={product.name}
                         fill
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -271,7 +271,7 @@ export default function StoreHomePage() {
             
             <div className="lg:col-span-6 relative aspect-square sm:aspect-[4/3] rounded-3xl overflow-hidden border border-line-gold/30 shadow-2xl">
               <Image
-                src="/skin_clara_model.jpg"
+                src="/skin_clara.jpg"
                 alt="Detalhe da Alfaiataria Titi's Store"
                 fill
                 className="object-cover"

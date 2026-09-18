@@ -66,7 +66,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   const sizes = product.sizes && product.sizes.length > 0 ? product.sizes : ['P', 'M', 'G', 'GG'];
   const gallery = product.gallery && product.gallery.length > 0 
     ? [product.image_url, ...product.gallery].filter(Boolean) as string[]
-    : [product.image_url || '/skin_morena_model.jpg'];
+    : [product.image_url || '/skin_morena.jpg'];
 
   const currentImg = activeImage || gallery[0];
   const price = product.price_cents ? formatBRL(product.price_cents) : 'Sob consulta';
