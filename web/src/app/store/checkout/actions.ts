@@ -39,6 +39,7 @@ export interface ProcessCheckoutPayload {
     cardHolder: string;
     cardExpiry: string;
     cardCvv: string;
+    cardholderCpf?: string;
   };
   cardToken?: string;
   paymentMethodId?: string;

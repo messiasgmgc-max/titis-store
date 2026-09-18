@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '@/providers/CartProvider';
 import { useSession } from '@/providers/SessionProvider';
-import { formatBRL, formatCEP, formatCPF, formatPhoneBR } from '@/lib/format';
+import { formatBRL, formatCEP, formatCPF, formatPhoneBR, isValidCPF, isValidDocument } from '@/lib/format';
 import { getInstallmentOptions } from '@/lib/installments';
 import { processTransparentCheckoutAction } from './actions';
 
@@ -90,6 +90,8 @@ export default function TransparentCheckoutPage() {
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
   const [installments, setInstallments] = useState(1);
+  const [differentCardholder, setDifferentCardholder] = useState(false);
+  const [cardholderCpf, setCardholderCpf] = useState('');
 
   // Status & feedback
   const [loading, setLoading] = useState(false);
@@ -454,8 +456,10 @@ export default function TransparentCheckoutPage() {
     setErrorMessage('');
 
     const cleanCpf = cpf.replace(/\D/g, '');
-    if (cleanCpf.length !== 11) {
-      setErrorMessage('Por favor, informe um CPF válido com 11 dígitos para emissão da nota fiscal e envio.');
+    if (!isValidDocument(cleanCpf)) {
+      setErrorMessage(
+        'O CPF informado é inválido. Por favor, confira os 11 números digitados (o CPF deve possuir dígitos verificadores válidos para emissão da nota fiscal e envio).'
+      );
       return;
     }
 
@@ -473,6 +477,13 @@ export default function TransparentCheckoutPage() {
       if (!cardHolder.trim()) {
         setErrorMessage('Por favor, informe o nome impresso no cartão.');
         return;
+      }
+      if (differentCardholder) {
+        const cleanCardholder = cardholderCpf.replace(/\D/g, '');
+        if (!isValidDocument(cleanCardholder)) {
+          setErrorMessage('O CPF do titular do cartão é inválido. Por favor, confira os números digitados.');
+          return;
+        }
       }
       const cleanExp = cardExpiry.replace(/\D/g, '');
       if (cleanExp.length < 4) {
@@ -528,6 +539,9 @@ export default function TransparentCheckoutPage() {
                 cardHolder: cardHolder.trim(),
                 cardExpiry: cardExpiry.trim(),
                 cardCvv: cardCvv.trim(),
+                ...(differentCardholder && cardholderCpf.trim()
+                  ? { cardholderCpf: cardholderCpf.replace(/\D/g, '') }
+                  : {}),
               },
               installments,
             }
@@ -865,8 +879,17 @@ export default function TransparentCheckoutPage() {
                       placeholder="000.000.000-00"
                       value={cpf}
                       onChange={(e) => handleCpfChange(e.target.value)}
-                      className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
+                      className={`w-full bg-obsidian border rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none transition-colors ${
+                        cpf.replace(/\D/g, '').length === 11 && !isValidCPF(cpf)
+                          ? 'border-amber-500/80 focus:border-amber-400'
+                          : 'border-line focus:border-gold'
+                      }`}
                     />
+                    {cpf.replace(/\D/g, '').length === 11 && !isValidCPF(cpf) && (
+                      <p className="text-[10px] text-amber-400 font-semibold mt-1">
+                        ⚠️ CPF com dígitos verificadores incorretos. Confira os números digitados.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1122,6 +1145,44 @@ export default function TransparentCheckoutPage() {
                       />
                     </div>
 
+                    {/* Opção para quando o cartão for de outra pessoa */}
+                    <div className="pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer text-[11px] text-parchment hover:text-gold transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={differentCardholder}
+                          onChange={(e) => setDifferentCardholder(e.target.checked)}
+                          className="rounded border-line bg-obsidian text-gold focus:ring-gold"
+                        />
+                        <span>O titular do cartão é outra pessoa ou empresa</span>
+                      </label>
+
+                      {differentCardholder && (
+                        <div className="mt-2.5 animate-in fade-in">
+                          <label className="block text-[11px] font-bold text-mist mb-1">
+                            CPF ou CNPJ do Titular do Cartão:
+                          </label>
+                          <input
+                            type="text"
+                            required={differentCardholder}
+                            placeholder="000.000.000-00"
+                            value={cardholderCpf}
+                            onChange={(e) => setCardholderCpf(formatCPF(e.target.value))}
+                            className={`w-full bg-obsidian border rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none transition-colors ${
+                              cardholderCpf.replace(/\D/g, '').length === 11 && !isValidCPF(cardholderCpf)
+                                ? 'border-amber-500/80 focus:border-amber-400'
+                                : 'border-line focus:border-gold'
+                            }`}
+                          />
+                          {cardholderCpf.replace(/\D/g, '').length === 11 && !isValidCPF(cardholderCpf) && (
+                            <p className="text-[10px] text-amber-400 font-semibold mt-1">
+                              ⚠️ CPF do titular inválido. Confira os números digitados.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[11px] font-bold text-mist mb-1">Validade (MM/AA):</label>
@@ -1177,6 +1238,11 @@ export default function TransparentCheckoutPage() {
                       <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-danger" />
                       <div>
                         <p className="font-bold text-ivory">{errorMessage}</p>
+                        {errorMessage.toLowerCase().includes('cpf') && (
+                          <p className="text-[11px] text-amber-300/90 mt-1 leading-relaxed">
+                            💡 <strong>Dica de teste:</strong> O Mercado Pago exige um CPF matematicamente válido com dígitos verificadores reais (ex: gerado por um validador de CPF) e que não seja o mesmo CPF da sua conta vendedora no Mercado Pago.
+                          </p>
+                        )}
                         <p className="text-[11px] text-mist mt-1 leading-relaxed">
                           Não se preocupe: suas peças continuam reservadas! Você pode tentar novamente ou concluir o pedido imediatamente com nosso consultor via WhatsApp.
                         </p>

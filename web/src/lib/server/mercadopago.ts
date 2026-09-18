@@ -106,9 +106,16 @@ async function mpFetch(path: string, init: RequestInit & { idempotencyKey?: stri
     const lowerDetail = detail.toLowerCase();
     if (lowerDetail.includes("can't be equal to the collector") || lowerDetail.includes('collector')) {
       detail =
-        'O comprador não pode usar o mesmo e-mail/CPF cadastrado na conta do vendedor no Mercado Pago. Teste com outro e-mail e CPF de teste.';
-    } else if (lowerDetail.includes('identification.number') || lowerDetail.includes('invalid parameter: payer.identification')) {
-      detail = 'O CPF informado é inválido perante o Mercado Pago. Por favor, confira os 11 dígitos do seu CPF.';
+        'O comprador não pode usar o mesmo e-mail ou CPF cadastrado na conta do vendedor no Mercado Pago. Para efetuar testes nesta conta, utilize outro e-mail e outro CPF de teste.';
+    } else if (
+      lowerDetail.includes('invalid user identification number') ||
+      lowerDetail.includes('identification.number') ||
+      lowerDetail.includes('identification number') ||
+      lowerDetail.includes('invalid parameter: payer.identification') ||
+      lowerDetail.includes('identification_number')
+    ) {
+      detail =
+        'O CPF informado é inválido perante o Mercado Pago. Por favor, confira os 11 dígitos do CPF (deve ser um CPF existente com dígitos verificadores corretos).';
     } else if (lowerDetail.includes('invalid_token') || lowerDetail.includes('token not found') || lowerDetail.includes('token can not be empty')) {
       detail = 'Não foi possível validar os dados do cartão. Verifique o número, validade e código de segurança (CVV).';
     } else if (lowerDetail.includes('cc_rejected_bad_filled_security_code')) {
@@ -118,10 +125,19 @@ async function mpFetch(path: string, init: RequestInit & { idempotencyKey?: stri
     } else if (lowerDetail.includes('cc_rejected_insufficient_amount')) {
       detail = 'Limite insuficiente no cartão de crédito.';
     } else if (lowerDetail.includes('cc_rejected_call_for_authorize')) {
-      detail = 'Transação não autorizada pelo banco emissor do cartão. Autorize no aplicativo do banco ou pague via Pix.';
+      detail = 'Transação não autorizada pelo banco emissor do cartão. Autorize no aplicativo do seu banco ou pague via Pix.';
     }
 
-    throw new MercadoPagoError(`Mercado Pago recusou a requisição: ${detail}`, res.status);
+    const isPortugueseFriendly =
+      detail.startsWith('O CPF') ||
+      detail.startsWith('O comprador') ||
+      detail.startsWith('Não foi') ||
+      detail.startsWith('Código') ||
+      detail.startsWith('Data') ||
+      detail.startsWith('Limite') ||
+      detail.startsWith('Transação');
+
+    throw new MercadoPagoError(isPortugueseFriendly ? detail : `Mercado Pago recusou a requisição: ${detail}`, res.status);
   }
   return data;
 }
@@ -282,6 +298,7 @@ export interface CardDetails {
   cardHolder: string;
   cardExpiry: string; // MM/AA ou MM/AAAA
   cardCvv: string;
+  cardholderCpf?: string; // CPF do titular do cartão se diferente do comprador
 }
 
 export interface TransparentPaymentInput {
@@ -325,7 +342,8 @@ export function detectCardBrand(cardNumber: string): string {
 /** Cria um token de cartão de uso único no Mercado Pago (/v1/card_tokens). */
 export async function createCardToken(card: CardDetails, cpf: string): Promise<string> {
   const cleanNumber = card.cardNumber.replace(/\D/g, '');
-  const cleanCpf = cpf.replace(/\D/g, '');
+  const cleanCpf = (card.cardholderCpf || cpf).replace(/\D/g, '');
+  const idType = cleanCpf.length === 14 ? 'CNPJ' : 'CPF';
   const parts = card.cardExpiry.split(/[\/\-\.]/).map((s) => s.trim());
   const month = parseInt(parts[0] || '1', 10);
   let year = parseInt(parts[1] || '30', 10);
@@ -339,7 +357,7 @@ export async function createCardToken(card: CardDetails, cpf: string): Promise<s
     cardholder: {
       name: card.cardHolder.trim() || 'Titular do Cartao',
       identification: {
-        type: 'CPF',
+        type: idType,
         number: cleanCpf,
       },
     },
@@ -363,9 +381,10 @@ export async function createTransparentPayment(
   const secure = base.startsWith('https://');
 
   const cleanCpf = input.payer.cpf.replace(/\D/g, '');
-  if (cleanCpf.length !== 11) {
-    throw new MercadoPagoError('O CPF precisa conter exatamente 11 dígitos numéricos.', 400);
+  if (cleanCpf.length !== 11 && cleanCpf.length !== 14) {
+    throw new MercadoPagoError('O CPF/CNPJ precisa conter 11 dígitos (CPF) ou 14 dígitos (CNPJ).', 400);
   }
+  const idType = cleanCpf.length === 14 ? 'CNPJ' : 'CPF';
 
   // Decomposição segura do nome para garantir que first_name e last_name existam
   const fullPayerName = `${input.payer.firstName || ''} ${input.payer.lastName || ''}`.trim();
@@ -401,7 +420,7 @@ export async function createTransparentPayment(
       first_name: firstName,
       last_name: lastName,
       identification: {
-        type: 'CPF',
+        type: idType,
         number: cleanCpf,
       },
     },

@@ -54,6 +54,76 @@ export function formatCPF(value: string): string {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
+/**
+ * Validação oficial do algoritmo de CPF (módulo 11 dos dígitos verificadores).
+ * Rejeita CPFs com números repetidos (111.111.111-11, 000.000.000-00, etc.) ou dígitos incorretos.
+ */
+export function isValidCPF(cpf: string | null | undefined): boolean {
+  if (!cpf) return false;
+  const clean = cpf.replace(/\D/g, '');
+  if (clean.length !== 11) return false;
+
+  // Rejeita sequências com todos os dígitos iguais
+  if (/^(\d)\1{10}$/.test(clean)) return false;
+
+  // Primeiro dígito verificador
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(clean.charAt(i), 10) * (10 - i);
+  }
+  let rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  if (rest !== parseInt(clean.charAt(9), 10)) return false;
+
+  // Segundo dígito verificador
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(clean.charAt(i), 10) * (11 - i);
+  }
+  rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  if (rest !== parseInt(clean.charAt(10), 10)) return false;
+
+  return true;
+}
+
+/** Validação de CNPJ caso a compra seja efetuada por pessoa jurídica */
+export function isValidCNPJ(cnpj: string | null | undefined): boolean {
+  if (!cnpj) return false;
+  const clean = cnpj.replace(/\D/g, '');
+  if (clean.length !== 14) return false;
+  if (/^(\d)\1{13}$/.test(clean)) return false;
+
+  const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    sum += parseInt(clean.charAt(i), 10) * weights1[i];
+  }
+  let rest = sum % 11;
+  const d1 = rest < 2 ? 0 : 11 - rest;
+  if (d1 !== parseInt(clean.charAt(12), 10)) return false;
+
+  sum = 0;
+  for (let i = 0; i < 13; i++) {
+    sum += parseInt(clean.charAt(i), 10) * weights2[i];
+  }
+  rest = sum % 11;
+  const d2 = rest < 2 ? 0 : 11 - rest;
+  if (d2 !== parseInt(clean.charAt(13), 10)) return false;
+
+  return true;
+}
+
+export function isValidDocument(doc: string | null | undefined): boolean {
+  if (!doc) return false;
+  const clean = doc.replace(/\D/g, '');
+  if (clean.length === 11) return isValidCPF(clean);
+  if (clean.length === 14) return isValidCNPJ(clean);
+  return false;
+}
+
 export function formatCEP(value: string): string {
   const d = value.replace(/\D/g, '').slice(0, 8);
   if (d.length <= 5) return d;
