@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Minus, Plus, Ruler, ShoppingBag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Minus, Plus, Ruler, ShoppingBag, ArrowUpRight } from 'lucide-react';
 import type { PieceSlot, Product } from '@/lib/types';
 import { cn, formatBRL, whatsappLink } from '@/lib/format';
 import { climateTitle, occasionTitle } from '@/lib/stylist/knowledge';
@@ -380,6 +380,17 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
                 <p className="text-sm leading-relaxed text-parchment">Sob medida — informe suas medidas no atendimento</p>
               </div>
             )}
+
+            <div className="mt-8 pt-4 border-t border-line/60 flex items-center justify-between text-xs">
+              <span className="text-mist">Ver fotos completas e detalhes</span>
+              <a
+                href={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.titisstore.com.br'}/produtos/${product.slug || product.id}`}
+                className="inline-flex items-center gap-1 font-semibold text-gold hover:underline"
+              >
+                <span>Página da peça</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </a>
+            </div>
           </div>
         </div>
 

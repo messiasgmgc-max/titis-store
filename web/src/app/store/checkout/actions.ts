@@ -1,4 +1,4 @@
-﻿'use server';
+'use server';
 
 import {
   createTransparentPayment,
@@ -10,6 +10,7 @@ import { NotificationService } from '@/lib/server/notifications';
 import { EmailService } from '@/lib/server/email';
 
 export interface ProcessCheckoutPayload {
+  userId?: string | null;
   amountCents: number;
   paymentMethod: 'pix' | 'credit_card';
   payer: {
@@ -98,6 +99,7 @@ export async function processTransparentCheckoutAction(
       .from('orders')
       .insert({
         id: orderId,
+        user_id: data.userId || null,
         total_cents: data.amountCents,
         status: isApproved ? 'paid' : 'pending',
         channel: 'mercadopago',

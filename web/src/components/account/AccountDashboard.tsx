@@ -326,7 +326,7 @@ export function AccountDashboard() {
                   {t.id === 'plano' && <PlanTab userId={user.id} />}
                   {t.id === 'cartela' && <PaletteTab />}
                   {t.id === 'looks' && <SavedLooksTab userId={user.id} />}
-                  {t.id === 'pedidos' && <OrdersTab userId={user.id} />}
+                  {t.id === 'pedidos' && <OrdersTab userId={user.id} email={user.email} />}
                   {t.id === 'perfil' && <ProfileTab onSignOut={handleSignOut} signingOut={leaving} />}
                 </motion.div>
               </div>

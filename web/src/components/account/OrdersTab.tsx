@@ -73,17 +73,21 @@ function StatusTrack({ status }: { status: OrderStatus }) {
   );
 }
 
-export function OrdersTab({ userId }: { userId: string }) {
+export function OrdersTab({ userId, email }: { userId: string; email?: string | null }) {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const consulting = useConsultingLink();
 
   useEffect(() => {
     let active = true;
-    supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', userId)
+    let query = supabase.from('orders').select('*');
+    if (email) {
+      query = query.or(`user_id.eq.${userId},customer_email.eq.${email}`);
+    } else {
+      query = query.eq('user_id', userId);
+    }
+
+    query
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
         if (!active) return;
@@ -101,7 +105,7 @@ export function OrdersTab({ userId }: { userId: string }) {
     return () => {
       active = false;
     };
-  }, [userId, attempt]);
+  }, [userId, email, attempt]);
 
   const retry = () => {
     setState({ status: 'loading' });

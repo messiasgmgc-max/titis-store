@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
+      userId,
       amountCents,
       paymentMethod,
       payer,
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
       .from('orders')
       .insert({
         id: orderId,
+        user_id: userId || null,
         total_cents: amountCents,
         status: isApproved ? 'paid' : 'pending',
         channel: 'mercadopago',

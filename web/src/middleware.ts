@@ -7,10 +7,9 @@ export const config = {
      * Intercepta todas as rotas exceto:
      * - api (endpoints REST globais)
      * - _next/static, _next/image (arquivos internos do Next.js)
-     * - produtos e bio (fotos públicas)
-     * - favicon.ico
+     * - favicon.ico e extensões de arquivos estáticos
      */
-    '/((?!api|_next/static|_next/image|produtos|bio|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt)$).*)',
   ],
 };
 
@@ -35,8 +34,7 @@ export default function middleware(req: NextRequest) {
   if (
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/produtos') ||
-    pathname.startsWith('/bio') ||
+    pathname.startsWith('/bio/') ||
     /\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt)$/i.test(pathname)
   ) {
     return NextResponse.next();
@@ -84,7 +82,7 @@ export default function middleware(req: NextRequest) {
   // 1. Roteamento para a aplicação do Consultor (subdomínio consultor.titisstore.com.br)
   if (isConsultorHost) {
     // Se tentar acessar páginas da loja no subdomínio do consultor, redireciona para a loja principal
-    const STORE_SECTIONS = ['/colecao', '/carrinho', '/checkout', '/loja'];
+    const STORE_SECTIONS = ['/colecao', '/carrinho', '/checkout', '/loja', '/produtos'];
     if (STORE_SECTIONS.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
       const storeOrigin =
         process.env.NEXT_PUBLIC_SITE_URL ||

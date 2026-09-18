@@ -488,6 +488,7 @@ export default function TransparentCheckoutPage() {
 
     try {
       const payload: Record<string, unknown> = {
+        userId: user?.id || null,
         amountCents: grandTotalCents,
         paymentMethod,
         payer: {
@@ -655,7 +656,17 @@ export default function TransparentCheckoutPage() {
     }
   };
 
+  const hasBagInUrl = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('bag');
+
   if (items.length === 0 && !pixResult && !paymentConfirmed) {
+    if (hasBagInUrl) {
+      return (
+        <main className="min-h-[70vh] bg-obsidian text-ivory flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-10 h-10 border-2 border-gold border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-xs uppercase tracking-widest text-mist">Carregando peças da sua consultoria...</p>
+        </main>
+      );
+    }
     return (
       <main className="min-h-[70vh] bg-obsidian text-ivory flex flex-col items-center justify-center p-6 text-center">
         <div className="w-16 h-16 rounded-full bg-surface border border-line flex items-center justify-center text-mist mb-4">

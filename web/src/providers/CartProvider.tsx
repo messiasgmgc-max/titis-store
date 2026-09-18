@@ -85,7 +85,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const searchParams = new URLSearchParams(window.location.search);
       const bagParam = searchParams.get('bag');
       if (bagParam) {
-        const decoded = JSON.parse(decodeURIComponent(bagParam));
+        let decoded: unknown = null;
+        try {
+          decoded = JSON.parse(bagParam);
+        } catch {
+          try {
+            decoded = JSON.parse(decodeURIComponent(bagParam));
+          } catch {
+            // ignore
+          }
+        }
         if (Array.isArray(decoded) && decoded.length > 0) {
           addMany(decoded);
           const url = new URL(window.location.href);
