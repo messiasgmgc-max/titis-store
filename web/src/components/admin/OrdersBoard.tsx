@@ -329,7 +329,7 @@ function OrderCard({
     <li className={cn('relative border-b border-line bg-surface/40 transition-opacity', order.status === 'cancelado' && 'opacity-75')}>
       <span className={cn('absolute inset-y-0 left-0 w-1', tone.bar)} aria-hidden />
 
-      <div className="grid gap-5 px-5 py-5 sm:px-6 md:grid-cols-[10rem_minmax(0,1fr)_auto] lg:grid-cols-[11rem_minmax(0,1fr)_10rem_15rem] lg:items-center">
+      <div className="grid gap-5 px-5 py-5 sm:px-6 md:grid-cols-[10rem_minmax(0,1fr)_auto] lg:grid-cols-[10.5rem_minmax(0,1fr)_9.5rem_17.5rem] xl:grid-cols-[11rem_minmax(0,1fr)_10rem_19rem] lg:items-center">
         {/* Data e ID */}
         <div>
           <div className="flex items-center gap-2">
@@ -402,7 +402,7 @@ function OrderCard({
               value={order.status}
               onChange={(e) => onStatusChange(e.target.value as OrderStatus)}
               disabled={saving}
-              className="flex-1 md:w-52 md:flex-none lg:w-auto lg:flex-1 text-xs"
+              className="flex-1 md:w-52 md:flex-none lg:w-full text-xs"
             >
               {ORDER_STATUSES.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -412,61 +412,76 @@ function OrderCard({
             </SelectBox>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {chatLink && (
-              <a
-                href={chatLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-outline btn-sm flex-1 justify-center text-xs"
-              >
-                <WhatsAppIcon className="h-3.5 w-3.5" />
-                <span>WhatsApp</span>
-              </a>
-            )}
-
-            {/* Ação de Etiqueta Melhor Envio */}
+          <div className="flex flex-col gap-2 md:flex-row md:items-center lg:flex-col lg:items-stretch">
+            {/* Ação de Etiqueta Melhor Envio / Correios */}
             {order.shipping_label_url ? (
               <a
                 href={order.shipping_label_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn btn-gold btn-sm flex-1 justify-center text-xs gap-1 shadow-md shadow-gold/20"
+                className="btn btn-gold h-8 justify-center px-3 text-xs tracking-wider gap-1.5 shadow-md shadow-gold/20 shrink-0 w-full md:w-auto lg:w-full"
               >
-                <Printer className="h-3.5 w-3.5" />
-                <span>Imprimir Etiqueta</span>
+                <Printer className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Imprimir Etiqueta</span>
               </a>
             ) : order.shipping_address ? (
               <button
                 type="button"
                 onClick={onGenerateLabel}
                 disabled={generatingLabel}
-                className="btn btn-gold btn-sm flex-1 justify-center text-xs gap-1"
+                className="btn btn-gold h-8 justify-center px-3 text-xs tracking-wider gap-1.5 shadow-md shadow-gold/15 shrink-0 w-full md:w-auto lg:w-full"
               >
                 {generatingLabel ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
                 ) : (
-                  <FileText className="h-3.5 w-3.5" />
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
                 )}
-                <span>{generatingLabel ? 'Emitindo...' : 'Gerar Etiqueta'}</span>
+                <span className="truncate">{generatingLabel ? 'Emitindo...' : 'Gerar Etiqueta'}</span>
               </button>
             ) : null}
 
-            {!order.tracking_code ? (
-              <button
-                type="button"
-                onClick={() => setShowDispatchInput(!showDispatchInput)}
-                className="btn btn-outline btn-sm flex-1 justify-center text-xs"
-              >
-                <Truck className="h-3.5 w-3.5" />
-                <span>Manual</span>
-              </button>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold">
-                <CheckCircle className="h-3.5 w-3.5" />
-                <span>Despachado</span>
-              </span>
-            )}
+            {/* Ações Secundárias: WhatsApp e Despacho */}
+            <div
+              className={cn(
+                'grid gap-2 shrink-0',
+                chatLink
+                  ? 'grid-cols-2 md:flex md:items-center lg:grid lg:grid-cols-2'
+                  : 'grid-cols-1 md:flex md:items-center lg:grid lg:grid-cols-1',
+              )}
+            >
+              {chatLink && (
+                <a
+                  href={chatLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-outline h-8 justify-center px-2.5 text-xs tracking-wider gap-1.5 shrink-0 w-full md:w-auto lg:w-full"
+                  title="Conversar no WhatsApp"
+                >
+                  <WhatsAppIcon className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  <span className="truncate">WhatsApp</span>
+                </a>
+              )}
+
+              {!order.tracking_code ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDispatchInput(!showDispatchInput)}
+                  className={cn(
+                    'btn btn-outline h-8 justify-center px-2.5 text-xs tracking-wider gap-1.5 shrink-0 transition-all w-full md:w-auto lg:w-full',
+                    showDispatchInput && 'border-gold text-gold bg-gold/10',
+                  )}
+                  title="Inserir rastreio manual"
+                >
+                  <Truck className="h-3.5 w-3.5 shrink-0 text-gold" />
+                  <span className="truncate">Manual</span>
+                </button>
+              ) : (
+                <span className="inline-flex h-8 items-center justify-center gap-1.5 px-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold tracking-wider shrink-0 w-full md:w-auto lg:w-full">
+                  <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Despachado</span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -475,10 +490,10 @@ function OrderCard({
       {showDispatchInput && (
         <form
           onSubmit={handleDispatchSubmit}
-          className="border-t border-line bg-surface-2 p-4 sm:px-6 flex flex-col sm:flex-row items-center gap-3 animate-in fade-in"
+          className="border-t border-line bg-surface-2/90 px-5 py-4 sm:px-6 flex flex-wrap items-center gap-3 animate-in fade-in"
         >
-          <div className="flex items-center gap-2 text-xs font-bold text-parchment">
-            <Truck className="h-4 w-4 text-gold" />
+          <div className="flex items-center gap-2 text-xs font-bold text-parchment shrink-0">
+            <Truck className="h-4 w-4 text-gold shrink-0" />
             <span>Despachar Manualmente:</span>
           </div>
 
@@ -488,7 +503,7 @@ function OrderCard({
             placeholder="Código de rastreio (ex: AA123456789BR)"
             value={trackingInput}
             onChange={(e) => setTrackingInput(e.target.value)}
-            className="w-full sm:w-64 bg-obsidian border border-line rounded-lg px-3 py-1.5 text-xs text-ivory font-mono focus:border-gold outline-none"
+            className="min-w-[200px] flex-1 bg-obsidian border border-line rounded-lg px-3 py-2 text-xs text-ivory font-mono placeholder:text-smoke focus:border-gold outline-none transition-colors"
           />
 
           <input
@@ -496,17 +511,31 @@ function OrderCard({
             placeholder="Transportadora (Correios, etc)"
             value={carrierInput}
             onChange={(e) => setCarrierInput(e.target.value)}
-            className="w-full sm:w-40 bg-obsidian border border-line rounded-lg px-3 py-1.5 text-xs text-ivory focus:border-gold outline-none"
+            className="w-full sm:w-44 bg-obsidian border border-line rounded-lg px-3 py-2 text-xs text-ivory placeholder:text-smoke focus:border-gold outline-none transition-colors"
           />
 
-          <button
-            type="submit"
-            disabled={dispatching}
-            className="btn btn-gold btn-sm w-full sm:w-auto px-4 gap-1.5 text-xs uppercase tracking-wider"
-          >
-            <Send className="h-3.5 w-3.5" />
-            <span>{dispatching ? 'Enviando...' : 'Confirmar Envio & Notificar'}</span>
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto justify-end">
+            <button
+              type="button"
+              onClick={() => setShowDispatchInput(false)}
+              className="btn btn-ghost h-8 px-3 text-xs text-smoke hover:text-parchment shrink-0"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="submit"
+              disabled={dispatching}
+              className="btn btn-gold h-8 px-4 gap-1.5 text-xs font-bold uppercase tracking-wider shadow-md shadow-gold/20 shrink-0"
+            >
+              {dispatching ? (
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5 shrink-0" />
+              )}
+              <span>{dispatching ? 'Enviando...' : 'Confirmar Envio'}</span>
+            </button>
+          </div>
         </form>
       )}
 
