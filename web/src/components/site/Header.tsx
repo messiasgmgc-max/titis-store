@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'framer-motion';
-import { ArrowRight, ArrowUpRight, LogOut, ShoppingBag, Sparkles, User, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, LogOut, ShoppingBag, Sparkles, User, X, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Medallion, Wordmark } from '@/components/ui/Logo';
 import { WhatsAppIcon } from '@/components/ui/icons';
@@ -121,6 +121,30 @@ export function Header() {
   const [pastTop, setPastTop] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setUserMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [userMenuOpen]);
+
+  useEffect(() => {
+    setUserMenuOpen(false);
+  }, [pathname]);
 
   const scrollAnchor = useRef(0);
   const scrollDirection = useRef<1 | -1>(1);
@@ -170,9 +194,9 @@ export function Header() {
   const bagLabel = count > 0 ? `Abrir sacola, ${count} ${count === 1 ? 'item' : 'itens'}` : 'Abrir sacola, vazia';
   const solid = scrolled || menuOpen;
   const concealed = hidden && !menuOpen;
-  // Quem já pagou cai direto na consultoria; sem plano, na conta (aba "Meu plano").
-  const accountHref = hasAccess ? CONSULTING_PATH : '/dashboard';
-  const accountLabel = hasAccess ? 'Minha consultoria' : 'Minha conta';
+  // O botão de perfil abre o painel de dados/perfil e menu de opções da conta
+  const accountHref = '/dashboard?aba=perfil';
+  const accountLabel = 'Meu perfil e dados';
   const cta = hasAccess
     ? { href: CONSULTING_PATH, label: 'Minha consultoria' }
     : { href: DEFAULT_PLAN_HREF, label: 'Começar consultoria' };
@@ -250,34 +274,145 @@ export function Header() {
           </nav>
 
           <div className="ml-auto flex items-center gap-0.5 sm:gap-1 lg:ml-0 lg:justify-self-end">
-            {/* Conta: logado vai direto para o seu lugar; visitante abre o modal de acesso */}
-            {user ? (
-              <>
+            {/* Painel Admin (atalho direto se for administrador) */}
+            {isAdmin && (
               <Link
-                href={accountHref}
-                aria-label={`${accountLabel} · ${displayName}`}
-                title={accountLabel}
-                className={ICON_BUTTON}
+                href="/admin"
+                className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gold bg-gold/10 border border-line-gold/60 rounded-full hover:bg-gold hover:text-obsidian transition-colors hidden sm:inline-flex items-center gap-1 shrink-0 mr-1"
+                title="Painel de Administração"
               >
-                <User className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden />
-                <span
-                  aria-hidden
-                  className={cn(
-                    'absolute bottom-[11px] right-[10px] h-1.5 w-1.5 rounded-full shadow-[0_0_0_2px_var(--color-obsidian)]',
-                    hasAccess ? 'bg-success' : 'bg-gold',
-                  )}
-                />
+                Admin
               </Link>
-              <button
-                type="button"
-                onClick={() => void handleSignOut()}
-                aria-label="Sair da conta"
-                title="Sair"
-                className={cn(ICON_BUTTON, 'hidden lg:grid')}
-              >
-                <LogOut className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden />
-              </button>
-              </>
+            )}
+
+            {/* Conta / Perfil do Usuário com Dropdown Completo */}
+            {user ? (
+              <div ref={userMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setUserMenuOpen((prev) => !prev)}
+                  aria-label={`${accountLabel} · ${displayName}`}
+                  aria-expanded={userMenuOpen}
+                  aria-haspopup="menu"
+                  title="Menu da Conta & Perfil"
+                  className={cn(ICON_BUTTON, userMenuOpen && 'bg-gold/10 text-gold-light')}
+                >
+                  <User className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden />
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'absolute bottom-[11px] right-[10px] h-1.5 w-1.5 rounded-full shadow-[0_0_0_2px_var(--color-obsidian)]',
+                      isAdmin ? 'bg-gold' : hasAccess ? 'bg-success' : 'bg-gold/60',
+                    )}
+                  />
+                </button>
+
+                <AnimatePresence>
+                  {userMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                      transition={{ duration: 0.2, ease: EASE }}
+                      className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-line-gold/40 bg-surface/98 p-3 text-ivory shadow-2xl backdrop-blur-2xl z-50"
+                      role="menu"
+                    >
+                      {/* Identificação do Usuário */}
+                      <div className="border-b border-line px-3 py-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-xs font-bold text-ivory">{displayName}</p>
+                          {isAdmin ? (
+                            <span className="rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-gold">
+                              Admin
+                            </span>
+                          ) : hasAccess ? (
+                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-400">
+                              Assinante
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-0.5 truncate text-[11px] text-mist">{user.email}</p>
+                      </div>
+
+                      {/* Lista de Opções */}
+                      <div className="py-2 space-y-1 text-xs font-semibold">
+                        <Link
+                          href="/dashboard?aba=perfil"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-parchment transition-colors hover:bg-gold/10 hover:text-gold-light"
+                          role="menuitem"
+                        >
+                          <User className="h-4 w-4 text-gold shrink-0" />
+                          <span>Meu Perfil & Editar Dados</span>
+                        </Link>
+
+                        <Link
+                          href="/dashboard?aba=pedidos"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-parchment transition-colors hover:bg-gold/10 hover:text-gold-light"
+                          role="menuitem"
+                        >
+                          <ShoppingBag className="h-4 w-4 text-gold shrink-0" />
+                          <span>Meus Pedidos</span>
+                        </Link>
+
+                        <Link
+                          href="/dashboard?aba=cartela"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-parchment transition-colors hover:bg-gold/10 hover:text-gold-light"
+                          role="menuitem"
+                        >
+                          <Sparkles className="h-4 w-4 text-gold shrink-0" />
+                          <span>Minha Cartela & Looks</span>
+                        </Link>
+
+                        <Link
+                          href="/dashboard?aba=plano"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-parchment transition-colors hover:bg-gold/10 hover:text-gold-light"
+                          role="menuitem"
+                        >
+                          <ShieldCheck className="h-4 w-4 text-gold shrink-0" />
+                          <span>Meu Plano de Consultoria</span>
+                        </Link>
+
+                        {isAdmin && (
+                          <div className="pt-1">
+                            <Link
+                              href="/admin"
+                              onClick={() => setUserMenuOpen(false)}
+                              className="flex w-full items-center justify-between rounded-xl bg-gold/10 border border-line-gold/50 px-3 py-2 text-gold transition-colors hover:bg-gold hover:text-obsidian font-bold"
+                              role="menuitem"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <ShieldAlert className="h-4 w-4 shrink-0" />
+                                <span>Painel de Administração</span>
+                              </div>
+                              <ArrowRight className="h-3 w-3" />
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Botão Sair */}
+                      <div className="border-t border-line pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            void handleSignOut();
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-danger/80 transition-colors hover:bg-danger/10 hover:text-danger"
+                          role="menuitem"
+                        >
+                          <LogOut className="h-4 w-4 shrink-0" />
+                          <span>Sair da conta</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ) : (
               <button
                 type="button"
@@ -568,15 +703,18 @@ function MobileMenu({
         <div className="mt-4 grid grid-cols-2 gap-3">
           {signedIn ? (
             <>
-              <Button href="/dashboard" variant="ghost" size="sm" onClick={onClose} className={MOBILE_ACTION}>
-                Minha conta
+              <Button href="/dashboard?aba=perfil" variant="ghost" size="sm" onClick={onClose} className={MOBILE_ACTION}>
+                Meu Perfil & Dados
+              </Button>
+              <Button href="/dashboard?aba=pedidos" variant="ghost" size="sm" onClick={onClose} className={MOBILE_ACTION}>
+                Meus Pedidos
               </Button>
               <Button href={PLAN_TAB_PATH} variant="ghost" size="sm" onClick={onClose} className={MOBILE_ACTION}>
                 {hasAccess ? 'Meu plano' : 'Ativar plano'}
               </Button>
               {isAdmin && (
-                <Button href="/admin" variant="ghost" size="sm" onClick={onClose} className={MOBILE_ACTION}>
-                  Administração
+                <Button href="/admin" variant="ghost" size="sm" onClick={onClose} className={cn(MOBILE_ACTION, 'text-gold border border-gold/30 bg-gold/[0.06]')}>
+                  Painel Admin
                 </Button>
               )}
               <Button href={`${STORE_URL}/carrinho`} variant="ghost" size="sm" onClick={onClose} className={MOBILE_ACTION}>
