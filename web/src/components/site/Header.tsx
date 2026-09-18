@@ -11,7 +11,7 @@ import { WhatsAppIcon } from '@/components/ui/icons';
 import { DEFAULT_PLAN_HREF, DOUBT_TEXT } from '@/components/home/links';
 import { PLAN_TAB_PATH } from '@/lib/auth-redirect';
 import { cn, whatsappLink } from '@/lib/format';
-import { CONSULTING_PATH, NAV_LINKS, SITE } from '@/lib/site';
+import { CONSULTING_PATH, NAV_LINKS, SITE, STORE_URL } from '@/lib/site';
 import { useCart } from '@/providers/CartProvider';
 import { useSession } from '@/providers/SessionProvider';
 import { useUI } from '@/providers/UIProvider';
@@ -291,8 +291,13 @@ export function Header() {
               </button>
             )}
 
-            {/* Sacola */}
-            <button type="button" onClick={openBag} aria-label={bagLabel} className={ICON_BUTTON}>
+            {/* Sacola: na página do consultor, encaminha diretamente para o carrinho da Loja */}
+            <Link
+              href={`${STORE_URL}/carrinho`}
+              aria-label={bagLabel}
+              title="Abrir carrinho na Loja"
+              className={ICON_BUTTON}
+            >
               <motion.span
                 key={lastAddedAt}
                 aria-hidden
@@ -317,7 +322,7 @@ export function Header() {
                   </motion.span>
                 )}
               </AnimatePresence>
-            </button>
+            </Link>
 
             {/* CTA principal (no celular, a barra fixa inferior assume) */}
             <Button href={cta.href} size="sm" className="ml-2 hidden sm:inline-flex">
@@ -574,7 +579,7 @@ function MobileMenu({
                   Administração
                 </Button>
               )}
-              <Button variant="ghost" size="sm" onClick={onBag} className={MOBILE_ACTION}>
+              <Button href={`${STORE_URL}/carrinho`} variant="ghost" size="sm" onClick={onClose} className={MOBILE_ACTION}>
                 Sacola{count > 0 ? ` · ${count}` : ''}
               </Button>
               <Button variant="ghost" size="sm" onClick={onSignOut} className={MOBILE_ACTION}>
@@ -589,7 +594,7 @@ function MobileMenu({
               <Button variant="outline" size="sm" onClick={() => onAuth('register')} className={MOBILE_ACTION}>
                 Criar conta
               </Button>
-              <Button variant="ghost" size="sm" onClick={onBag} className={MOBILE_ACTION}>
+              <Button href={`${STORE_URL}/carrinho`} variant="ghost" size="sm" onClick={onClose} className={MOBILE_ACTION}>
                 Sacola{count > 0 ? ` · ${count}` : ''}
               </Button>
             </>

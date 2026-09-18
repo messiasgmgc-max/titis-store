@@ -2,6 +2,7 @@ import { Header } from '@/components/site/Header';
 import { Footer } from '@/components/site/Footer';
 import { Button } from '@/components/ui/Button';
 import { RotatingSeal } from '@/components/ui/Logo';
+import { STORE_URL } from '@/lib/site';
 
 export default function NotFound() {
   return (
@@ -36,7 +37,7 @@ export default function NotFound() {
 
           <div className="relative mt-10 flex flex-wrap justify-center gap-3">
             <Button href="/">Voltar ao início</Button>
-            <Button href="/colecao" variant="outline">
+            <Button href={`${STORE_URL}/colecao`} variant="outline">
               Ver a loja
             </Button>
           </div>

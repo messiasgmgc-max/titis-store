@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useId, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Minus, Plus, Trash2 } from 'lucide-react';
+import { Minus, Plus, Trash2, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Medallion } from '@/components/ui/Logo';
@@ -13,7 +14,7 @@ import { useSession } from '@/providers/SessionProvider';
 import { useUI } from '@/providers/UIProvider';
 import { supabase } from '@/lib/supabaseClient';
 import { cn, formatBRL, formatPhoneBR, whatsappLink } from '@/lib/format';
-import { SITE } from '@/lib/site';
+import { SITE, STORE_URL } from '@/lib/site';
 import type { CartItem, OrderRow } from '@/lib/types';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -250,7 +251,7 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-mist">
               As peças da loja e dos looks da consultoria que você escolher aparecem aqui.
             </p>
-            <Button href="/colecao" onClick={onClose} className="mt-9">
+            <Button href={`${STORE_URL}/colecao`} onClick={onClose} className="mt-9">
               Explorar a loja
             </Button>
           </div>
@@ -439,13 +440,41 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
               {hasUnpriced && (
                 <p className="mt-2 text-right text-xs text-mist">Itens sob consulta serão orçados no atendimento</p>
               )}
-              <Button type="submit" form={formId} loading={sending} className="mt-5 w-full">
-                {!sending && <WhatsAppIcon className="h-4 w-4" />}
-                Finalizar pelo WhatsApp
-              </Button>
-              <p className="mt-3 text-center text-[0.68rem] tracking-wide text-smoke">
-                Atendimento oficial · {SITE.whatsappDisplay}
-              </p>
+
+              {/* BOTÃO PRINCIPAL: CHECKOUT TRANSPARENTE DA LOJA */}
+              <Link
+                href={`${STORE_URL}/checkout`}
+                onClick={onClose}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-gold-gradient py-3.5 text-xs font-black uppercase tracking-wider text-obsidian shadow-xl shadow-gold/25 transition-all hover:scale-[1.01] active:scale-95"
+              >
+                <Lock className="h-3.5 w-3.5" />
+                <span>Finalizar Pedido no Checkout</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+
+              <div className="mt-3 flex items-center justify-between text-xs">
+                <Link
+                  href="/carrinho"
+                  onClick={onClose}
+                  className="font-bold text-gold hover:underline"
+                >
+                  Ver sacola completa
+                </Link>
+                <button
+                  type="submit"
+                  form={formId}
+                  disabled={sending}
+                  className="inline-flex items-center gap-1.5 text-[11px] text-mist hover:text-emerald-400 transition-colors"
+                >
+                  <WhatsAppIcon className="h-3 w-3" />
+                  <span>Finalizar via WhatsApp</span>
+                </button>
+              </div>
+
+              <div className="mt-3.5 flex items-center justify-center gap-1.5 text-[10px] text-mist text-center">
+                <ShieldCheck className="h-3.5 w-3.5 text-gold" />
+                <span>Checkout Seguro Mercado Pago · Pix &amp; Cartão em até 12x</span>
+              </div>
             </div>
           </>
         )}

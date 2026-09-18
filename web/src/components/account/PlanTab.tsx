@@ -388,7 +388,24 @@ export function PlanTab({ userId }: { userId: string }) {
               )}
             </div>
 
-            {accessState !== 'admin' && (
+            {accessState === 'admin' ? (
+              <div className="flex flex-col gap-3 lg:col-span-5 lg:border-l lg:border-line lg:pl-10">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gold">Administração</p>
+                <p className="text-xs text-mist leading-relaxed">
+                  Sua conta possui credenciais de administrador com acesso total, ilimitado e vitalício a todas as ferramentas do site.
+                </p>
+                <Button href="/admin" variant="gold" className="w-full mt-2">
+                  <ArrowUpRight className="h-4 w-4" />
+                  Abrir Painel Admin
+                </Button>
+                <Button href="/admin?aba=pedidos" variant="outline" className="w-full">
+                  Ver Pedidos dos Clientes
+                </Button>
+                <Button href="/admin?aba=produtos" variant="outline" className="w-full">
+                  Gerenciar Produtos e Fotos
+                </Button>
+              </div>
+            ) : (
               <div className="flex flex-col gap-3 lg:col-span-5 lg:border-l lg:border-line lg:pl-10">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gold">Gerenciar</p>
                 {plan && plan.accessDays !== null ? (
@@ -415,7 +432,7 @@ export function PlanTab({ userId }: { userId: string }) {
                   aria-controls="trocar-plano"
                   onClick={() => setSwitching((v) => !v)}
                 >
-                  Trocar de plano
+                  {switching ? 'Fechar troca de plano' : 'Trocar de plano'}
                 </Button>
                 <a
                   href={whatsappLink(pauseText)}

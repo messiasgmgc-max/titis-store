@@ -4,9 +4,11 @@
 // Regra: somente imports relativos (usado também fora do Next).
 // ============================================================
 import type {
+  BodyType,
   ClimateId,
   ColorSwatch,
   ContrastLevel,
+  Gender,
   OccasionId,
   PieceSlot,
   SkinToneId,
@@ -261,3 +263,131 @@ export function isSubtone(v: unknown): v is Subtone {
 export function isContrast(v: unknown): v is ContrastLevel {
   return v === 'alto' || v === 'medio' || v === 'baixo';
 }
+
+export function isGender(v: unknown): v is Gender {
+  return v === 'masculino' || v === 'feminino' || v === 'outro';
+}
+
+export function isBodyType(v: unknown): v is BodyType {
+  return (
+    v === 'trapezio' ||
+    v === 'atletico' ||
+    v === 'retangular' ||
+    v === 'oval' ||
+    v === 'ectomorfo' ||
+    v === 'mesomorfo' ||
+    v === 'endomorfo'
+  );
+}
+
+export interface BodyTypeInfo {
+  id: BodyType;
+  name: string;
+  description: string;
+  tailoringAdvice: string;
+}
+
+export const BODY_TYPES: BodyTypeInfo[] = [
+  {
+    id: 'trapezio',
+    name: 'Trapézio (Equilibrado)',
+    description: 'Ombros e peitoral largos com cintura proporcional e levemente afunilada.',
+    tailoringAdvice: 'Proporção áurea masculina. Aceita cortes slim e alfaiataria italiana sem necessidade de correções drásticas.',
+  },
+  {
+    id: 'atletico',
+    name: 'Atlético (Triângulo Invertido)',
+    description: 'Ombros e costas bem largos em relação à cintura e quadril finos.',
+    tailoringAdvice: 'Evite ombreiras extras. Prefira jaquetas desestruturadas, golas polo e calças retas que deem equilíbrio à silhueta.',
+  },
+  {
+    id: 'retangular',
+    name: 'Retangular (Linear)',
+    description: 'Ombros, cintura e quadril na mesma linha vertical.',
+    tailoringAdvice: 'Crie ilusão de estrutura nos ombros com blazers estruturados, lapelas marcadas e peças com bolsos ou sobreposições.',
+  },
+  {
+    id: 'oval',
+    name: 'Oval (Arredondado)',
+    description: 'Maior volume na região abdominal e cintura.',
+    tailoringAdvice: 'Aposte em looks monocromáticos verticais, golas V, jaquetas abertas de caimento solto e calças de corte reto com cós médio.',
+  },
+  {
+    id: 'ectomorfo',
+    name: 'Ectomorfo (Longilíneo)',
+    description: 'Estrutura esguia, membros longos e baixo acúmulo de massa.',
+    tailoringAdvice: 'Excelente para sobreposições em camadas (camisa + suéter + jaqueta), tecidos encorpados (sarja, tricô) e colarinhos estruturados.',
+  },
+  {
+    id: 'mesomorfo',
+    name: 'Mesomorfo (Atlético Natural)',
+    description: 'Estrutura óssea média e musculatura naturalmente bem distribuída.',
+    tailoringAdvice: 'Caimento regular ou classic fit que acompanhe o corpo sem repuxar no peitoral nem sobrar pano na linha da cintura.',
+  },
+  {
+    id: 'endomorfo',
+    name: 'Endomorfo (Robusto)',
+    description: 'Estrutura óssea densa e larga, com facilidade para ganho de volume.',
+    tailoringAdvice: 'Priorize tecidos de caimento fluido e estruturado, cores escuras ou neutros profundos, evitando punhos e barras muito justos.',
+  },
+];
+
+export const bodyTypeName = (id: string | null | undefined) =>
+  BODY_TYPES.find((b) => b.id === id)?.name ?? (id || '—');
+
+export function detectBodyType(weightKg?: number | null, heightCm?: number | null, _gender?: Gender): BodyType {
+  if (!weightKg || !heightCm || weightKg <= 0 || heightCm <= 0) return 'trapezio';
+  const heightM = heightCm / 100;
+  const bmi = weightKg / (heightM * heightM);
+
+  if (bmi < 20.5) return 'ectomorfo';
+  if (bmi < 24.8) return 'trapezio';
+  if (bmi < 28) return 'atletico';
+  if (bmi < 31) return 'retangular';
+  return 'oval';
+}
+
+export function estimateSizes(
+  weightKg?: number | null,
+  heightCm?: number | null,
+  bodyType?: BodyType,
+  _gender?: Gender
+): { top: string; bottom: string } {
+  let top = 'M';
+  let bottom = '42';
+
+  if (weightKg && weightKg > 0) {
+    if (weightKg < 64) {
+      top = 'P';
+      bottom = '38';
+    } else if (weightKg < 74) {
+      top = heightCm && heightCm > 182 ? 'M' : 'P';
+      bottom = '40';
+    } else if (weightKg < 83) {
+      top = 'M';
+      bottom = '42';
+    } else if (weightKg < 92) {
+      top = 'G';
+      bottom = '44';
+    } else if (weightKg < 103) {
+      top = 'GG';
+      bottom = '46';
+    } else {
+      top = 'XGG';
+      bottom = '48';
+    }
+  }
+
+  // Ajuste por biotipo
+  if (bodyType === 'atletico' || bodyType === 'endomorfo') {
+    if (top === 'P') top = 'M';
+    else if (top === 'M' && (weightKg ?? 0) > 77) top = 'G';
+  } else if (bodyType === 'oval') {
+    if (top === 'M') top = 'G';
+    if (bottom === '40') bottom = '42';
+    else if (bottom === '42') bottom = '44';
+  }
+
+  return { top, bottom };
+}
+

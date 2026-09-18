@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
-import type { Diagnosis } from '@/lib/types';
+import type { BodyType, Diagnosis, Gender } from '@/lib/types';
 import { getSeason, isContrast, isSkinToneId, isSubtone } from '@/lib/stylist/knowledge';
 import { useHydrated, useLocalValue, writeLocal } from '@/lib/local-store';
 import { useSession } from './SessionProvider';
@@ -31,11 +31,18 @@ function parseDiagnosis(raw: string | null): Diagnosis | null {
   }
 }
 
-/** Monta um diagnóstico a partir de tom + subtom usando a cartela da estação. */
+/** Monta um diagnóstico a partir de tom + subtom usando a cartela da estação e biometria. */
 export function diagnosisFromChoice(
   skinTone: Diagnosis['skinTone'],
   subtone: Diagnosis['subtone'],
   contrast: Diagnosis['contrast'] = 'medio',
+  biometrics?: {
+    weightKg?: number | null;
+    heightCm?: number | null;
+    age?: number | null;
+    gender?: Gender;
+    bodyType?: BodyType;
+  },
 ): Diagnosis {
   const season = getSeason(skinTone, subtone);
   return {
@@ -48,6 +55,11 @@ export function diagnosisFromChoice(
     notes: season.note,
     recommendations: [],
     source: 'manual',
+    ...(biometrics?.weightKg ? { weightKg: biometrics.weightKg } : {}),
+    ...(biometrics?.heightCm ? { heightCm: biometrics.heightCm } : {}),
+    ...(biometrics?.age ? { age: biometrics.age } : {}),
+    ...(biometrics?.gender ? { gender: biometrics.gender } : {}),
+    ...(biometrics?.bodyType ? { bodyType: biometrics.bodyType } : {}),
     createdAt: new Date().toISOString(),
   };
 }
@@ -71,6 +83,13 @@ export function DiagnosisProvider({ children }: { children: React.ReactNode }) {
         profile.preferred_skin_tone,
         profile.skin_subtone,
         isContrast(profile.contrast_level) ? profile.contrast_level : 'medio',
+        {
+          weightKg: profile.weight_kg,
+          heightCm: profile.height_cm,
+          age: profile.age,
+          gender: profile.gender ?? undefined,
+          bodyType: profile.body_type ?? undefined,
+        },
       );
       writeLocal(DIAGNOSIS_KEY, JSON.stringify(d));
     }
@@ -87,6 +106,11 @@ export function DiagnosisProvider({ children }: { children: React.ReactNode }) {
           skin_subtone: d.subtone,
           contrast_level: d.contrast,
           seasonal_palette: d.season,
+          weight_kg: d.weightKg ?? null,
+          height_cm: d.heightCm ?? null,
+          age: d.age ?? null,
+          gender: d.gender ?? null,
+          body_type: d.bodyType ?? null,
         });
       }
     },

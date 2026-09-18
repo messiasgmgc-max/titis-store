@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { CartItem } from '@/lib/types';
 import { slugify } from '@/lib/format';
 import { readLocal, useLocalValue, writeLocal } from '@/lib/local-store';
@@ -78,6 +78,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     updateBag((prev) => list.reduce(merge, prev));
     setLastAddedAt(Date.now());
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const bagParam = searchParams.get('bag');
+      if (bagParam) {
+        const decoded = JSON.parse(decodeURIComponent(bagParam));
+        if (Array.isArray(decoded) && decoded.length > 0) {
+          addMany(decoded);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('bag');
+          window.history.replaceState({}, '', url.toString());
+        }
+      }
+    } catch (err) {
+      console.warn('Falha ao importar sacola da URL:', err);
+    }
+  }, [addMany]);
 
   const setQuantity = useCallback((key: string, quantity: number) => {
     updateBag((prev) =>

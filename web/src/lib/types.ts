@@ -65,8 +65,11 @@ export interface Product {
 }
 
 // ------------------------------------------------------------
-// Diagnóstico de colorimetria
+// Diagnóstico de colorimetria e biometria
 // ------------------------------------------------------------
+export type Gender = 'masculino' | 'feminino' | 'outro';
+export type BodyType = 'atletico' | 'trapezio' | 'mesomorfo' | 'ectomorfo' | 'endomorfo' | 'oval' | 'retangular';
+
 export interface Diagnosis {
   skinTone: SkinToneId;
   subtone: Subtone;
@@ -79,6 +82,11 @@ export interface Diagnosis {
   source: 'ai' | 'local' | 'manual';
   confidence?: number; // 0..1
   ita?: number; // ângulo ITA° (leitura local)
+  weightKg?: number | null;
+  heightCm?: number | null;
+  age?: number | null;
+  gender?: Gender;
+  bodyType?: BodyType;
   createdAt: string; // ISO
 }
 
@@ -94,6 +102,11 @@ export interface StyleRequest {
   timeOfDay: TimeOfDayId;
   climate: ClimateId;
   style: StylePreference;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  age?: number | null;
+  gender?: Gender;
+  bodyType?: BodyType;
 }
 
 export interface LookPiece {
@@ -141,20 +154,34 @@ export interface CartItem {
   lookTitle?: string | null;
 }
 
-export type OrderStatus = 'novo' | 'em_atendimento' | 'concluido' | 'cancelado';
+export type OrderStatus = 'novo' | 'em_atendimento' | 'concluido' | 'cancelado' | 'pending' | 'paid';
 
 export interface OrderRow {
   id: string;
   user_id: string | null;
   customer_name: string;
   customer_phone: string | null;
+  customer_email?: string | null;
+  customer_cpf?: string | null;
+  payment_method?: string | null;
+  payment_provider_id?: string | null;
+  shipping_address?: any | null;
+  tracking_code?: string | null;
+  tracking_carrier?: string | null;
+  tracking_url?: string | null;
+  shipping_label_url?: string | null;
+  shipping_service_name?: string | null;
+  shipping_price_cents?: number | null;
+  melhor_envio_order_id?: string | null;
   notes: string | null;
   items: CartItem[];
   total_cents: number | null;
   status: OrderStatus;
-  channel: 'whatsapp';
+  channel: 'whatsapp' | 'online' | 'mercadopago';
   created_at: string;
   updated_at?: string;
+  paid_at?: string | null;
+  dispatched_at?: string | null;
 }
 
 // ------------------------------------------------------------
@@ -172,6 +199,13 @@ export interface Profile {
   contrast_level: ContrastLevel | null;
   seasonal_palette: string | null;
   preferred_style: StylePreference | null;
+  weight_kg?: number | null;
+  height_cm?: number | null;
+  age?: number | null;
+  gender?: Gender | null;
+  body_type?: BodyType | null;
+  cpf?: string | null;
+  shipping_address?: ShippingAddress | null;
   /** Último plano contratado. */
   plan: PlanId | null;
   /** Fim do acesso VIP (null com role 'vip' = sem prazo). */
@@ -182,6 +216,16 @@ export interface Profile {
   admin_notes: string | null;
   created_at?: string;
   updated_at?: string | null;
+}
+
+export interface ShippingAddress {
+  cep: string;
+  street: string;
+  number: string;
+  complement?: string;
+  neighborhood: string;
+  city: string;
+  state: string;
 }
 
 /** Cupom de desconto (tabela public.coupons), aplicado no checkout. */

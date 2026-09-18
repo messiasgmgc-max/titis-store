@@ -22,24 +22,51 @@ import { useCart } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
 import { Button } from '@/components/ui/Button';
 import { Tilt3D } from '@/components/ui/Tilt3D';
+import { FeaturedCarousel3D } from '@/components/store/FeaturedCarousel3D';
 
 const CATEGORIES = [
-  { name: 'Alfaiataria', slug: 'Alfaiataria', image: '/skin_morena.jpg', desc: 'Blazers, costumes e paletós sob medida' },
-  { name: 'Camisaria', slug: 'Camisaria', image: 'https://titisstore.com.br/wp-content/uploads/2026/03/IMG_4688.jpeg', desc: 'Algodão egípcio e cortes impecáveis' },
-  { name: 'Calças', slug: 'Calças', image: 'https://titisstore.com.br/wp-content/uploads/2026/03/IMG_4401.jpeg', desc: 'Alfaiataria clássica e sarja nobre' },
-  { name: 'Calçados', slug: 'Calçados', image: 'https://titisstore.com.br/wp-content/uploads/2026/05/IMG_8749-2.jpeg', desc: 'Couro legítimo e design artesanal' },
+  {
+    name: 'Alfaiataria',
+    slug: 'Alfaiataria',
+    image: '/produtos/calca-alfaiataria-regulador-cinza-grafite.jpg',
+    desc: 'Calças com regulador lateral em metal, cós limpo e corte sob medida',
+  },
+  {
+    name: 'Polos & Malharia',
+    slug: 'Malharia',
+    image: '/produtos/polo-trico-off-white.jpg',
+    desc: 'Polos em tricô artesanal encorpado e caimento refinado',
+  },
+  {
+    name: 'Camisaria & Gola Alta',
+    slug: 'Camisaria',
+    image: '/produtos/camiseta-gola-alta-preto.jpg',
+    desc: 'Modelagem slim em algodão com elastano que modela o tórax',
+  },
+  {
+    name: 'Calçados',
+    slug: 'Calçados',
+    image: '/produtos/derby-couro-solado-tratorado-conhaque.jpg',
+    desc: 'Derby conhaque, loafers em camurça e tênis em couro legítimo',
+  },
 ];
 
 const REVIEWS = [
-  { name: 'Guilherme R.', city: 'Belo Horizonte/MG', comment: 'O caimento do blazer superou todas as expectativas. Tecido encorpado e acabamento que não se encontra em lojas de shopping.', item: 'Blazer Super 120s' },
-  { name: 'Rodrigo M.', city: 'São Paulo/SP', comment: 'A camisa em algodão egípcio veste como uma luva. O tecido respira muito bem e não amassa fácil. Já virei cliente fixo.', item: 'Camisa Algodão Egípcio' },
-  { name: 'Fernando S.', city: 'Rio de Janeiro/RJ', comment: 'Entrega rápida e embalagem de altíssimo padrão. A calça chino tem o comprimento perfeito.', item: 'Chino Tailored' },
+  { name: 'Guilherme R.', city: 'Belo Horizonte/MG', comment: 'O caimento da calça de alfaiataria superou todas as expectativas. Regulador lateral perfeito e acabamento que não se encontra em shopping.', item: 'Calça Alfaiataria Regulador' },
+  { name: 'Rodrigo M.', city: 'São Paulo/SP', comment: 'A polo em tricô veste como uma luva. O tecido respira muito bem e não amassa fácil. Já virei cliente fixo.', item: 'Polo de Tricô' },
+  { name: 'Fernando S.', city: 'Rio de Janeiro/RJ', comment: 'Entrega rápida e embalagem de altíssimo padrão. A calça chino tem o comprimento e caimento perfeitos.', item: 'Chino Slim' },
 ];
 
 export default function StoreHomePage() {
   const { products, loading } = useCatalog();
   const { add } = useCart();
   const { openOverlay } = useUI();
+
+  // Peças em destaque para o Carrossel 3D do Hero
+  const featuredLeads = products.filter((p) => p.is_featured && p.image_url);
+  const heroCarouselProducts = featuredLeads.length > 0 
+    ? featuredLeads 
+    : products.filter((p) => p.image_url).slice(0, 6);
 
   const featuredProducts = products.filter((p) => p.is_featured || p.price_cents !== null).slice(0, 8);
   const consultorUrl = process.env.NEXT_PUBLIC_CONSULTOR_URL || 'https://consultor.titisstore.com.br';
@@ -104,34 +131,9 @@ export default function StoreHomePage() {
               </div>
             </div>
 
-            {/* Vitrine Visual com Tilt Suave */}
+            {/* Carrossel 3D Interativo de Peças Destaque */}
             <div className="lg:col-span-5">
-              <Tilt3D max={10} lift={14} perspective={950} className="w-full">
-                <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[2.5rem] border border-line-gold bg-surface shadow-2xl">
-                  <Image
-                    src="/hero_titis_style.jpg"
-                    alt="Costume Lã Fria Titi's Store"
-                    fill
-                    priority
-                    className="object-cover object-top"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-obsidian via-obsidian/25 to-transparent" />
-                  
-                  <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-line-gold/40 bg-surface/90 p-5 backdrop-blur-md">
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-gold block">
-                      Peça em Destaque
-                    </span>
-                    <h3 className="mt-1 text-base font-bold text-ivory">Costume Lã Fria Super 120s Slim</h3>
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className="text-sm font-extrabold text-gold">R$ 1.290,00</span>
-                      <Link href="/colecao" className="text-xs text-gold hover:underline font-bold flex items-center gap-1">
-                        <span>Ver detalhes</span>
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </Tilt3D>
+              <FeaturedCarousel3D products={heroCarouselProducts} />
             </div>
 
           </div>
@@ -157,14 +159,15 @@ export default function StoreHomePage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
             {CATEGORIES.map((cat) => (
               <Link
-                key={cat.slug}
-                href={`/colecao?categoria=${cat.name}`}
+                key={cat.name}
+                href={`/colecao?categoria=${cat.slug}`}
                 className="group relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-2xl border border-line p-5 transition-all duration-300 hover:border-gold/50 hover:shadow-xl hover:shadow-gold/5"
               >
                 <Image
                   src={cat.image}
                   alt={cat.name}
                   fill
+                  sizes="(max-width: 768px) 50vw, 25vw"
                   className="object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-obsidian via-obsidian/40 to-transparent" />
@@ -205,7 +208,7 @@ export default function StoreHomePage() {
                   <div>
                     <Link href={productUrl} className="relative block aspect-[4/5] w-full overflow-hidden rounded-xl bg-surface">
                       <Image
-                        src={product.image_url || '/skin_morena.jpg'}
+                        src={product.image_url || '/produtos/calca-alfaiataria-regulador-cinza-grafite.jpg'}
                         alt={product.name}
                         fill
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -271,7 +274,7 @@ export default function StoreHomePage() {
             
             <div className="lg:col-span-6 relative aspect-square sm:aspect-[4/3] rounded-3xl overflow-hidden border border-line-gold/30 shadow-2xl">
               <Image
-                src="/skin_clara.jpg"
+                src="/hero_titis_style.jpg"
                 alt="Detalhe da Alfaiataria Titi's Store"
                 fill
                 className="object-cover"

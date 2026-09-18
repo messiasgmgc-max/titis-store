@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, ScanFace, ShoppingBag } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ChevronRight, CreditCard, MessageCircle, ScanFace, ShoppingBag } from 'lucide-react';
 import type { Look, LookPiece, PieceSlot, Product } from '@/lib/types';
-import { SLOT_LABELS } from '@/lib/stylist/knowledge';
-import { findProduct } from '@/lib/catalog';
+import { SLOT_LABELS, bodyTypeName, estimateSizes } from '@/lib/stylist/knowledge';
+import { findProduct, matchProductForPiece } from '@/lib/catalog';
+import { useDiagnosis } from '@/providers/DiagnosisProvider';
 import { useUI } from '@/providers/UIProvider';
 import { useCart, type CartInput } from '@/providers/CartProvider';
 import { Button } from '@/components/ui/Button';
@@ -161,55 +163,124 @@ function FabricBoard({ pieces }: { pieces: LookPiece[] }) {
 
 export function LookCard({ look, index, products }: { look: Look; index: number; products: Product[] }) {
   const { openOverlay, toast } = useUI();
-  const { add, addMany } = useCart();
+  const { addMany } = useCart();
+  const { diagnosis } = useDiagnosis();
+  const router = useRouter();
 
-  const entries: Entry[] = look.pieces.map((piece) => ({ piece, product: findProduct(products, piece.productId) }));
+  const entries: Entry[] = look.pieces.map((piece) => ({ piece, product: matchProductForPiece(products, piece) }));
   const productEntries = entries.filter((e): e is ProductEntry => !!e.product);
   const numeral = ROMAN[index] ?? String(index + 1);
   const harmony = Math.round(Math.min(100, Math.max(0, look.harmony)));
   const inStore = productEntries.length > 0;
 
+  const estimatedSizes = estimateSizes(
+    diagnosis?.weightKg,
+    diagnosis?.heightCm,
+    diagnosis?.bodyType,
+    diagnosis?.gender,
+  );
+
   const uniqueProducts = Array.from(new Map(productEntries.map((e) => [e.product.id, e.product])).values());
   const pricedTotal = uniqueProducts.reduce((sum, p) => sum + (p.price_cents ?? 0), 0);
   const hasUnpriced = uniqueProducts.some((p) => p.price_cents === null);
-  const countLabel = `${uniqueProducts.length} ${uniqueProducts.length === 1 ? 'peça deste look' : 'peças deste look'} na loja`;
+  const countLabel = `${uniqueProducts.length} ${uniqueProducts.length === 1 ? 'peça do acervo' : 'peças do acervo'}`;
   const storeLine =
     pricedTotal > 0 ? `${countLabel} · ${formatBRL(pricedTotal)}${hasUnpriced ? ' + itens sob consulta' : ''}` : countLabel;
 
-  const takeFromAcervo = () => {
+  const buyAtCheckout = () => {
     const unique = new Map<string, CartInput>();
-    productEntries.forEach(({ piece, product }) => {
-      if (unique.has(product.id)) return;
-      unique.set(product.id, {
-        productId: product.id,
-        name: product.name,
-        detail: product.category,
-        color: product.color_name ?? piece.color,
-        hex: product.hex_color ?? piece.hex,
-        image: product.image_url,
-        size: null,
-        priceCents: product.price_cents,
-        lookTitle: look.title,
-      });
+    entries.forEach(({ piece, product }) => {
+      const assignedSize =
+        piece.slot === 'superior' || piece.slot === 'sobreposicao'
+          ? estimatedSizes.top
+          : piece.slot === 'inferior'
+            ? estimatedSizes.bottom
+            : null;
+
+      const itemKey = product ? `prod-${product.id}` : `piece-${piece.slot}-${piece.name}`;
+      if (unique.has(itemKey)) return;
+
+      if (product) {
+        unique.set(itemKey, {
+          productId: product.id,
+          name: product.name,
+          detail: product.category || SLOT_LABELS[piece.slot],
+          color: product.color_name ?? piece.color,
+          hex: product.hex_color ?? piece.hex,
+          image: product.image_url,
+          size: assignedSize,
+          priceCents: product.price_cents,
+          lookTitle: look.title,
+        });
+      } else {
+        unique.set(itemKey, {
+          productId: null,
+          name: piece.name,
+          detail: `${SLOT_LABELS[piece.slot]} sob medida`,
+          color: piece.color,
+          hex: piece.hex,
+          image: null,
+          size: assignedSize,
+          priceCents: null,
+          lookTitle: look.title,
+        });
+      }
     });
+
     const items = Array.from(unique.values());
+    if (items.length === 0) return;
     addMany(items);
-    toast(`${items.length} ${items.length === 1 ? 'peça' : 'peças'} na sacola`, 'success');
+    toast(`${items.length} ${items.length === 1 ? 'peça enviada' : 'peças enviadas'} ao checkout`, 'success');
+
+    if (typeof window !== 'undefined') {
+      const isConsultorHost = window.location.hostname.startsWith('consultor');
+      if (isConsultorHost) {
+        const storeOrigin = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.titisstore.com.br';
+        window.location.href = `${storeOrigin}/checkout?bag=${encodeURIComponent(JSON.stringify(items))}`;
+      } else {
+        router.push('/checkout');
+      }
+    }
   };
 
-  const requestLook = () => {
-    add({
-      productId: null,
-      name: look.title,
-      detail: 'Look completo sob consulta',
-      color: look.palette.map((s) => s.name).join(' · '),
-      hex: look.palette[0]?.hex ?? '#D4AF37',
-      image: null,
-      size: null,
-      priceCents: null,
-      lookTitle: look.title,
-    });
-    toast('Look na sacola. Finalize a compra com o Titi pelo WhatsApp.', 'success');
+  const buyAtWhatsApp = () => {
+    const itemsLines = entries
+      .map(
+        (e) =>
+          `• [${SLOT_LABELS[e.piece.slot]}] ${e.piece.name} — Cor: ${e.piece.color}${
+            e.product?.price_cents ? ` (${formatBRL(e.product.price_cents)})` : ''
+          }`,
+      )
+      .join('\n');
+
+    const bioLines = [
+      diagnosis?.season ? `• Cartela Cromática: ${diagnosis.season}` : null,
+      diagnosis?.weightKg ? `• Peso: ${diagnosis.weightKg} kg` : null,
+      diagnosis?.heightCm ? `• Altura: ${diagnosis.heightCm} cm` : null,
+      diagnosis?.bodyType ? `• Biotipo: ${bodyTypeName(diagnosis.bodyType)}` : null,
+      `• Tamanhos sugeridos: Camisa ${estimatedSizes.top} / Calça ${estimatedSizes.bottom}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const totalText = pricedTotal > 0 ? `\n\n*Total Estimado do Acervo:* ${formatBRL(pricedTotal)}` : '';
+
+    const text = `*TITI'S STORE — CONSULTORIA DE IMAGEM*
+Olá, Titi! Acabei de consultar o Atelier da Titi's Store e quero fechar o seguinte look:
+
+*${look.title.toUpperCase()}*
+_${look.tagline}_
+
+*Minhas Medidas & Cartela:*
+${bioLines}
+
+*Peças do Look:*
+${itemsLines}${totalText}
+
+Poderia verificar a disponibilidade dessas peças para mim?`;
+
+    const url = `https://api.whatsapp.com/send?phone=5531996000213&text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -308,18 +379,38 @@ export function LookCard({ look, index, products }: { look: Look; index: number;
         )}
 
         <div className="mt-auto pt-7">
-          <div className="rounded-2xl border border-line-gold bg-gold/[0.04] p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
-              {inStore ? 'Disponível na loja' : 'Look sob consulta'}
+          <div className="rounded-2xl border border-line-gold bg-gold/[0.04] p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
+                {inStore ? 'Peças Disponíveis na Loja' : 'Composição sob Consulta'}
+              </p>
+              <span className="rounded-full border border-gold/30 bg-obsidian/70 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-gold-light">
+                Tam. {estimatedSizes.top}/{estimatedSizes.bottom}
+              </span>
+            </div>
+            <p className="mt-2 text-sm leading-snug text-parchment">
+              {inStore ? storeLine : 'Peça a composição completa com tamanhos calculados para seu biotipo.'}
             </p>
-            <p className="mt-1.5 text-sm leading-snug text-parchment">
-              {inStore ? storeLine : 'Peça o look completo e finalize a compra com o Titi pelo WhatsApp.'}
-            </p>
-            <Button onClick={inStore ? takeFromAcervo : requestLook} className="mt-4 w-full whitespace-normal">
-              <ShoppingBag className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
-              {inStore ? 'Levar peças do acervo' : 'Comprar peças com o Titi'}
-            </Button>
+
+            <div className="mt-4 flex flex-col gap-2.5">
+              {/* Botão 1: Checkout Direto no Site */}
+              <Button onClick={buyAtCheckout} className="w-full whitespace-normal shadow-md">
+                <CreditCard className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                {inStore ? 'Comprar Peças no Checkout' : 'Finalizar Look no Checkout'}
+              </Button>
+
+              {/* Botão 2: Pedir pelo WhatsApp com Titi */}
+              <button
+                type="button"
+                onClick={buyAtWhatsApp}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/20 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-emerald-300 transition-colors hover:bg-emerald-900/30 hover:border-emerald-500/60"
+              >
+                <MessageCircle className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                Pedir Look no WhatsApp
+              </button>
+            </div>
           </div>
+
           <Button
             variant="outline"
             onClick={() => openOverlay({ type: 'tryon', look })}

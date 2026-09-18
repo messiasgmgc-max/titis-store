@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Sparkles } from 'lucide-react';
@@ -44,7 +45,9 @@ export default function CollectionPage() {
         </div>
       </div>
 
-      <Collection />
+      <Suspense fallback={<div className="container-luxe py-12 text-center text-sm text-mist">Carregando catálogo oficial...</div>}>
+        <Collection />
+      </Suspense>
     </main>
   );
 }

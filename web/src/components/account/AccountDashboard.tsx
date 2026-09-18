@@ -217,6 +217,40 @@ export function AccountDashboard() {
             </div>
           </div>
 
+          {isAdmin && (
+            <div className="panel-gold relative mt-10 overflow-hidden rounded-3xl p-6 sm:p-7">
+              <span className="glow-gold pointer-events-none absolute -right-16 -top-16 h-48 w-48" aria-hidden />
+              <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-line-gold bg-gold/15 text-gold">
+                    <ArrowUpRight className="h-5 w-5" strokeWidth={2} />
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-gold/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-gold-light">
+                        Administração Master
+                      </span>
+                    </div>
+                    <p className="mt-1 text-base font-extrabold text-ivory">Painel de Gestão da Loja &amp; E-commerce</p>
+                    <p className="text-xs text-mist">Acesse para cadastrar produtos, fotos de destaque, gerenciar pedidos e cupons.</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <Button href="/admin" variant="gold" size="sm" className="whitespace-nowrap">
+                    Abrir Painel Admin
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button href="/admin?aba=pedidos" variant="outline" size="sm" className="whitespace-nowrap">
+                    Pedidos
+                  </Button>
+                  <Button href="/admin?aba=produtos" variant="outline" size="sm" className="whitespace-nowrap">
+                    Produtos
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <PlanStatusCard className="mt-12 lg:mt-14" onManage={openPlanTab} />
         </div>
         <div className="tape opacity-25" aria-hidden />

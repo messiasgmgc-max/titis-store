@@ -31,7 +31,7 @@ const STORE_NAV_LINKS = [
 export function StoreHeader() {
   const { count } = useCart();
   const { openOverlay } = useUI();
-  const { user } = useSession();
+  const { user, isAdmin } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,6 +139,16 @@ export function StoreHeader() {
             >
               <User className="h-5 w-5" />
             </Link>
+
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gold bg-gold/10 border border-line-gold/60 rounded-full hover:bg-gold hover:text-obsidian transition-colors hidden sm:inline-flex items-center gap-1"
+                title="Painel de Administração"
+              >
+                Admin
+              </Link>
+            )}
 
             {/* Botão da Sacola de Compras */}
             <button

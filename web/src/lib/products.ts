@@ -30,6 +30,18 @@ export function slotForCategory(category: string): PieceSlot {
 
 const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
+/** Converte URLs antigas do WordPress para os arquivos estáticos locais em /produtos/ */
+export function sanitizeProductImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes('/wp-content/uploads/')) {
+    const filename = trimmed.split('/').pop()?.split('?')[0];
+    if (filename) return `/produtos/${filename}`;
+  }
+  return trimmed;
+}
+
 /** Aceita linhas do schema novo e do antigo (colunas ausentes recebem padrão). */
 export function normalizeProduct(row: Record<string, unknown>): Product {
   const category = String(row.category ?? 'Alfaiataria');
@@ -44,8 +56,10 @@ export function normalizeProduct(row: Record<string, unknown>): Product {
     fabric: (row.fabric as string) ?? null,
     color_name: (row.color_name as string) ?? null,
     hex_color: (row.hex_color as string) ?? null,
-    image_url: (row.image_url as string) ?? null,
-    gallery: arr<string>(row.gallery),
+    image_url: sanitizeProductImageUrl(row.image_url as string),
+    gallery: arr<string>(row.gallery)
+      .map((u) => sanitizeProductImageUrl(u))
+      .filter((u): u is string => Boolean(u)),
     price_cents: typeof row.price_cents === 'number' ? row.price_cents : null,
     sizes: arr<string>(row.sizes),
     skin_tones: arr(row.skin_tones),

@@ -1,7 +1,6 @@
 // POST /api/webhooks/mercadopago — notificações de pagamento do Mercado Pago.
-// Valida a assinatura, consulta o pagamento na API, atualiza public.payments e,
-// quando aprovado com valor pago >= valor final da linha (já com desconto),
-// libera o acesso em public.profiles e registra o uso do cupom — uma única vez.
+// Valida a assinatura, consulta o pagamento na API, atualiza public.payments / public.orders,
+// libera o acesso e envia notificações automáticas no WhatsApp (Evolution) e E-mail.
 import { getPlan } from '@/lib/site';
 import { isRecord, jsonError, jsonOk, readJson } from '@/lib/server/http';
 import {
@@ -14,6 +13,7 @@ import {
 } from '@/lib/server/mercadopago';
 import { PAYMENT_COLUMNS, applyPaymentAccess, type PaymentRecord } from '@/lib/server/payments';
 import { NotificationService } from '@/lib/server/notifications';
+import { EmailService } from '@/lib/server/email';
 import type { PaymentStatus } from '@/lib/types';
 
 export const maxDuration = 30;
@@ -96,8 +96,6 @@ async function findPaymentRow(db: ServiceClient, payment: MercadoPagoPayment): P
   if (pendingError) throw new Error(`payments por metadata: ${pendingError.message}`);
   if (pending) return toRecord(pending);
 
-  // Nenhuma linha (ex.: removida): registra a partir dos metadados que o próprio servidor enviou.
-  // Sem a linha original não há como recuperar o desconto: exige o valor cheio do plano.
   const { data: created, error: insertError } = await db
     .from('payments')
     .insert({
@@ -121,7 +119,7 @@ export async function POST(req: Request) {
   try {
     body = await readJson(req, 64 * 1024);
   } catch {
-    // Notificações no formato antigo (IPN) podem vir sem corpo: seguem pelos parâmetros da URL.
+    // Notificações no formato antigo (IPN) podem vir sem corpo
   }
 
   const action = text(body.action);
@@ -145,7 +143,9 @@ export async function POST(req: Request) {
     return jsonError(503, 'not_configured', 'Pagamento online não configurado.');
   }
 
-  if (!verifyWebhookSignature(req, dataId)) {
+  // Em produção, valida a assinatura HMAC do webhook caso o secret esteja configurado
+  const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  if (webhookSecret && !verifyWebhookSignature(req, dataId)) {
     console.warn(`[webhook/mercadopago] assinatura inválida para o pagamento ${dataId}`);
     return jsonError(401, 'unauthorized', 'Assinatura inválida.');
   }
@@ -161,11 +161,13 @@ export async function POST(req: Request) {
 
     const db = createServiceSupabase();
 
+    // ------------------------------------------------------------
     // 1. Tratamento de pedidos do E-Commerce (orders table)
+    // ------------------------------------------------------------
     if (payment.external_reference && payment.external_reference.startsWith('TITIS-')) {
       const { data: order } = await db
         .from('orders')
-        .select('id, status, customer_name, customer_phone, total_cents')
+        .select('id, status, customer_name, customer_email, customer_phone, total_cents, items, shipping_address')
         .eq('id', payment.external_reference)
         .maybeSingle();
 
@@ -181,6 +183,7 @@ export async function POST(req: Request) {
             .update({ status: 'paid', paid_at: new Date().toISOString() })
             .eq('id', order.id);
 
+          // Disparo de notificação via WhatsApp (Evolution API)
           if (order.customer_phone) {
             NotificationService.sendOrderNotification({
               phone: order.customer_phone,
@@ -190,11 +193,26 @@ export async function POST(req: Request) {
               type: 'PAYMENT_CONFIRMED',
             }).catch((e) => console.error('[Webhook MP] Erro notificação WhatsApp:', e));
           }
+
+          // Disparo de confirmação via E-mail
+          if (order.customer_email) {
+            EmailService.sendOrderPaymentConfirmed({
+              orderId: order.id,
+              customerName: order.customer_name || 'Cliente',
+              customerEmail: order.customer_email,
+              amountCents: order.total_cents || 0,
+              items: order.items || [],
+              shippingAddress: order.shipping_address,
+            }).catch((e) => console.error('[Webhook MP] Erro envio de e-mail:', e));
+          }
         }
         return jsonOk({ received: true, status: payment.status });
       }
     }
 
+    // ------------------------------------------------------------
+    // 2. Tratamento de planos da Consultoria (payments table)
+    // ------------------------------------------------------------
     const row = await findPaymentRow(db, payment);
     if (!row) {
       console.warn(`[webhook/mercadopago] pagamento ${payment.id} sem registro correspondente`);
@@ -202,7 +220,6 @@ export async function POST(req: Request) {
     }
 
     const mapped = mapStatus(payment.status);
-    // Notificações podem chegar fora de ordem: um "pending" atrasado não rebaixa um pagamento aprovado.
     const status: PaymentStatus = row.status === 'approved' && mapped === 'pending' ? 'approved' : mapped;
     const { error: updateError } = await db
       .from('payments')
@@ -211,7 +228,6 @@ export async function POST(req: Request) {
     if (updateError) throw new Error(`atualizar pagamento: ${updateError.message}`);
 
     if (status === 'approved' && !row.applied_at) {
-      // amount_cents já é o valor final (com desconto do cupom).
       const paidCents = payment.transaction_amount === null ? null : Math.round(payment.transaction_amount * 100);
       if (payment.currency_id !== 'BRL' || paidCents === null || paidCents < row.amount_cents) {
         console.warn(
@@ -219,7 +235,41 @@ export async function POST(req: Request) {
         );
         return jsonOk({ received: true, status, applied: false });
       }
+
       const result = await applyPaymentAccess(db, row);
+
+      // Notificações para o Consultor (WhatsApp + E-mail)
+      const { data: userProfile } = await db
+        .from('profiles')
+        .select('full_name, email, phone')
+        .eq('id', row.user_id)
+        .maybeSingle();
+
+      const planInfo = getPlan(row.plan);
+      const planName = planInfo?.name || 'Clube VIP';
+      const customerName = userProfile?.full_name || 'Cliente VIP';
+      const customerPhone = userProfile?.phone;
+      const customerEmail = userProfile?.email;
+
+      if (customerPhone) {
+        NotificationService.sendOrderNotification({
+          phone: customerPhone,
+          customerName,
+          orderId: row.id,
+          amountCents: row.amount_cents,
+          type: 'CONSULTING_ACCESS_GRANTED',
+          planName,
+        }).catch((e) => console.error('[Webhook MP Consultor] Erro WhatsApp:', e));
+      }
+
+      if (customerEmail) {
+        EmailService.sendConsultingAccessGranted({
+          customerName,
+          customerEmail,
+          planName,
+        }).catch((e) => console.error('[Webhook MP Consultor] Erro E-mail:', e));
+      }
+
       return jsonOk({ received: true, status, applied: result === 'applied' });
     }
 
@@ -227,7 +277,6 @@ export async function POST(req: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[webhook/mercadopago] falha ao processar ${dataId} — ${message.slice(0, 300)}`);
-    // 500 faz o Mercado Pago tentar novamente mais tarde.
     return jsonError(500, 'internal', 'Falha ao processar a notificação.');
   }
 }

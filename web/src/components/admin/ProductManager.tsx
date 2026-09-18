@@ -31,7 +31,7 @@ import { BatchUpload } from './BatchUpload';
 import { describeError, normalizeSearch, productImages, removeBucketFiles, urlsInUse } from './admin-utils';
 import type { Resource } from './useAdminData';
 
-export type ProductStatusFilter = 'all' | 'active' | 'draft';
+export type ProductStatusFilter = 'all' | 'active' | 'featured' | 'draft';
 
 type ProductPatch = Partial<Pick<Product, 'is_active' | 'is_featured' | 'sort_order'>>;
 
@@ -72,13 +72,15 @@ export function ProductManager({ resource, status, onStatusChange }: ProductMana
 
   const counts = useMemo(() => {
     const active = products.filter((p) => p.is_active).length;
-    return { all: products.length, active, draft: products.length - active };
+    const featured = products.filter((p) => p.is_featured).length;
+    return { all: products.length, active, featured, draft: products.length - active };
   }, [products]);
 
   const filtered = useMemo(() => {
     const q = normalizeSearch(query);
     return products.filter((p) => {
       if (status === 'active' && !p.is_active) return false;
+      if (status === 'featured' && !p.is_featured) return false;
       if (status === 'draft' && p.is_active) return false;
       if (category !== 'all' && p.category !== category) return false;
       if (q && !normalizeSearch(`${p.name} ${p.color_name ?? ''} ${p.fabric ?? ''}`).includes(q)) return false;
@@ -126,7 +128,7 @@ export function ProductManager({ resource, status, onStatusChange }: ProductMana
     void patchProduct(
       p,
       { is_featured: !p.is_featured },
-      p.is_featured ? `“${p.name}” saiu dos destaques.` : `“${p.name}” marcada como destaque.`,
+      p.is_featured ? `“${p.name}” removida do Carrossel 3D.` : `“${p.name}” adicionada ao Carrossel 3D com sucesso!`,
     );
 
   const changeOrder = (p: Product, order: number) => void patchProduct(p, { sort_order: order }, 'Ordem atualizada.');
@@ -243,8 +245,8 @@ export function ProductManager({ resource, status, onStatusChange }: ProductMana
                 <th scope="col" className="px-3 py-3.5 font-medium">
                   Publicado
                 </th>
-                <th scope="col" className="px-3 py-3.5 text-center font-medium">
-                  Destaque
+                <th scope="col" className="px-3 py-3.5 text-center font-medium text-gold">
+                  ⭐ Carrossel 3D
                 </th>
                 <th scope="col" className="px-3 py-3.5 font-medium">
                   Ordem
@@ -315,19 +317,21 @@ export function ProductManager({ resource, status, onStatusChange }: ProductMana
                       </div>
                     </td>
                     <td className="px-3 py-3 text-center">
-                      <IconButton
-                        label={p.is_featured ? `Remover ${p.name} dos destaques` : `Destacar ${p.name}`}
+                      <button
+                        type="button"
                         onClick={() => toggleFeatured(p)}
-                        active={p.is_featured}
                         disabled={rowBusy}
-                        className="mx-auto"
+                        title={p.is_featured ? 'Remover do Carrossel 3D' : 'Exibir no Carrossel 3D da Loja'}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200',
+                          p.is_featured
+                            ? 'bg-gold/15 border border-line-gold text-gold-light shadow-sm shadow-gold/20 hover:bg-gold/25'
+                            : 'border border-line text-smoke hover:border-line-gold hover:text-gold'
+                        )}
                       >
-                        <Star
-                          className={cn('h-4 w-4', p.is_featured && 'fill-gold text-gold')}
-                          strokeWidth={1.5}
-                          aria-hidden
-                        />
-                      </IconButton>
+                        <Star className={cn('h-3.5 w-3.5', p.is_featured && 'fill-gold text-gold')} strokeWidth={1.5} />
+                        <span>{p.is_featured ? 'No Carrossel' : '+ Destacar'}</span>
+                      </button>
                     </td>
                     <td className="px-3 py-3">
                       <OrderInput
@@ -407,7 +411,8 @@ export function ProductManager({ resource, status, onStatusChange }: ProductMana
             value={status}
             onChange={onStatusChange}
             options={[
-              { id: 'all', label: 'Todas', count: counts.all },
+              { id: 'all', label: 'Todas as Peças', count: counts.all },
+              { id: 'featured', label: '⭐ Carrossel 3D', count: counts.featured },
               { id: 'active', label: 'Publicadas', count: counts.active },
               { id: 'draft', label: 'Rascunhos', count: counts.draft },
             ]}

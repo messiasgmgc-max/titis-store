@@ -24,6 +24,7 @@ import { interpretVenue } from '@/lib/stylist/engine';
 import { Button } from '@/components/ui/Button';
 import { Segmented, type SegmentedOption } from '@/components/ui/Controls';
 import { cn } from '@/lib/format';
+import { HelpButton, type HelpTopic } from './HelpModal';
 
 type IconType = React.ComponentType<{ className?: string; strokeWidth?: number; 'aria-hidden'?: boolean }>;
 
@@ -75,6 +76,7 @@ interface StepContextProps {
   onBack: () => void;
   onCompose: () => void;
   composing: boolean;
+  onOpenHelp: (topic: HelpTopic) => void;
 }
 
 function Row({
@@ -82,12 +84,16 @@ function Row({
   title,
   help,
   labelId,
+  helpTopic,
+  onOpenHelp,
   children,
 }: {
   numeral: string;
   title: React.ReactNode;
   help?: string;
   labelId?: string;
+  helpTopic?: HelpTopic;
+  onOpenHelp?: (topic: HelpTopic) => void;
   children: React.ReactNode;
 }) {
   return (
@@ -96,8 +102,9 @@ function Row({
         <span className="numeral text-xs" aria-hidden>
           {numeral}
         </span>
-        <h3 id={labelId} className="mt-2 text-2xl font-extrabold leading-tight tracking-[-0.03em] text-ivory sm:text-[1.75rem]">
-          {title}
+        <h3 id={labelId} className="mt-2 flex items-center gap-2 text-2xl font-extrabold leading-tight tracking-[-0.03em] text-ivory sm:text-[1.75rem]">
+          <span>{title}</span>
+          {helpTopic && onOpenHelp && <HelpButton topic={helpTopic} onOpen={onOpenHelp} />}
         </h3>
         {help && <p className="mt-2 text-sm leading-relaxed text-mist">{help}</p>}
       </div>
@@ -120,6 +127,7 @@ export function StepContext({
   onBack,
   onCompose,
   composing,
+  onOpenHelp,
 }: StepContextProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [showVenueError, setShowVenueError] = useState(false);
@@ -147,7 +155,14 @@ export function StepContext({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-12">
-      <Row numeral="i." title={<>A <span className="text-gold-light">ocasião</span></>} help="Para onde você vai? A formalidade parte daqui." labelId="atelier-occasion-label">
+      <Row
+        numeral="i."
+        title={<>A <span className="text-gold-light">ocasião</span></>}
+        help="Para onde você vai? A formalidade parte daqui."
+        labelId="atelier-occasion-label"
+        helpTopic="occasion"
+        onOpenHelp={onOpenHelp}
+      >
         <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4" role="group" aria-labelledby="atelier-occasion-label">
           {OCCASIONS.map((o) => {
             const Icon = OCCASION_ICONS[o.id];
@@ -218,14 +233,31 @@ export function StepContext({
         </div>
       </Row>
 
-      <Row numeral="ii." title={<>Horário e <span className="text-gold-light">clima</span></>} help="Luz e temperatura mudam tecido, cor e profundidade do look.">
+      <Row
+        numeral="ii."
+        title={
+          <span className="flex items-center gap-2">
+            <span>Horário e <span className="text-gold-light">clima</span></span>
+            <HelpButton topic="timeOfDay" onOpen={onOpenHelp} />
+            <HelpButton topic="climate" onOpen={onOpenHelp} />
+          </span>
+        }
+        help="Luz e temperatura mudam tecido, cor e profundidade do look."
+      >
         <div className="grid gap-6 md:grid-cols-2">
           <Segmented label="Horário" showLabel layout="stacked" options={TIME_OPTIONS} value={timeOfDay} onChange={onTimeChange} />
           <Segmented label="Clima" showLabel layout="stacked" options={CLIMATE_OPTIONS} value={climate} onChange={onClimateChange} />
         </div>
       </Row>
 
-      <Row numeral="iii." title={<>O seu <span className="text-gold-light">estilo</span></>} help="Como você quer ser lembrado ao chegar." labelId="atelier-style-label">
+      <Row
+        numeral="iii."
+        title={<>O seu <span className="text-gold-light">estilo</span></>}
+        help="Como você quer ser lembrado ao chegar."
+        labelId="atelier-style-label"
+        helpTopic="style"
+        onOpenHelp={onOpenHelp}
+      >
         <Segmented label="Estilo" layout="stacked" options={STYLE_OPTIONS} value={style} onChange={onStyleChange} />
       </Row>
 
