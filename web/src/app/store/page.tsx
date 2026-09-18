@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useCatalog } from '@/lib/catalog';
 import { formatBRL } from '@/lib/format';
+import { getInstallmentTeaser } from '@/lib/installments';
 import { useCart } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
 import { Button } from '@/components/ui/Button';
@@ -227,7 +228,14 @@ export default function StoreHomePage() {
                       <Link href={productUrl} className="mt-1 block text-sm font-bold text-ivory hover:text-gold-light line-clamp-1">
                         {product.name}
                       </Link>
-                      <p className="mt-1.5 text-base font-extrabold text-gold">{price}</p>
+                      <div className="mt-1.5 flex flex-col gap-0.5">
+                        <p className="text-base font-extrabold text-gold">{price}</p>
+                        {product.price_cents && (
+                          <p className="text-[11px] text-mist font-medium">
+                            {getInstallmentTeaser(product.price_cents)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
 

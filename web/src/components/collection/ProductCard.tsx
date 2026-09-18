@@ -5,6 +5,7 @@ import { Check, Plus } from 'lucide-react';
 import type { ColorSwatch, Diagnosis, Product } from '@/lib/types';
 import { closestSwatch } from '@/lib/stylist/color';
 import { cn, formatBRL } from '@/lib/format';
+import { getInstallmentTeaser } from '@/lib/installments';
 import { ColorDot } from '@/components/ui/Swatch';
 import { useCart } from '@/providers/CartProvider';
 import { useDiagnosis } from '@/providers/DiagnosisProvider';
@@ -317,15 +318,22 @@ export function ProductCard({ product, index, lead = false, className }: Product
 
         <div className="mt-auto">
           <div className="mt-4 flex items-baseline justify-between gap-3 border-t border-line pt-3">
-            <p
-              className={
-                priced
-                  ? 'text-[0.95rem] font-extrabold tabular-nums text-parchment'
-                  : 'text-sm font-semibold text-mist'
-              }
-            >
-              {formatBRL(product.price_cents)}
-            </p>
+            <div>
+              <p
+                className={
+                  priced
+                    ? 'text-[0.95rem] font-extrabold tabular-nums text-parchment'
+                    : 'text-sm font-semibold text-mist'
+                }
+              >
+                {formatBRL(product.price_cents)}
+              </p>
+              {priced && product.price_cents && (
+                <p className="text-[10px] text-gold font-medium">
+                  {getInstallmentTeaser(product.price_cents)}
+                </p>
+              )}
+            </div>
             {typeof index === 'number' && (
               <span aria-hidden className="shrink-0 text-[11px] font-semibold tabular-nums tracking-[0.14em] text-smoke">
                 Nº {String(index + 1).padStart(2, '0')}

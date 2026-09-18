@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useCatalog } from '@/lib/catalog';
 import { formatBRL } from '@/lib/format';
+import { getInstallmentTeaser } from '@/lib/installments';
 import { useCart } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
 import { Button } from '@/components/ui/Button';
@@ -161,13 +162,14 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                 <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-ivory sm:text-4xl">
                   {product.name}
                 </h1>
-                <div className="mt-3 flex items-baseline gap-3">
+                <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="text-2xl font-black text-foil sm:text-3xl">
                     {price}
                   </span>
                   {product.price_cents && (
-                    <span className="text-xs text-mist">
-                      ou até 12x de {formatBRL(Math.round((product.price_cents * 1.1) / 12))}
+                    <span className="text-xs text-gold font-medium">
+                      {getInstallmentTeaser(product.price_cents)}{' '}
+                      <span className="text-mist font-normal">· ou até 12x no cartão</span>
                     </span>
                   )}
                 </div>

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Trash2, ShoppingBag, ArrowRight, ArrowLeft, ShieldCheck, Ticket } from 'lucide-react';
 import { useCart } from '@/providers/CartProvider';
 import { formatBRL } from '@/lib/format';
+import { getInstallmentTeaser } from '@/lib/installments';
 import { Button } from '@/components/ui/Button';
 
 export default function CartPage() {
@@ -143,9 +144,16 @@ export default function CartPage() {
                       <span className="font-bold">-{formatBRL(appliedDiscount)}</span>
                     </div>
                   )}
-                  <div className="border-t border-line pt-3 flex justify-between text-sm font-bold text-ivory">
+                  <div className="border-t border-line pt-3 flex justify-between items-baseline text-sm font-bold text-ivory">
                     <span>Total Estimado</span>
-                    <span className="text-gold text-lg">{formatBRL(finalTotalCents)}</span>
+                    <div className="text-right">
+                      <span className="text-gold text-lg">{formatBRL(finalTotalCents)}</span>
+                      {finalTotalCents > 0 && (
+                        <p className="text-[11px] font-normal text-mist">
+                          {getInstallmentTeaser(finalTotalCents)}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 

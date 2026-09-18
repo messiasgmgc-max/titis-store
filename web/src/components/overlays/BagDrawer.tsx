@@ -473,7 +473,7 @@ export function BagDrawer({ onClose }: { onClose: () => void }) {
 
               <div className="mt-3.5 flex items-center justify-center gap-1.5 text-[10px] text-mist text-center">
                 <ShieldCheck className="h-3.5 w-3.5 text-gold" />
-                <span>Checkout Seguro Mercado Pago · Pix &amp; Cartão em até 12x</span>
+                <span>Checkout Seguro Mercado Pago · Até 6x sem juros ou 12x</span>
               </div>
             </div>
           </>

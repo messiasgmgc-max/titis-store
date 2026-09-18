@@ -26,6 +26,7 @@ import {
 import { useCart } from '@/providers/CartProvider';
 import { useSession } from '@/providers/SessionProvider';
 import { formatBRL, formatCEP, formatCPF, formatPhoneBR } from '@/lib/format';
+import { getInstallmentOptions } from '@/lib/installments';
 import { processTransparentCheckoutAction } from './actions';
 
 interface ShippingOption {
@@ -1088,7 +1089,9 @@ export default function TransparentCheckoutPage() {
                   >
                     <CreditCard className="h-6 w-6" />
                     <span className="text-xs font-bold uppercase tracking-wider">Cartão de Crédito</span>
-                    <span className="text-[10px] text-mist">Em até 12x</span>
+                    <span className="text-[10px] text-mist">
+                      {grandTotalCents > 60000 ? 'Até 6x sem juros' : 'Até 3x sem juros'} · Até 12x
+                    </span>
                   </button>
                 </div>
 
@@ -1147,18 +1150,22 @@ export default function TransparentCheckoutPage() {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-mist mb-1">Número de Parcelas:</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-mist">Número de Parcelas:</label>
+                        <span className="text-[10px] font-bold text-gold">
+                          {grandTotalCents > 60000 ? 'Até 6x sem juros' : 'Até 3x sem juros'}
+                        </span>
+                      </div>
                       <select
                         value={installments}
                         onChange={(e) => setInstallments(Number(e.target.value))}
                         className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                       >
-                        <option value={1}>1x de {formatBRL(grandTotalCents)} sem juros</option>
-                        <option value={2}>2x de {formatBRL(grandTotalCents / 2)} sem juros</option>
-                        <option value={3}>3x de {formatBRL(grandTotalCents / 3)} sem juros</option>
-                        <option value={6}>6x de {formatBRL(grandTotalCents / 6)} sem juros</option>
-                        <option value={10}>10x de {formatBRL(grandTotalCents / 10)}</option>
-                        <option value={12}>12x de {formatBRL(grandTotalCents / 12)}</option>
+                        {getInstallmentOptions(grandTotalCents).map((opt) => (
+                          <option key={opt.installments} value={opt.installments}>
+                            {opt.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -1318,9 +1325,16 @@ export default function TransparentCheckoutPage() {
                       {selectedShipping.carrier} ({selectedShipping.name}) · {selectedShipping.deliveryDays}d úteis
                     </p>
                   )}
-                  <div className="border-t border-line pt-3 flex justify-between text-sm font-bold text-ivory">
+                  <div className="border-t border-line pt-3 flex justify-between items-baseline text-sm font-bold text-ivory">
                     <span>Total a Pagar</span>
-                    <span className="text-gold text-xl font-extrabold">{formatBRL(grandTotalCents)}</span>
+                    <div className="text-right">
+                      <span className="text-gold text-xl font-extrabold">{formatBRL(grandTotalCents)}</span>
+                      {paymentMethod === 'credit_card' && (
+                        <p className="text-[10px] text-mist font-normal mt-0.5">
+                          {getInstallmentOptions(grandTotalCents).find((o) => o.installments === installments)?.label}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 

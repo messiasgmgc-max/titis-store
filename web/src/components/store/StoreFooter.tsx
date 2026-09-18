@@ -60,7 +60,7 @@ export function StoreFooter() {
             </div>
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-ivory">Até 12x no Cartão</h4>
-              <p className="text-[11px] text-mist">Ou pagamento instantâneo via Pix.</p>
+              <p className="text-[11px] text-mist">Até 6x sem juros ou Pix instantâneo.</p>
             </div>
           </div>
 
