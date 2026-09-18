@@ -26,6 +26,7 @@ import {
 import { useCart } from '@/providers/CartProvider';
 import { useSession } from '@/providers/SessionProvider';
 import { formatBRL, formatCEP, formatCPF, formatPhoneBR } from '@/lib/format';
+import { processTransparentCheckoutAction } from './actions';
 
 interface ShippingOption {
   id: string;
@@ -531,27 +532,46 @@ export default function TransparentCheckoutPage() {
           : {}),
       };
 
-      const res = await fetch('/api/checkout/transparent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const contentType = res.headers.get('content-type') || '';
       let data: any = null;
-      if (contentType.includes('application/json')) {
-        data = await res.json().catch(() => null);
+
+      // 1. Tenta prioritariamente via Server Action nativa do Next.js (imune a 404 de rotas HTTP)
+      try {
+        const actionRes = await processTransparentCheckoutAction(payload as any);
+        if (actionRes.success && actionRes.data) {
+          data = actionRes.data;
+        } else if (actionRes.error) {
+          throw new Error(actionRes.error);
+        }
+      } catch (actionErr: any) {
+        // Se for erro da regra de negócio (ex: CPF inválido, erro MP), propaga imediatamente
+        if (actionErr?.message && !actionErr.message.includes('fetch') && !actionErr.message.includes('action')) {
+          throw actionErr;
+        }
       }
 
-      if (!res.ok || !data) {
-        const errorMsg =
-          data?.error ||
-          (res.status === 404
-            ? 'O servidor de pagamentos online está finalizando a atualização na Vercel (404). Aguarde a conclusão do deploy ou finalize com suporte imediato pelo WhatsApp!'
-            : res.status === 503
-            ? 'Pagamento online temporariamente indisponível no servidor. Finalize diretamente pelo WhatsApp com nossa equipe.'
-            : `Falha na comunicação com o servidor (${res.status}). Conclua pelo WhatsApp para garantir suas peças.`);
-        throw new Error(errorMsg);
+      // 2. Se a Server Action não processou, executa via rota HTTP como fallback
+      if (!data) {
+        const res = await fetch('/api/checkout/transparent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          data = await res.json().catch(() => null);
+        }
+
+        if (!res.ok || !data) {
+          const errorMsg =
+            data?.error ||
+            (res.status === 404
+              ? 'O servidor de pagamentos online está finalizando a atualização na Vercel (404). Aguarde a conclusão do deploy ou finalize com suporte imediato pelo WhatsApp!'
+              : res.status === 503
+              ? 'Pagamento online temporariamente indisponível no servidor. Finalize diretamente pelo WhatsApp com nossa equipe.'
+              : `Falha na comunicação com o servidor (${res.status}). Conclua pelo WhatsApp para garantir suas peças.`);
+          throw new Error(errorMsg);
+        }
       }
 
       clear();
