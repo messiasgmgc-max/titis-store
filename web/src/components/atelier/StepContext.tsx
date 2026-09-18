@@ -68,6 +68,7 @@ interface StepContextProps {
   timeOfDay: TimeOfDayId;
   climate: ClimateId;
   style: StylePreference;
+  seasonName?: string;
   onOccasionChange: (id: OccasionId) => void;
   onVenueChange: (value: string) => void;
   onTimeChange: (id: TimeOfDayId) => void;
@@ -119,6 +120,7 @@ export function StepContext({
   timeOfDay,
   climate,
   style,
+  seasonName,
   onOccasionChange,
   onVenueChange,
   onTimeChange,
@@ -155,6 +157,38 @@ export function StepContext({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-12">
+      {/* Banner de Cartela Salva */}
+      {seasonName && (
+        <div className="rounded-2xl border border-line-gold/40 bg-surface/70 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3.5">
+            <div className="h-10 w-10 shrink-0 rounded-xl bg-gold/15 border border-gold/30 flex items-center justify-center text-gold font-bold">
+              👑
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  Leitura Concluída & Salva
+                </span>
+                <span className="text-xs font-extrabold text-ivory">
+                  Sua Cartela: <span className="text-gold">{seasonName}</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-mist mt-0.5">
+                Tom de pele, subtom e biometria carregados. Escolha o contexto abaixo para compor seus looks.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-xs font-bold text-gold hover:text-gold-light transition-colors self-start sm:self-center shrink-0 flex items-center gap-1.5 border border-line-gold/30 hover:border-gold px-3.5 py-1.5 rounded-lg bg-surface"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            <span>Rever cartela ou foto</span>
+          </button>
+        </div>
+      )}
       <Row
         numeral="i."
         title={<>A <span className="text-gold-light">ocasião</span></>}

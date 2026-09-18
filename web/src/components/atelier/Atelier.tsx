@@ -111,6 +111,7 @@ export function Atelier() {
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [maxStep, setMaxStep] = useState(0);
+  const [hasAutoAdvanced, setHasAutoAdvanced] = useState(false);
 
   const [tone, setTone] = useState<SkinToneId>(diagnosis?.skinTone ?? 'morena');
   const [subtone, setSubtone] = useState<Subtone>(diagnosis?.subtone ?? 'quente');
@@ -153,6 +154,34 @@ export function Atelier() {
   const [savedFor, setSavedFor] = useState<Composition | null>(null);
   const [helpTopic, setHelpTopic] = useState<HelpTopic | null>(null);
 
+  // Pula a etapa de Leitura caso o usuário já tenha diagnóstico salvo localmente ou no perfil da conta
+  useEffect(() => {
+    if (hasAutoAdvanced) return;
+
+    let hasLocal = false;
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('titis:diagnosis:v1');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.skinTone && parsed?.subtone) hasLocal = true;
+        }
+      } catch {}
+    }
+
+    const hasDiagnosis = Boolean(
+      diagnosis ||
+      hasLocal ||
+      (profile?.preferred_skin_tone && profile?.skin_subtone)
+    );
+
+    if (hasDiagnosis) {
+      setStep(1);
+      setMaxStep((prev) => Math.max(prev, 1));
+      setHasAutoAdvanced(true);
+    }
+  }, [diagnosis, profile, hasAutoAdvanced]);
+
   // Recupera histórico de contexto e preferências de consulta anterior
   useEffect(() => {
     try {
@@ -172,9 +201,9 @@ export function Atelier() {
   }, []);
 
   // Quando o diagnóstico muda fora daqui (leitura por foto, perfil da conta), a seleção acompanha.
-  // Uma nova leitura por foto traz a pessoa de volta à etapa I para ver o resultado.
   const [syncedDiagnosis, setSyncedDiagnosis] = useState<Diagnosis | null>(diagnosis);
   if (diagnosis !== syncedDiagnosis) {
+    const isInitialMount = syncedDiagnosis === null;
     setSyncedDiagnosis(diagnosis);
     if (diagnosis) {
       setTone(diagnosis.skinTone);
@@ -185,7 +214,9 @@ export function Atelier() {
       if (diagnosis.age !== undefined && diagnosis.age !== null) setAge(diagnosis.age);
       if (diagnosis.gender) setGender(diagnosis.gender);
       if (diagnosis.bodyType) setBodyType(diagnosis.bodyType);
-      const isNewPhotoReading = diagnosis.source !== 'manual' && diagnosis.createdAt !== syncedDiagnosis?.createdAt;
+
+      // Uma nova leitura por foto disparada nesta sessão traz a pessoa à etapa I para ver o resultado
+      const isNewPhotoReading = !isInitialMount && diagnosis.source !== 'manual' && diagnosis.createdAt !== syncedDiagnosis?.createdAt;
       if (isNewPhotoReading) {
         if (step !== 0) {
           setDirection(-1);
@@ -193,6 +224,11 @@ export function Atelier() {
         }
         setResult(null);
         setError(null);
+      } else if (isInitialMount && !hasAutoAdvanced) {
+        // Se já tem diagnóstico salvo, pula a leitura automaticamente e inicia na Etapa II (Contexto)!
+        setStep(1);
+        setMaxStep(1);
+        setHasAutoAdvanced(true);
       }
     }
   }
@@ -226,7 +262,13 @@ export function Atelier() {
     scrollToSteps();
   };
 
-  const canVisit = (i: number) => !composing && (i === 0 || (i === 1 && maxStep >= 1) || (i === 2 && !!result));
+  const hasSavedDiagnosis = Boolean(
+    diagnosis ||
+    (profile?.preferred_skin_tone && profile?.skin_subtone) ||
+    (typeof window !== 'undefined' && localStorage.getItem('titis:diagnosis:v1'))
+  );
+
+  const canVisit = (i: number) => !composing && (i === 0 || (i === 1 && (maxStep >= 1 || hasSavedDiagnosis)) || (i === 2 && !!result));
 
   const compose = async () => {
     if (composing) return;
@@ -425,6 +467,7 @@ export function Atelier() {
         timeOfDay={timeOfDay}
         climate={climate}
         style={style}
+        seasonName={diagnosis?.season ?? getSeason(tone, subtone).name}
         onOccasionChange={setOccasion}
         onVenueChange={setCustomVenue}
         onTimeChange={setTimeOfDay}
