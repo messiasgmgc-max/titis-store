@@ -489,9 +489,9 @@ export default function TransparentCheckoutPage() {
         const errorMsg =
           data?.error ||
           (res.status === 404
-            ? 'O servidor de pagamentos online está em atualização no momento. Finalize seu pedido com suporte imediato pelo WhatsApp!'
+            ? 'O servidor de pagamentos online está finalizando a atualização na Vercel (404). Aguarde a conclusão do deploy ou finalize com suporte imediato pelo WhatsApp!'
             : res.status === 503
-            ? 'Pagamento online temporariamente indisponível. Finalize diretamente pelo WhatsApp com nossa equipe.'
+            ? 'Pagamento online temporariamente indisponível no servidor. Finalize diretamente pelo WhatsApp com nossa equipe.'
             : `Falha na comunicação com o servidor (${res.status}). Conclua pelo WhatsApp para garantir suas peças.`);
         throw new Error(errorMsg);
       }

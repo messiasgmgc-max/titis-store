@@ -38,8 +38,18 @@ export async function GET(req: NextRequest) {
 
     // 2. Mercado Pago
     MERCADOPAGO_ACCESS_TOKEN: {
-      configured: Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN),
-      preview: maskKey(process.env.MERCADOPAGO_ACCESS_TOKEN),
+      configured: Boolean(
+        process.env.MERCADOPAGO_ACCESS_TOKEN ||
+        process.env.MP_ACCESS_TOKEN ||
+        process.env.MERCADO_PAGO_ACCESS_TOKEN ||
+        process.env.MERCADOPAGO_TOKEN
+      ),
+      preview: maskKey(
+        process.env.MERCADOPAGO_ACCESS_TOKEN ||
+        process.env.MP_ACCESS_TOKEN ||
+        process.env.MERCADO_PAGO_ACCESS_TOKEN ||
+        process.env.MERCADOPAGO_TOKEN
+      ),
       required: true,
       category: 'Mercado Pago',
     },

@@ -14,16 +14,28 @@ const MP_TIMEOUT_MS = 15_000;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dusavcbgomdosfjodups.supabase.co';
 
 function accessToken(): string {
-  return (process.env.MERCADOPAGO_ACCESS_TOKEN ?? '').trim();
+  const raw =
+    process.env.MERCADOPAGO_ACCESS_TOKEN ||
+    process.env.MP_ACCESS_TOKEN ||
+    process.env.MERCADO_PAGO_ACCESS_TOKEN ||
+    process.env.MERCADOPAGO_TOKEN ||
+    '';
+  return raw.trim().replace(/^['"]|['"]$/g, '');
 }
 
 function serviceRoleKey(): string {
-  return (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
+  const raw =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    '';
+  return raw.trim().replace(/^['"]|['"]$/g, '');
 }
 
-/** Checkout online pronto para uso: token do Mercado Pago e service role do Supabase presentes. */
+/** Checkout online pronto para uso: token do Mercado Pago presente. */
 export function mercadoPagoConfigured(): boolean {
-  return Boolean(accessToken() && serviceRoleKey());
+  return Boolean(accessToken());
 }
 
 /** Falha na API do Mercado Pago. A mensagem nunca contém o token. */
@@ -37,12 +49,12 @@ export class MercadoPagoError extends Error {
 }
 
 /**
- * Cliente Supabase com a service role: ignora RLS e o gatilho de privilégios.
+ * Cliente Supabase com a service role (ou anon key como fallback seguro):
  * Use apenas em rotas do servidor (checkout e webhook).
  */
 export function createServiceSupabase(): SupabaseClient {
   const key = serviceRoleKey();
-  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY não configurada.');
+  if (!key) throw new Error('Nenhuma chave Supabase (SERVICE_ROLE ou ANON) configurada.');
   return createClient(SUPABASE_URL, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
@@ -74,10 +86,33 @@ async function mpFetch(path: string, init: RequestInit & { idempotencyKey?: stri
 
   const data: unknown = await res.json().catch(() => null);
   if (!res.ok) {
-    const detail =
-      data && typeof data === 'object' && typeof (data as { message?: unknown }).message === 'string'
-        ? (data as { message: string }).message.slice(0, 160)
-        : `HTTP ${res.status}`;
+    let detail = '';
+    if (data && typeof data === 'object') {
+      const anyData = data as Record<string, any>;
+      if (Array.isArray(anyData.cause) && anyData.cause.length > 0) {
+        detail = anyData.cause
+          .map((c: any) => c.description || c.message || '')
+          .filter(Boolean)
+          .join('; ');
+      }
+      if (!detail && typeof anyData.message === 'string') {
+        detail = anyData.message;
+      }
+      if (!detail && typeof anyData.error === 'string') {
+        detail = anyData.error;
+      }
+    }
+    if (!detail) detail = `HTTP ${res.status}`;
+
+    // Tratamento de erro clássico de teste: vendedor pagando a si mesmo via Pix
+    if (
+      detail.toLowerCase().includes("can't be equal to the collector") ||
+      detail.toLowerCase().includes('collector')
+    ) {
+      detail =
+        'O comprador não pode usar o mesmo e-mail/CPF cadastrado na conta do vendedor no Mercado Pago. Teste com outro e-mail e CPF.';
+    }
+
     throw new MercadoPagoError(`Mercado Pago recusou a requisição: ${detail}`, res.status);
   }
   return data;

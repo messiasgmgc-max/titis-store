@@ -42,7 +42,10 @@ export async function POST(req: NextRequest) {
 
     if (!mercadoPagoConfigured()) {
       return NextResponse.json(
-        { error: 'Pagamento online temporariamente indisponível. Finalize pelo WhatsApp.' },
+        {
+          error:
+            'Chave do Mercado Pago (MERCADOPAGO_ACCESS_TOKEN) não detectada no ambiente. Se você adicionou a variável na Vercel recentemente, acesse Deployments e clique em Redeploy para ativá-la no servidor.',
+        },
         { status: 503 }
       );
     }
