@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Titi's Store - Ecosystem Monorepo",
   "private": true,
+  "workspaces": [
+    "web"
+  ],
   "scripts": {
     "dev": "npm --prefix web run dev",
     "dev:web": "npm --prefix web run dev",

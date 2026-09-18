@@ -118,7 +118,94 @@ export default function TransparentCheckoutPage() {
     }
   };
 
-  // Busca frete nos Correios & Jadlog
+  // Fallback regional instantâneo caso a API esteja temporariamente offline
+  const applyClientShippingFallback = (cleanCep: string) => {
+    const cepNum = parseInt(cleanCep.substring(0, 5), 10);
+    const isFreeEligible = subtotalCents >= 39900; // Frete grátis acima de R$ 399
+
+    let pacCents = 2490;
+    let sedexCents = 3890;
+    let pacDays = 6;
+    let sedexDays = 2;
+
+    if (cepNum >= 30000 && cepNum <= 39999) {
+      // MG (Origem)
+      pacCents = 1890;
+      sedexCents = 2490;
+      pacDays = 3;
+      sedexDays = 1;
+    } else if (
+      (cepNum >= 1000 && cepNum <= 19999) || // SP
+      (cepNum >= 20000 && cepNum <= 28999) || // RJ
+      (cepNum >= 29000 && cepNum <= 29999) // ES
+    ) {
+      pacCents = 2290;
+      sedexCents = 3290;
+      pacDays = 5;
+      sedexDays = 2;
+    } else if (cepNum >= 80000 && cepNum <= 99999) {
+      // Sul
+      pacCents = 2890;
+      sedexCents = 4490;
+      pacDays = 7;
+      sedexDays = 3;
+    } else if (cepNum >= 70000 && cepNum <= 79999) {
+      // Centro-Oeste
+      pacCents = 2990;
+      sedexCents = 4690;
+      pacDays = 7;
+      sedexDays = 3;
+    } else if (cepNum >= 40000 && cepNum <= 65999) {
+      // Nordeste
+      pacCents = 3490;
+      sedexCents = 5990;
+      pacDays = 9;
+      sedexDays = 4;
+    } else {
+      // Norte
+      pacCents = 4290;
+      sedexCents = 7490;
+      pacDays = 12;
+      sedexDays = 5;
+    }
+
+    const fallbackList: ShippingOption[] = [
+      {
+        id: 'pac',
+        name: 'Correios PAC',
+        carrier: 'Correios',
+        priceCents: isFreeEligible ? 0 : pacCents,
+        deliveryDays: pacDays,
+        isFree: isFreeEligible,
+      },
+      {
+        id: 'sedex',
+        name: 'Correios SEDEX',
+        carrier: 'Correios',
+        priceCents: sedexCents,
+        deliveryDays: sedexDays,
+        isFree: false,
+      },
+      {
+        id: 'jadlog',
+        name: 'Jadlog .Package',
+        carrier: 'Jadlog',
+        priceCents: Math.max(1990, pacCents - 200),
+        deliveryDays: Math.max(2, pacDays - 1),
+        isFree: false,
+      },
+    ];
+
+    setShippingOptions(fallbackList);
+    setSelectedShipping((prev) => {
+      if (prev && fallbackList.some((o) => o.id === prev.id)) {
+        return fallbackList.find((o) => o.id === prev.id) || fallbackList[0];
+      }
+      return fallbackList[0];
+    });
+  };
+
+  // Busca frete nos Correios & Jadlog com fallback seguro
   const fetchShipping = async (cleanCep: string) => {
     if (!cleanCep || cleanCep.length !== 8) return;
     setLoadingShipping(true);
@@ -132,18 +219,26 @@ export default function TransparentCheckoutPage() {
           subtotalCents,
         }),
       });
-      const data = await res.json();
-      if (data.options && data.options.length > 0) {
-        setShippingOptions(data.options);
-        setSelectedShipping((prev) => {
-          if (prev && data.options.some((o: ShippingOption) => o.id === prev.id)) {
-            return data.options.find((o: ShippingOption) => o.id === prev.id) || data.options[0];
-          }
-          return data.options[0];
-        });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json().catch(() => null);
+        if (data?.options && data.options.length > 0) {
+          setShippingOptions(data.options);
+          setSelectedShipping((prev) => {
+            if (prev && data.options.some((o: ShippingOption) => o.id === prev.id)) {
+              return data.options.find((o: ShippingOption) => o.id === prev.id) || data.options[0];
+            }
+            return data.options[0];
+          });
+          return;
+        }
       }
+
+      // Aplica fallback de frete regional caso a API não responda com JSON válido
+      applyClientShippingFallback(cleanCep);
     } catch {
-      // ignora erro silencioso
+      applyClientShippingFallback(cleanCep);
     } finally {
       setLoadingShipping(false);
     }
@@ -372,10 +467,21 @@ export default function TransparentCheckoutPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = null;
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null);
+      }
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Erro ao processar pagamento');
+      if (!res.ok || !data) {
+        const errorMsg =
+          data?.error ||
+          (res.status === 404
+            ? 'O servidor de pagamentos online está em atualização no momento. Finalize seu pedido com suporte imediato pelo WhatsApp!'
+            : res.status === 503
+            ? 'Pagamento online temporariamente indisponível. Finalize diretamente pelo WhatsApp com nossa equipe.'
+            : `Falha na comunicação com o servidor (${res.status}). Conclua pelo WhatsApp para garantir suas peças.`);
+        throw new Error(errorMsg);
       }
 
       clear();
@@ -401,10 +507,54 @@ export default function TransparentCheckoutPage() {
         }
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Falha ao processar pagamento. Tente novamente.');
+      setErrorMessage(err.message || 'Falha ao processar pagamento. Tente novamente ou finalize pelo WhatsApp.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const getWhatsappOrderUrl = () => {
+    const phoneNum = '5531996000213';
+    const lines = [
+      `👑 *NOVO PEDIDO VIA WHATSAPP — TITI'S STORE*`,
+      '',
+      `👤 *Cliente:* ${firstName} ${lastName}`.trim(),
+      email ? `✉️ *E-mail:* ${email}` : '',
+      phone ? `📱 *WhatsApp:* ${phone}` : '',
+      cpf ? `📄 *CPF:* ${cpf}` : '',
+      '',
+      `📍 *Endereço de Entrega:*`,
+      `${street || 'Rua'}, ${number || 'S/N'}${complement ? ` - ${complement}` : ''}`,
+      `${neighborhood ? `${neighborhood}, ` : ''}${city || 'Betim'} - ${state || 'MG'}`,
+      `CEP: ${cep || ''}`,
+      '',
+      `🛍️ *Peças Solicitadas:*`,
+      ...items.map(
+        (i) =>
+          `• ${i.quantity}x ${i.name}${i.size ? ` (Tam: ${i.size})` : ''}${i.color ? ` (Cor: ${i.color})` : ''} — ${formatBRL(
+            (i.priceCents ?? 0) * i.quantity
+          )}`
+      ),
+      '',
+      `🚚 *Frete:* ${
+        selectedShipping
+          ? `${selectedShipping.carrier} ${selectedShipping.name} (${
+              selectedShipping.isFree ? 'Grátis' : formatBRL(selectedShipping.priceCents)
+            })`
+          : 'A combinar'
+      }`,
+      `💰 *Total Geral:* *${formatBRL(grandTotalCents)}*`,
+      '',
+      `💳 *Forma de Pagamento:* ${
+        paymentMethod === 'pix' ? 'Pix Instantâneo' : `Cartão de Crédito (${installments}x)`
+      }`,
+      '',
+      `Olá! Gostaria de finalizar este pedido e receber a chave Pix / link de pagamento com o atendimento exclusivo da Titi's Store!`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    return `https://wa.me/${phoneNum}?text=${encodeURIComponent(lines)}`;
   };
 
   const copyPixCode = () => {
@@ -911,9 +1061,26 @@ export default function TransparentCheckoutPage() {
                 )}
 
                 {errorMessage && (
-                  <div className="p-3.5 rounded-xl bg-danger/10 border border-danger/30 text-danger text-xs flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    <span>{errorMessage}</span>
+                  <div className="p-4 rounded-xl bg-danger/10 border border-danger/30 text-danger text-xs space-y-3 animate-in fade-in">
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-danger" />
+                      <div>
+                        <p className="font-bold text-ivory">{errorMessage}</p>
+                        <p className="text-[11px] text-mist mt-1 leading-relaxed">
+                          Não se preocupe: suas peças continuam reservadas! Você pode tentar novamente ou concluir o pedido imediatamente com nosso consultor via WhatsApp.
+                        </p>
+                      </div>
+                    </div>
+
+                    <a
+                      href={getWhatsappOrderUrl()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/30"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Concluir Pedido pelo WhatsApp com Consultor</span>
+                    </a>
                   </div>
                 )}
 
