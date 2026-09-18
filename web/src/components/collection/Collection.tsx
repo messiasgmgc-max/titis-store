@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Search, X } from 'lucide-react';
 import { PRODUCT_CATEGORIES, type Diagnosis, type Product } from '@/lib/types';
-import { useCatalog } from '@/lib/catalog';
+import { useCatalog, searchProducts } from '@/lib/catalog';
 import { cn, whatsappLink } from '@/lib/format';
 import { useDiagnosis } from '@/providers/DiagnosisProvider';
 import { Button } from '@/components/ui/Button';
@@ -78,8 +78,18 @@ export function Collection() {
   const searchParams = useSearchParams();
   const [category, setCategory] = useState<string>(ALL);
   const [paletteMode, setPaletteMode] = useState(false);
+  const [busca, setBusca] = useState(searchParams?.get('busca') || '');
 
-  const categories = useMemo(() => orderCategories(products), [products]);
+  useEffect(() => {
+    setBusca(searchParams?.get('busca') || '');
+  }, [searchParams]);
+
+  const searchedProducts = useMemo(() => {
+    if (!busca.trim()) return products;
+    return searchProducts(products, busca.trim());
+  }, [products, busca]);
+
+  const categories = useMemo(() => orderCategories(searchedProducts.length > 0 ? searchedProducts : products), [searchedProducts, products]);
 
   useEffect(() => {
     const param = searchParams?.get('categoria');
@@ -94,18 +104,25 @@ export function Collection() {
   const activeCategory = categories.includes(category) ? category : ALL;
   const paletteOn = paletteMode && diagnosis !== null;
   const { list, leadId } = useMemo(
-    () => arrange(products, activeCategory, paletteOn ? diagnosis : null),
-    [products, activeCategory, paletteOn, diagnosis],
+    () => arrange(searchedProducts, activeCategory, paletteOn ? diagnosis : null),
+    [searchedProducts, activeCategory, paletteOn, diagnosis],
   );
 
   const showSkeleton = loading && products.length === 0;
   const count = list.length;
   const palettePreview = (diagnosis?.palette ?? []).slice(0, 5);
-  const gridKey = `${activeCategory}|${paletteOn ? 'cartela' : 'livre'}`;
+  const gridKey = `${activeCategory}|${paletteOn ? 'cartela' : 'livre'}|${busca}`;
 
   const resetFilters = () => {
     setCategory(ALL);
     setPaletteMode(false);
+    setBusca('');
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('busca');
+      url.searchParams.delete('categoria');
+      window.history.replaceState({}, '', url.toString());
+    }
   };
 
   return (
@@ -119,6 +136,35 @@ export function Collection() {
       </p>
 
       <div className="container-luxe">
+        {busca && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line-gold/40 bg-gold/10 px-5 py-3.5 backdrop-blur-md">
+            <div className="flex items-center gap-2.5">
+              <Search className="h-4 w-4 text-gold shrink-0" />
+              <p className="text-xs sm:text-sm text-parchment">
+                Resultados para a busca <span className="font-extrabold text-gold">&ldquo;{busca}&rdquo;</span>
+                <span className="ml-2 text-xs text-mist font-normal">
+                  ({count} {count === 1 ? 'peça encontrada' : 'peças encontradas'})
+                </span>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setBusca('');
+                if (typeof window !== 'undefined') {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('busca');
+                  window.history.replaceState({}, '', url.toString());
+                }
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-gold hover:text-ivory transition-colors bg-surface/60 px-3 py-1.5 rounded-full border border-line-gold/30"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>Limpar busca</span>
+            </button>
+          </div>
+        )}
+
         {diagnosis && (
           <Reveal>
             <aside className="panel relative mb-8 flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7">
@@ -220,8 +266,9 @@ export function Collection() {
             <CollectionSkeleton />
           ) : count === 0 ? (
             <EmptyState
-              kind={products.length === 0 ? 'catalog' : paletteOn ? 'palette' : 'category'}
+              kind={products.length === 0 ? 'catalog' : busca ? 'search' : paletteOn ? 'palette' : 'category'}
               categoryName={activeCategory === ALL ? null : activeCategory}
+              buscaTerm={busca}
               onReset={resetFilters}
             />
           ) : (
@@ -303,10 +350,12 @@ function CollectionSkeleton() {
 function EmptyState({
   kind,
   categoryName,
+  buscaTerm,
   onReset,
 }: {
-  kind: 'catalog' | 'palette' | 'category';
+  kind: 'catalog' | 'palette' | 'category' | 'search';
   categoryName: string | null;
+  buscaTerm?: string;
   onReset: () => void;
 }) {
   const title =
@@ -317,6 +366,10 @@ function EmptyState({
     ) : kind === 'palette' ? (
       <>
         Nada aqui veste a sua <span className="text-foil">cartela</span> — ainda.
+      </>
+    ) : kind === 'search' ? (
+      <>
+        Nenhum resultado para <span className="text-foil">&ldquo;{buscaTerm}&rdquo;</span>.
       </>
     ) : (
       <>
@@ -329,7 +382,9 @@ function EmptyState({
       ? 'A coleção está sendo atualizada. Enquanto isso, o Titi monta uma seleção pensada para você pelo WhatsApp.'
       : kind === 'palette'
         ? `Nenhuma peça${categoryName ? ` de ${categoryName}` : ''} foi indicada para o seu tom no momento. Veja a coleção completa ou peça uma curadoria direta ao Titi.`
-        : 'Veja a coleção completa ou peça uma curadoria direta ao Titi.';
+        : kind === 'search'
+          ? 'Não encontramos peças correspondentes aos termos pesquisados no acervo. Tente buscar por termos mais amplos ou explore toda a coleção.'
+          : 'Veja a coleção completa ou peça uma curadoria direta ao Titi.';
 
   return (
     <div className="panel relative mx-auto flex max-w-2xl flex-col items-center overflow-hidden rounded-3xl px-6 pb-14 pt-16 text-center sm:px-12">

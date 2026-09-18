@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -13,12 +13,14 @@ import {
   RefreshCw, 
   Star, 
   Check, 
+  CheckCircle,
   Award,
   ChevronRight
 } from 'lucide-react';
 import { useCatalog } from '@/lib/catalog';
 import { formatBRL } from '@/lib/format';
 import { getInstallmentTeaser } from '@/lib/installments';
+import { fetchReviews, type ProductReview, SEED_REVIEWS } from '@/lib/reviews';
 import { useCart } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
 import { Button } from '@/components/ui/Button';
@@ -52,16 +54,17 @@ const CATEGORIES = [
   },
 ];
 
-const REVIEWS = [
-  { name: 'Guilherme R.', city: 'Belo Horizonte/MG', comment: 'O caimento da calça de alfaiataria superou todas as expectativas. Regulador lateral perfeito e acabamento que não se encontra em shopping.', item: 'Calça Alfaiataria Regulador' },
-  { name: 'Rodrigo M.', city: 'São Paulo/SP', comment: 'A polo em tricô veste como uma luva. O tecido respira muito bem e não amassa fácil. Já virei cliente fixo.', item: 'Polo de Tricô' },
-  { name: 'Fernando S.', city: 'Rio de Janeiro/RJ', comment: 'Entrega rápida e embalagem de altíssimo padrão. A calça chino tem o comprimento e caimento perfeitos.', item: 'Chino Slim' },
-];
-
 export default function StoreHomePage() {
   const { products, loading } = useCatalog();
   const { add } = useCart();
   const { openOverlay } = useUI();
+  const [reviews, setReviews] = useState<ProductReview[]>(SEED_REVIEWS.slice(0, 6));
+
+  useEffect(() => {
+    fetchReviews().then((data) => {
+      if (data && data.length > 0) setReviews(data.slice(0, 6));
+    });
+  }, []);
 
   // Peças em destaque para o Carrossel 3D do Hero
   const featuredLeads = products.filter((p) => p.is_featured && p.image_url);
@@ -366,23 +369,36 @@ export default function StoreHomePage() {
       <section className="py-16 sm:py-24 border-b border-line">
         <div className="container-luxe">
           <div className="mb-12 text-center max-w-md mx-auto">
-            <p className="eyebrow">Depoimentos</p>
+            <p className="eyebrow">Depoimentos Verificados</p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl text-ivory">
               A Opinião de Quem <span className="text-foil">Veste Titi&apos;s Store</span>
             </h2>
           </div>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-            {REVIEWS.map((rev, i) => (
+            {reviews.map((rev) => (
               <div
-                key={i}
-                className="rounded-2xl border border-line bg-surface/60 p-6 space-y-4 flex flex-col justify-between"
+                key={rev.id}
+                className="rounded-2xl border border-line bg-surface/60 p-6 space-y-4 flex flex-col justify-between hover:border-gold/30 transition-colors"
               >
                 <div className="space-y-3">
-                  <div className="flex gap-1 text-gold">
-                    {[...Array(5)].map((_, idx) => (
-                      <Star key={idx} className="h-4 w-4 fill-gold text-gold" />
-                    ))}
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-1 text-gold">
+                      {[...Array(5)].map((_, idx) => (
+                        <Star
+                          key={idx}
+                          className={`h-4 w-4 ${
+                            idx < rev.rating ? 'fill-gold text-gold' : 'text-line'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    {rev.isVerifiedPurchase && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        <CheckCircle className="h-3 w-3" />
+                        <span>Compra Verificada</span>
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-mist leading-relaxed italic">
                     &ldquo;{rev.comment}&rdquo;
@@ -391,10 +407,14 @@ export default function StoreHomePage() {
 
                 <div className="border-t border-line/60 pt-3 flex items-center justify-between text-xs">
                   <div>
-                    <h4 className="font-bold text-ivory">{rev.name}</h4>
-                    <p className="text-[10px] text-mist">{rev.city}</p>
+                    <h4 className="font-bold text-ivory">{rev.customerName}</h4>
+                    <p className="text-[10px] text-mist">{rev.customerCity}</p>
                   </div>
-                  <span className="text-[10px] text-gold font-semibold uppercase">{rev.item}</span>
+                  {rev.productName && (
+                    <span className="text-[10px] text-gold font-semibold uppercase line-clamp-1 max-w-[140px] text-right">
+                      {rev.productName}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

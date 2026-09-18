@@ -21,7 +21,9 @@ import {
 import { useCart } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
 import { useSession } from '@/providers/SessionProvider';
-import { cn } from '@/lib/format';
+import { cn, formatBRL } from '@/lib/format';
+import { useCatalog, searchProducts } from '@/lib/catalog';
+import { getInstallmentTeaser } from '@/lib/installments';
 
 const STORE_NAV_LINKS = [
   { label: 'Novidades', href: '/colecao' },
@@ -37,12 +39,18 @@ export function StoreHeader() {
   const { count } = useCart();
   const { openOverlay } = useUI();
   const { user, profile, isAdmin, hasAccess, signOut } = useSession();
+  const { products } = useCatalog();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
+
+  const searchResults = React.useMemo(() => searchProducts(products, searchQuery), [products, searchQuery]);
+  const showDropdown = (searchFocused || searchQuery.trim().length > 0) && searchQuery.trim().length > 0;
 
   useEffect(() => {
     if (!userMenuOpen) return;
@@ -63,7 +71,35 @@ export function StoreHeader() {
   }, [userMenuOpen]);
 
   useEffect(() => {
+    if (!showDropdown) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(target) &&
+        (!mobileSearchRef.current || !mobileSearchRef.current.contains(target))
+      ) {
+        setSearchFocused(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showDropdown]);
+
+  useEffect(() => {
     setUserMenuOpen(false);
+    setSearchFocused(false);
+    setSearchQuery('');
+    setMobileMenuOpen(false);
   }, [pathname]);
 
   const displayName = profile?.full_name?.trim() || user?.email?.split('@')[0] || 'Sua conta';
@@ -146,21 +182,147 @@ export function StoreHeader() {
           {/* Ações Direitas (Busca, Conta, Carrinho) */}
           <div className="flex items-center gap-2 sm:gap-4">
             
-            {/* Campo de Busca Rápida */}
-            <div className="relative hidden md:block w-44 lg:w-56">
-              <input
-                type="text"
-                placeholder="Buscar roupas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && searchQuery.trim()) {
-                    window.location.href = `/colecao?busca=${encodeURIComponent(searchQuery.trim())}`;
-                  }
-                }}
-                className="w-full bg-surface border border-line rounded-full pl-9 pr-3 py-1.5 text-xs text-ivory placeholder-mist focus:outline-none focus:border-gold"
-              />
-              <Search className="absolute left-3 top-2 h-3.5 w-3.5 text-mist" />
+            {/* Campo de Busca Rápida com Resultados em Tempo Real */}
+            <div ref={searchContainerRef} className="relative hidden md:block w-48 lg:w-64 focus-within:w-72 lg:focus-within:w-80 transition-all duration-300">
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  placeholder="Buscar roupas, peças..."
+                  value={searchQuery}
+                  onFocus={() => setSearchFocused(true)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      setSearchFocused(false);
+                      window.location.href = `/colecao?busca=${encodeURIComponent(searchQuery.trim())}`;
+                    }
+                  }}
+                  className="w-full bg-surface border border-line rounded-full pl-9 pr-8 py-1.5 text-xs text-ivory placeholder-mist focus:outline-none focus:border-gold transition-all"
+                />
+                <Search className="absolute left-3 top-2 h-3.5 w-3.5 text-mist pointer-events-none" />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSearchFocused(false);
+                    }}
+                    className="absolute right-2.5 top-2 p-0.5 text-mist hover:text-ivory rounded-full transition-colors"
+                    title="Limpar busca"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Dropdown de Resultados em Tempo Real */}
+              <AnimatePresence>
+                {showDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                    transition={{ duration: 0.18 }}
+                    className="absolute right-0 top-full mt-2 w-80 lg:w-96 rounded-2xl border border-line-gold/40 bg-surface/98 shadow-2xl backdrop-blur-2xl z-50 overflow-hidden"
+                  >
+                    <div className="border-b border-line px-4 py-2 flex items-center justify-between text-[11px] font-semibold text-mist bg-surface-2/40">
+                      <span>Resultados em tempo real</span>
+                      <span className="rounded-full bg-gold/10 text-gold px-2 py-0.5 text-[10px] font-bold">
+                        {searchResults.length} {searchResults.length === 1 ? 'item' : 'itens'}
+                      </span>
+                    </div>
+
+                    <div className="max-h-[340px] overflow-y-auto divide-y divide-line/40 no-scrollbar">
+                      {searchResults.length > 0 ? (
+                        searchResults.slice(0, 6).map((product) => (
+                          <Link
+                            key={product.id}
+                            href={`/produtos/${product.slug || product.id}`}
+                            onClick={() => {
+                              setSearchFocused(false);
+                              setSearchQuery('');
+                            }}
+                            className="flex items-center gap-3 p-3 hover:bg-gold/10 transition-colors group"
+                          >
+                            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-line-gold/30 bg-obsidian">
+                              {product.image_url ? (
+                                <Image
+                                  src={product.image_url}
+                                  alt={product.name}
+                                  fill
+                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-mist text-[10px]">
+                                  Titi&apos;s
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-bold text-ivory group-hover:text-gold transition-colors">
+                                {product.name}
+                              </p>
+                              <div className="flex items-center gap-2 text-[10px] text-mist mt-0.5">
+                                <span className="font-semibold text-parchment">{product.category}</span>
+                                {product.color_name && (
+                                  <>
+                                    <span>·</span>
+                                    <span>{product.color_name}</span>
+                                  </>
+                                )}
+                              </div>
+                              <div className="mt-1 flex items-baseline gap-2">
+                                <span className="text-xs font-black text-gold">
+                                  {formatBRL(product.price_cents)}
+                                </span>
+                                {product.price_cents && (
+                                  <span className="text-[9px] text-mist truncate">
+                                    {getInstallmentTeaser(product.price_cents)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <ArrowRight className="h-3.5 w-3.5 text-mist opacity-0 group-hover:opacity-100 group-hover:text-gold transition-all shrink-0" />
+                          </Link>
+                        ))
+                      ) : (
+                        <div className="p-6 text-center">
+                          <p className="text-xs font-bold text-ivory">Nenhum produto encontrado</p>
+                          <p className="text-[11px] text-mist mt-1">
+                            Não encontramos peças para &ldquo;{searchQuery}&rdquo;.
+                          </p>
+                          <Link
+                            href="/colecao"
+                            onClick={() => {
+                              setSearchFocused(false);
+                              setSearchQuery('');
+                            }}
+                            className="mt-3 inline-block text-xs font-bold text-gold hover:underline"
+                          >
+                            Ver acervo completo
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+
+                    {searchResults.length > 0 && (
+                      <div className="border-t border-line p-2 bg-surface-2/30">
+                        <Link
+                          href={`/colecao?busca=${encodeURIComponent(searchQuery.trim())}`}
+                          onClick={() => {
+                            setSearchFocused(false);
+                            setSearchQuery('');
+                          }}
+                          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gold/10 hover:bg-gold hover:text-obsidian py-2 text-xs font-bold text-gold transition-all"
+                        >
+                          <span>Ver todos os {searchResults.length} produtos na coleção</span>
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Conta / Perfil do Usuário com Dropdown Completo */}
@@ -324,20 +486,88 @@ export function StoreHeader() {
       {/* Menu Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="lg:hidden border-t border-line bg-obsidian/98 p-6 space-y-4 animate-in slide-in-from-top-4 duration-200">
-          <div className="relative w-full mb-4">
-            <input
-              type="text"
-              placeholder="Buscar camisa, blazer, calça..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && searchQuery.trim()) {
-                  window.location.href = `/colecao?busca=${encodeURIComponent(searchQuery.trim())}`;
-                }
-              }}
-              className="w-full bg-surface border border-line rounded-xl pl-10 pr-4 py-2.5 text-xs text-ivory"
-            />
-            <Search className="absolute left-3.5 top-3 h-4 w-4 text-mist" />
+          <div ref={mobileSearchRef} className="relative w-full mb-4">
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                placeholder="Buscar camisa, blazer, calça..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchQuery.trim()) {
+                    setMobileMenuOpen(false);
+                    window.location.href = `/colecao?busca=${encodeURIComponent(searchQuery.trim())}`;
+                  }
+                }}
+                className="w-full bg-surface border border-line rounded-xl pl-10 pr-9 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
+              />
+              <Search className="absolute left-3.5 top-3 h-4 w-4 text-mist pointer-events-none" />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-2.5 p-1 text-mist hover:text-ivory"
+                  title="Limpar busca"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Resultados em Tempo Real no Mobile */}
+            {searchQuery.trim().length > 0 && (
+              <div className="mt-2 rounded-xl border border-line-gold/30 bg-surface/98 max-h-64 overflow-y-auto divide-y divide-line/40 no-scrollbar shadow-xl">
+                {searchResults.length > 0 ? (
+                  searchResults.slice(0, 5).map((product) => (
+                    <Link
+                      key={product.id}
+                      href={`/produtos/${product.slug || product.id}`}
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setSearchQuery('');
+                      }}
+                      className="flex items-center gap-3 p-2.5 hover:bg-gold/10 transition-colors"
+                    >
+                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-line-gold/30 bg-obsidian">
+                        {product.image_url ? (
+                          <Image src={product.image_url} alt={product.name} fill className="object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[9px] text-mist">Titi&apos;s</div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-bold text-ivory">{product.name}</p>
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="text-[11px] text-gold font-black">{formatBRL(product.price_cents)}</span>
+                          {product.price_cents && (
+                            <span className="text-[9px] text-mist truncate">
+                              {getInstallmentTeaser(product.price_cents)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <ArrowRight className="h-3.5 w-3.5 text-mist shrink-0" />
+                    </Link>
+                  ))
+                ) : (
+                  <div className="p-4 text-center text-xs text-mist">
+                    Nenhum produto encontrado para &ldquo;{searchQuery}&rdquo;.
+                  </div>
+                )}
+                {searchResults.length > 0 && (
+                  <Link
+                    href={`/colecao?busca=${encodeURIComponent(searchQuery.trim())}`}
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setSearchQuery('');
+                    }}
+                    className="block p-2.5 text-center text-xs font-bold text-gold bg-gold/10 hover:bg-gold hover:text-obsidian transition-colors"
+                  >
+                    Ver todos os {searchResults.length} resultados →
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col space-y-3">

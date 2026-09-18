@@ -44,6 +44,52 @@ export function invalidateCatalog() {
   listeners.forEach((fn) => fn());
 }
 
+/** Inscrição ativa em tempo real com Supabase Realtime para sincronização imediata */
+let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+
+export function initCatalogRealtime() {
+  if (typeof window === 'undefined' || realtimeChannel) return;
+
+  try {
+    realtimeChannel = supabase
+      .channel('catalog-products-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        (payload) => {
+          console.info('[catalog realtime] Atualização detectada em public.products:', payload.eventType);
+          invalidateCatalog();
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.info('[catalog realtime] Conectado ao Supabase Realtime com sucesso.');
+        }
+      });
+  } catch (err) {
+    console.warn('[catalog realtime] Falha ao registrar canal:', err);
+  }
+}
+
+/** Função utilitária de busca rápida e resiliente no catálogo */
+export function searchProducts(products: Product[], query: string): Product[] {
+  const clean = (query || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (!clean) return [];
+
+  const terms = clean.split(/\s+/).filter(Boolean);
+
+  return products.filter((p) => {
+    const nameNorm = (p.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const catNorm = (p.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const descNorm = (p.description || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const colorNorm = (p.color_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const slugNorm = (p.slug || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const haystack = `${nameNorm} ${catNorm} ${descNorm} ${colorNorm} ${slugNorm}`;
+
+    return terms.every((term) => haystack.includes(term));
+  });
+}
+
 /** Catálogo público (somente peças ativas), compartilhado entre componentes. */
 export function useCatalog() {
   const [state, setState] = useState<{ products: Product[]; source: CatalogSource; loading: boolean }>({
@@ -68,9 +114,10 @@ export function useCatalog() {
 
   useEffect(() => {
     alive.current = true;
+    initCatalogRealtime();
     fetchCatalog().then(apply);
-    // invalidateCatalog() já descartou o cache: todos os ouvintes compartilham a mesma nova busca.
-    const listener = () => reload(false);
+    // invalidateCatalog() descarta o cache e notifica ouvintes com busca forçada atualizada
+    const listener = () => reload(true);
     listeners.add(listener);
     return () => {
       alive.current = false;

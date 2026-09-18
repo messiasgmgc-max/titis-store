@@ -20,6 +20,7 @@ import { getInstallmentTeaser } from '@/lib/installments';
 import { useCart } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
 import { Button } from '@/components/ui/Button';
+import { ProductReviewsSection } from '@/components/store/ProductReviewsSection';
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -271,6 +272,9 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
             </div>
 
           </div>
+
+          {/* Seção de Avaliações Reais */}
+          <ProductReviewsSection productId={product.id} productName={product.name} />
         </div>
       </main>
   );
