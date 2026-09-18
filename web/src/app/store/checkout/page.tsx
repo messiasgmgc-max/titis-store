@@ -38,6 +38,23 @@ interface ShippingOption {
 
 const STORAGE_KEY = 'titis_checkout_customer';
 
+function formatCardNumber(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 16);
+  return digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+}
+
+function formatCardExpiry(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 4);
+  if (digits.length >= 3) {
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  }
+  return digits;
+}
+
+function formatCardCvv(val: string): string {
+  return val.replace(/\D/g, '').slice(0, 4);
+}
+
 export default function TransparentCheckoutPage() {
   const router = useRouter();
   const { items, subtotalCents, setQuantity, remove, clear } = useCart();
@@ -433,36 +450,67 @@ export default function TransparentCheckoutPage() {
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+
+    const cleanCpf = cpf.replace(/\D/g, '');
+    if (cleanCpf.length !== 11) {
+      setErrorMessage('Por favor, informe um CPF válido com 11 dígitos para emissão da nota fiscal e envio.');
+      return;
+    }
+
+    if (!selectedShipping) {
+      setErrorMessage('Por favor, selecione uma opção de envio dos Correios ou Jadlog.');
+      return;
+    }
+
+    if (paymentMethod === 'credit_card') {
+      const cleanCard = cardNumber.replace(/\D/g, '');
+      if (cleanCard.length < 13) {
+        setErrorMessage('Por favor, informe o número completo do cartão de crédito.');
+        return;
+      }
+      if (!cardHolder.trim()) {
+        setErrorMessage('Por favor, informe o nome impresso no cartão.');
+        return;
+      }
+      const cleanExp = cardExpiry.replace(/\D/g, '');
+      if (cleanExp.length < 4) {
+        setErrorMessage('Por favor, informe a validade do cartão no formato MM/AA.');
+        return;
+      }
+      if (cardCvv.replace(/\D/g, '').length < 3) {
+        setErrorMessage('Por favor, informe o código de segurança (CVV) do cartão com 3 ou 4 dígitos.');
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         amountCents: grandTotalCents,
         paymentMethod,
         payer: {
-          firstName,
-          lastName,
-          email,
-          cpf,
-          phone,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          cpf: cleanCpf,
+          phone: phone.trim(),
         },
         shipping: {
-          cep,
-          street,
-          number,
-          complement,
-          neighborhood,
-          city,
-          state,
+          cep: cep.trim(),
+          street: street.trim(),
+          number: number.trim(),
+          complement: complement.trim(),
+          neighborhood: neighborhood.trim(),
+          city: city.trim(),
+          state: state.trim(),
         },
-        shippingService: selectedShipping
-          ? {
-              id: selectedShipping.id,
-              name: `${selectedShipping.carrier} - ${selectedShipping.name}`,
-              priceCents: selectedShipping.priceCents,
-              deliveryDays: selectedShipping.deliveryDays,
-            }
-          : undefined,
+        shippingService: {
+          id: selectedShipping.id,
+          name: `${selectedShipping.carrier} - ${selectedShipping.name}`,
+          priceCents: selectedShipping.priceCents,
+          deliveryDays: selectedShipping.deliveryDays,
+        },
         items: items.map((i) => ({
           name: i.name,
           priceCents: i.priceCents,
@@ -470,7 +518,17 @@ export default function TransparentCheckoutPage() {
           size: i.size,
           color: i.color,
         })),
-        installments: paymentMethod === 'credit_card' ? installments : undefined,
+        ...(paymentMethod === 'credit_card'
+          ? {
+              card: {
+                cardNumber: cardNumber.replace(/\D/g, ''),
+                cardHolder: cardHolder.trim(),
+                cardExpiry: cardExpiry.trim(),
+                cardCvv: cardCvv.trim(),
+              },
+              installments,
+            }
+          : {}),
       };
 
       const res = await fetch('/api/checkout/transparent', {
@@ -1011,8 +1069,9 @@ export default function TransparentCheckoutPage() {
                         type="text"
                         required
                         placeholder="0000 0000 0000 0000"
+                        maxLength={19}
                         value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
+                        onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
                         className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                       />
                     </div>
@@ -1036,8 +1095,9 @@ export default function TransparentCheckoutPage() {
                           type="text"
                           required
                           placeholder="12/28"
+                          maxLength={5}
                           value={cardExpiry}
-                          onChange={(e) => setCardExpiry(e.target.value)}
+                          onChange={(e) => setCardExpiry(formatCardExpiry(e.target.value))}
                           className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                         />
                       </div>
@@ -1047,8 +1107,9 @@ export default function TransparentCheckoutPage() {
                           type="text"
                           required
                           placeholder="123"
+                          maxLength={4}
                           value={cardCvv}
-                          onChange={(e) => setCardCvv(e.target.value)}
+                          onChange={(e) => setCardCvv(formatCardCvv(e.target.value))}
                           className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-2.5 text-xs text-ivory focus:outline-none focus:border-gold"
                         />
                       </div>

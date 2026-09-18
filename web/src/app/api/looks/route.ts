@@ -201,12 +201,14 @@ function buildPrompt(req: StyleRequest, season: SeasonProfile, catalog: Product[
     'DIRETRIZES DE CRIAÇÃO DOS LOOKS',
     '1. Crie exatamente 3 looks completos e distintos: um clássico/sóbrio, um contemporâneo versátil e um de assinatura com presença marcante.',
     '2. Cada look deve conter de 3 a 5 peças essenciais (slots: sobreposicao, superior, inferior, calcado, acessorio).',
-    '3. Peça do acervo: atribua productId com o id exato do catálogo. Peça genérica: productId null e nome descritivo refinado.',
-    '4. As peças próximas ao rosto (superior e sobreposição) DEVEM valorizar a colorimetria do cliente, usando as cores da cartela sazonal ou neutros autorizados.',
-    '5. As peças inferiores (calça e calçado) devem sustentar o look com os neutros de base.',
-    '6. NUNCA use cores da lista de cores proibidas.',
-    '7. Adapte o corte, caimento e tecidos à biometria, biotipo e clima informados.',
-    '8. title até 40 caracteres; tagline até 90; rationale até 280 (explicando como o look valoriza a colorimetria facial e a silhueta do cliente para o evento); tip até 160 (dica de alfaiate específica de corte, barra, caimento ou truque de estilo).',
+    '3. Peça do acervo: atribua productId com o id exato do catálogo e USE EXATAMENTE o "name", a "color" e o "hex" daquela peça física do acervo. NUNCA invente uma cor diferente para um produto real (ex: se o blazer da loja é Bege Areia #D2B58C, você não pode dizer que ele é azul ou vinho).',
+    '4. Quando as peças do acervo harmonizarem com a cartela do cliente, PRIORIZE-AS para que o look possa ser comprado na loja.',
+    '5. Se o look precisar de uma peça em cor ou corte que não exista no acervo da loja, use productId: null e descreva a peça recomendada.',
+    '6. As peças próximas ao rosto (superior e sobreposição) DEVEM valorizar a colorimetria do cliente, usando as cores da cartela sazonal ou neutros autorizados.',
+    '7. As peças inferiores (calça e calçado) devem sustentar o look com os neutros de base.',
+    '8. NUNCA use cores da lista de cores proibidas.',
+    '9. Adapte o corte, caimento e tecidos à biometria, biotipo e clima informados.',
+    '10. title até 40 caracteres; tagline até 90; rationale até 280 (explicando como o look valoriza a colorimetria facial e a silhueta do cliente para o evento); tip até 160 (dica de alfaiate específica de corte, barra, caimento ou truque de estilo).',
     '',
     'FORMATO DE RESPOSTA (JSON puro)',
     '{"looks":[{"title":"","tagline":"","rationale":"","tip":"","formality":3,"pieces":[{"slot":"superior","name":"","color":"","hex":"#000000","fabric":"","productId":null}]}]}',
@@ -235,6 +237,16 @@ function normalizePieces(value: unknown, byId: Map<string, Product>, season: Sea
     let product = rawId ? byId.get(rawId) : undefined;
     // Id que não corresponde ao slot indicado costuma ser engano do modelo: mantém a peça genérica.
     if (product && modelSlot && product.slot !== modelSlot) product = undefined;
+
+    // Se o modelo associou um productId mas gerou um hex ou cor completamente diferente do produto real,
+    // desvincula o produto para evitar exibir foto de uma cor diferente do que o texto recomenda.
+    if (product && entry.hex) {
+      const entryHex = normalizeHex(entry.hex);
+      const prodHex = normalizeHex(product.hex_color);
+      if (entryHex && prodHex && deltaE(entryHex, prodHex) > 35) {
+        product = undefined;
+      }
+    }
 
     const slot = product?.slot ?? modelSlot;
     if (!slot) continue;

@@ -102,15 +102,23 @@ async function mpFetch(path: string, init: RequestInit & { idempotencyKey?: stri
         detail = anyData.error;
       }
     }
-    if (!detail) detail = `HTTP ${res.status}`;
-
-    // Tratamento de erro clássico de teste: vendedor pagando a si mesmo via Pix
-    if (
-      detail.toLowerCase().includes("can't be equal to the collector") ||
-      detail.toLowerCase().includes('collector')
-    ) {
+    // Tratamento de erros comuns do Mercado Pago
+    const lowerDetail = detail.toLowerCase();
+    if (lowerDetail.includes("can't be equal to the collector") || lowerDetail.includes('collector')) {
       detail =
-        'O comprador não pode usar o mesmo e-mail/CPF cadastrado na conta do vendedor no Mercado Pago. Teste com outro e-mail e CPF.';
+        'O comprador não pode usar o mesmo e-mail/CPF cadastrado na conta do vendedor no Mercado Pago. Teste com outro e-mail e CPF de teste.';
+    } else if (lowerDetail.includes('identification.number') || lowerDetail.includes('invalid parameter: payer.identification')) {
+      detail = 'O CPF informado é inválido perante o Mercado Pago. Por favor, confira os 11 dígitos do seu CPF.';
+    } else if (lowerDetail.includes('invalid_token') || lowerDetail.includes('token not found') || lowerDetail.includes('token can not be empty')) {
+      detail = 'Não foi possível validar os dados do cartão. Verifique o número, validade e código de segurança (CVV).';
+    } else if (lowerDetail.includes('cc_rejected_bad_filled_security_code')) {
+      detail = 'Código de segurança (CVV) do cartão incorreto.';
+    } else if (lowerDetail.includes('cc_rejected_bad_filled_date')) {
+      detail = 'Data de validade do cartão incorreta ou vencida.';
+    } else if (lowerDetail.includes('cc_rejected_insufficient_amount')) {
+      detail = 'Limite insuficiente no cartão de crédito.';
+    } else if (lowerDetail.includes('cc_rejected_call_for_authorize')) {
+      detail = 'Transação não autorizada pelo banco emissor do cartão. Autorize no aplicativo do banco ou pague via Pix.';
     }
 
     throw new MercadoPagoError(`Mercado Pago recusou a requisição: ${detail}`, res.status);
@@ -269,6 +277,13 @@ export function verifyWebhookSignature(req: Request, dataId: string): boolean {
 // Pagamento Transparente (Pix com QR Code & Cartão de Crédito)
 // ------------------------------------------------------------
 
+export interface CardDetails {
+  cardNumber: string;
+  cardHolder: string;
+  cardExpiry: string; // MM/AA ou MM/AAAA
+  cardCvv: string;
+}
+
 export interface TransparentPaymentInput {
   orderId: string;
   amountCents: number;
@@ -276,11 +291,12 @@ export interface TransparentPaymentInput {
   payer: {
     email: string;
     firstName: string;
-    lastName: string;
+    lastName?: string;
     cpf: string;
     phone?: string;
   };
   cardToken?: string;
+  card?: CardDetails;
   paymentMethodId?: string;
   installments?: number;
   origin: string;
@@ -295,6 +311,51 @@ export interface TransparentPaymentResult {
   ticketUrl?: string | null;
 }
 
+/** Detecta a bandeira do cartão a partir dos primeiros dígitos. */
+export function detectCardBrand(cardNumber: string): string {
+  const clean = cardNumber.replace(/\D/g, '');
+  if (/^4/.test(clean)) return 'visa';
+  if (/^(5[1-5]|2[2-7])/.test(clean)) return 'master';
+  if (/^(4011|4389|4514|4576|5041|5066|5067|5090|6277|6362|6363)/.test(clean)) return 'elo';
+  if (/^3[47]/.test(clean)) return 'amex';
+  if (/^(606282|3841)/.test(clean)) return 'hipercard';
+  return 'master';
+}
+
+/** Cria um token de cartão de uso único no Mercado Pago (/v1/card_tokens). */
+export async function createCardToken(card: CardDetails, cpf: string): Promise<string> {
+  const cleanNumber = card.cardNumber.replace(/\D/g, '');
+  const cleanCpf = cpf.replace(/\D/g, '');
+  const parts = card.cardExpiry.split(/[\/\-\.]/).map((s) => s.trim());
+  const month = parseInt(parts[0] || '1', 10);
+  let year = parseInt(parts[1] || '30', 10);
+  if (year < 100) year += 2000;
+
+  const body = {
+    card_number: cleanNumber,
+    expiration_month: month,
+    expiration_year: year,
+    security_code: card.cardCvv.replace(/\D/g, ''),
+    cardholder: {
+      name: card.cardHolder.trim() || 'Titular do Cartao',
+      identification: {
+        type: 'CPF',
+        number: cleanCpf,
+      },
+    },
+  };
+
+  const raw = (await mpFetch('/v1/card_tokens', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })) as Record<string, unknown> | null;
+
+  if (!raw || typeof raw.id !== 'string') {
+    throw new MercadoPagoError('Não foi possível validar o cartão no Mercado Pago.', 400);
+  }
+  return raw.id;
+}
+
 export async function createTransparentPayment(
   input: TransparentPaymentInput,
 ): Promise<TransparentPaymentResult> {
@@ -302,26 +363,56 @@ export async function createTransparentPayment(
   const secure = base.startsWith('https://');
 
   const cleanCpf = input.payer.cpf.replace(/\D/g, '');
+  if (cleanCpf.length !== 11) {
+    throw new MercadoPagoError('O CPF precisa conter exatamente 11 dígitos numéricos.', 400);
+  }
+
+  // Decomposição segura do nome para garantir que first_name e last_name existam
+  const fullPayerName = `${input.payer.firstName || ''} ${input.payer.lastName || ''}`.trim();
+  const nameParts = fullPayerName.split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] || 'Cliente';
+  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Silva';
+
+  let token = input.cardToken;
+  let paymentMethodId = input.paymentMethodId;
+
+  if (input.paymentMethod === 'credit_card') {
+    if (!token && input.card) {
+      token = await createCardToken(input.card, cleanCpf);
+    }
+    if (!token) {
+      throw new MercadoPagoError('Dados do cartão incompletos. Informe número, validade e CVV.', 400);
+    }
+    if (!paymentMethodId && input.card?.cardNumber) {
+      paymentMethodId = detectCardBrand(input.card.cardNumber);
+    }
+    if (!paymentMethodId) paymentMethodId = 'master';
+  } else {
+    paymentMethodId = 'pix';
+  }
 
   const payload: Record<string, unknown> = {
-    transaction_amount: input.amountCents / 100,
+    transaction_amount: Number((input.amountCents / 100).toFixed(2)),
     description: `Pedido #${input.orderId} · Titi's Store`,
-    payment_method_id: input.paymentMethod === 'pix' ? 'pix' : input.paymentMethodId || 'master',
+    payment_method_id: paymentMethodId,
     external_reference: input.orderId,
     payer: {
-      email: input.payer.email,
-      first_name: input.payer.firstName,
-      last_name: input.payer.lastName,
+      email: input.payer.email.trim(),
+      first_name: firstName,
+      last_name: lastName,
       identification: {
         type: 'CPF',
         number: cleanCpf,
       },
     },
+    ...(input.paymentMethod === 'pix'
+      ? { date_of_expiration: new Date(Date.now() + 30 * 60 * 1000).toISOString() }
+      : {}),
     ...(secure ? { notification_url: `${base}/api/webhooks/mercadopago` } : {}),
   };
 
-  if (input.paymentMethod === 'credit_card' && input.cardToken) {
-    payload.token = input.cardToken;
+  if (input.paymentMethod === 'credit_card') {
+    payload.token = token;
     payload.installments = Number(input.installments || 1);
   }
 

@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
       shipping,
       shippingService,
       cardToken,
+      card,
       paymentMethodId,
       installments,
     } = body;
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
       paymentMethod,
       payer,
       cardToken,
+      card,
       paymentMethodId,
       installments,
       origin: siteOrigin(req),

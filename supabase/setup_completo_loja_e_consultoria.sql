@@ -730,7 +730,7 @@ insert into public.products (
 )
 select 'blazer-alpha', 'Blazer Alpha', 'Alfaiataria', 'sobreposicao',
        'Blazer alfaitaria',
-       'Lã fria e elastano', 'Azul Marinho Nobre', '#1B2A4A', '/produtos/4a978983-bb1a-4773-9ff2-a27ec7104859.jpeg', array['/produtos/ff36ef76-aacd-44fb-bacf-7894559778ff.jpeg', '/produtos/06421e63-91f1-4ca6-aa7e-3edf7274e59c.jpeg', '/produtos/e64dad73-5e4b-43d3-91e0-ba007fefe906.jpeg', '/produtos/0931c042-3fa9-4672-8043-16bbabaf5130.jpeg', '/produtos/dd0fcaac-e2a3-4dfd-9fe7-6a25cdcbecdf.jpeg', '/produtos/cb8db3bc-adef-415e-a3d0-42155d4d38b4.jpeg', '/produtos/eabd5432-85c8-4928-a0d7-59648bd620e6.jpeg', '/produtos/05c5a834-5059-4eec-9e9b-181afe52ae1c.jpeg']::text[],
+       'Lã fria e elastano', 'Bege Areia', '#D2B58C', '/produtos/4a978983-bb1a-4773-9ff2-a27ec7104859.jpeg', array['/produtos/ff36ef76-aacd-44fb-bacf-7894559778ff.jpeg', '/produtos/06421e63-91f1-4ca6-aa7e-3edf7274e59c.jpeg', '/produtos/e64dad73-5e4b-43d3-91e0-ba007fefe906.jpeg', '/produtos/0931c042-3fa9-4672-8043-16bbabaf5130.jpeg', '/produtos/dd0fcaac-e2a3-4dfd-9fe7-6a25cdcbecdf.jpeg', '/produtos/cb8db3bc-adef-415e-a3d0-42155d4d38b4.jpeg', '/produtos/eabd5432-85c8-4928-a0d7-59648bd620e6.jpeg', '/produtos/05c5a834-5059-4eec-9e9b-181afe52ae1c.jpeg']::text[],
        array['P', 'M', 'G', 'GG']::text[], '{}'::text[],
        array['trabalho', 'casual', 'barzinho', 'jantar', 'festa']::text[], '{}'::text[],
        4, false, 150, true, 65999
@@ -788,9 +788,9 @@ insert into public.products (
   slug, name, category, slot, description, fabric, color_name, hex_color, image_url, gallery,
   sizes, skin_tones, occasions, climates, formality, is_featured, sort_order, is_active, price_cents
 )
-select 'alfaiataria-tech', 'Alfaiataria tech', 'Alfaiataria', 'sobreposicao',
+select 'alfaiataria-tech', 'Alfaiataria tech', 'Calças', 'inferior',
        'Calça alfaiataria tech com ajustes',
-       'Lã fria e elastano', 'Azul Marinho Nobre', '#1B2A4A', '/produtos/IMG_3133.jpeg', array['/produtos/IMG_3134.jpeg', '/produtos/IMG_3137.jpeg', '/produtos/IMG_3135.jpeg']::text[],
+       'Lã fria e elastano', 'Preto', '#101114', '/produtos/IMG_3133.jpeg', array['/produtos/IMG_3134.jpeg', '/produtos/IMG_3137.jpeg', '/produtos/IMG_3135.jpeg']::text[],
        array['P', 'M', 'G', 'GG']::text[], '{}'::text[],
        array['trabalho', 'casual', 'barzinho', 'jantar', 'festa']::text[], '{}'::text[],
        4, false, 200, true, 35999
@@ -1040,9 +1040,9 @@ insert into public.products (
   slug, name, category, slot, description, fabric, color_name, hex_color, image_url, gallery,
   sizes, skin_tones, occasions, climates, formality, is_featured, sort_order, is_active, price_cents
 )
-select 'bold-carbon', 'Bold Carbon', 'Alfaiataria', 'sobreposicao',
-       '',
-       'Lã fria e elastano', 'Azul Marinho Nobre', '#1B2A4A', '/produtos/IMG_3660.jpeg', '{}'::text[],
+select 'bold-carbon', 'Bold Carbon', 'Calçados', 'calcado',
+       'Sneaker minimalista em couro nobuck preto carbono com solado ergonômico.',
+       'Couro nobuck legítimo', 'Preto / Carbono', '#211F22', '/produtos/IMG_3660.jpeg', '{}'::text[],
        array['P', 'M', 'G', 'GG']::text[], '{}'::text[],
        array['trabalho', 'casual', 'barzinho', 'jantar', 'festa']::text[], '{}'::text[],
        4, false, 410, true, 48999

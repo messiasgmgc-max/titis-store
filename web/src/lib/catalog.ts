@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from './supabaseClient';
 import { SEED_PRODUCTS } from './catalog-seed';
 import { normalizeProduct, sortProducts } from './products';
+import { deltaE } from './stylist/color';
 import type { LookPiece, Product } from './types';
 
 export { normalizeProduct, sortProducts } from './products';
@@ -90,7 +91,7 @@ export function findProduct(products: Product[], id: string | null | undefined):
 /**
  * Vincula inteligentemente qualquer peça gerada pelo Atelier a um produto real do catálogo.
  * Se a peça não tiver productId ou o id não for encontrado, busca o melhor produto do mesmo slot
- * por cor, nome e categoria, garantindo que toda recomendação tenha foto e preço real da loja.
+ * por cor, nome e categoria, garantindo que NUNCA exiba foto com cor destoante da recomendação.
  */
 export function matchProductForPiece(products: Product[], piece: LookPiece | null | undefined): Product | undefined {
   if (!piece || !products || products.length === 0) return undefined;
@@ -98,45 +99,70 @@ export function matchProductForPiece(products: Product[], piece: LookPiece | nul
   // 1. Busca direta por productId ou slug
   if (piece.productId) {
     const direct = products.find((p) => p.id === piece.productId || p.slug === piece.productId);
-    if (direct) return direct;
+    if (direct) {
+      // Se a peça especificou hex e o produto tem hex, valida que não haja discrepância visual grosseira
+      if (piece.hex && direct.hex_color) {
+        const dist = deltaE(piece.hex, direct.hex_color);
+        if (dist <= 35) return direct;
+      } else {
+        return direct;
+      }
+    }
   }
 
   // 2. Candidatos no mesmo slot
   const slotCandidates = products.filter((p) => p.is_active && p.slot === piece.slot);
   if (slotCandidates.length === 0) return undefined;
-  if (slotCandidates.length === 1) return slotCandidates[0];
 
   const pieceNameNorm = (piece.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const pieceColorNorm = (piece.color || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-  // 3. Pontuação de similaridade
-  const scored = slotCandidates.map((prod) => {
-    let score = 0;
-    const prodNameNorm = (prod.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const prodColorNorm = (prod.color_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const prodDescNorm = (prod.description || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // 3. Pontuação de similaridade estrita com trava de fidelidade cromática
+  const scored = slotCandidates
+    .map((prod) => {
+      let score = 0;
+      const prodNameNorm = (prod.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const prodColorNorm = (prod.color_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const prodDescNorm = (prod.description || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-    const words = pieceNameNorm.split(/\s+/).filter((w) => w.length >= 4);
-    for (const w of words) {
-      if (prodNameNorm.includes(w)) score += 40;
-      if (prodDescNorm.includes(w)) score += 15;
-    }
-
-    if (pieceColorNorm && prodColorNorm) {
-      if (prodColorNorm.includes(pieceColorNorm) || pieceColorNorm.includes(prodColorNorm)) {
-        score += 50;
+      // Cálculo de proximidade de cor perceptual (deltaE)
+      let colorDist = 999;
+      if (piece.hex && prod.hex_color) {
+        colorDist = deltaE(piece.hex, prod.hex_color);
       }
-    }
 
-    if (piece.hex && prod.hex_color && piece.hex.toLowerCase() === prod.hex_color.toLowerCase()) {
-      score += 30;
-    }
+      const colorsMatch = Boolean(
+        pieceColorNorm &&
+          prodColorNorm &&
+          (prodColorNorm.includes(pieceColorNorm) || pieceColorNorm.includes(prodColorNorm)),
+      );
 
-    if (prod.image_url) score += 10;
-    if (prod.is_featured) score += 5;
+      // Trava de cor: se o deltaE for alto (> 32) e os nomes das cores não coincidirem, REJEITA o produto
+      // Isso evita mostrar fotos de blazers beges quando o look pede blazer marinho ou vinho
+      if (colorDist > 32 && !colorsMatch) {
+        return { prod, score: -100 };
+      }
 
-    return { prod, score };
-  });
+      if (colorDist <= 10) score += 60;
+      else if (colorDist <= 20) score += 40;
+      else if (colorDist <= 32) score += 20;
+
+      if (colorsMatch) score += 40;
+
+      const words = pieceNameNorm.split(/\s+/).filter((w) => w.length >= 4);
+      for (const w of words) {
+        if (prodNameNorm.includes(w)) score += 30;
+        if (prodDescNorm.includes(w)) score += 10;
+      }
+
+      if (prod.image_url) score += 10;
+      if (prod.is_featured) score += 5;
+
+      return { prod, score };
+    })
+    .filter((item) => item.score >= 35); // Exige compatibilidade real comprovada
+
+  if (scored.length === 0) return undefined;
 
   scored.sort((a, b) => b.score - a.score);
   return scored[0]?.prod;
