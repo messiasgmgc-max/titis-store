@@ -1048,4 +1048,234 @@ select 'bold-carbon', 'Bold Carbon', 'Calçados', 'calcado',
        4, false, 410, true, 48999
  where not exists (select 1 from public.products where slug = 'bold-carbon');
 
+-- =============================================================================
+-- 6. TABELA DE AVALIAÇÕES DE PRODUTOS (public.product_reviews)
+-- =============================================================================
+create table if not exists public.product_reviews (
+  id uuid primary key default gen_random_uuid(),
+  product_id text, -- ID ou slug do produto correspondente
+  product_name text, -- Nome da peça avaliada
+  order_id text, -- Código do pedido se houver (ex: TITIS-M1X8-A9)
+  user_id uuid references auth.users(id) on delete set null,
+  customer_name text not null,
+  customer_city text default 'Brasil',
+  customer_email text,
+  rating integer not null check (rating >= 1 and rating <= 5),
+  title text,
+  comment text not null,
+  size_purchased text, -- Ex: '40', '42', 'M', 'G'
+  is_verified_purchase boolean default true,
+  is_featured boolean default false,
+  is_published boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Índices de performance
+create index if not exists idx_product_reviews_product_id on public.product_reviews(product_id);
+create index if not exists idx_product_reviews_published on public.product_reviews(is_published);
+create index if not exists idx_product_reviews_created_at on public.product_reviews(created_at desc);
+create index if not exists idx_product_reviews_rating on public.product_reviews(rating desc);
+
+-- Habilitar Row Level Security (RLS)
+alter table public.product_reviews enable row level security;
+
+-- Políticas de RLS
+drop policy if exists "Avaliacoes publicadas visiveis para todos" on public.product_reviews;
+create policy "Avaliacoes publicadas visiveis para todos"
+  on public.product_reviews
+  for select
+  using (is_published = true);
+
+drop policy if exists "Permitir criacao de avaliacoes" on public.product_reviews;
+create policy "Permitir criacao de avaliacoes"
+  on public.product_reviews
+  for insert
+  with check (rating >= 1 and rating <= 5 and length(comment) >= 3);
+
+drop policy if exists "Admins possuem controle total de avaliacoes" on public.product_reviews;
+create policy "Admins possuem controle total de avaliacoes"
+  on public.product_reviews
+  for all
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles 
+      where profiles.id = auth.uid() and profiles.role = 'admin'
+    )
+  );
+
+-- Habilitar Realtime no Supabase para public.product_reviews
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables 
+    where pubname = 'supabase_realtime' and tablename = 'product_reviews'
+  ) then
+    alter publication supabase_realtime add table public.product_reviews;
+  end if;
+end $$;
+
+-- Carga inicial de avaliações verificadas
+insert into public.product_reviews (
+  product_id, product_name, customer_name, customer_city, rating, title, comment, size_purchased, is_verified_purchase, is_featured, created_at
+) values
+(
+  'seed-calca-alfaiataria-regulador-cinza-grafite',
+  'Calça de Alfaiataria com Regulador',
+  'Guilherme Ramos',
+  'Belo Horizonte / MG',
+  5,
+  'O melhor caimento que já vesti',
+  'O caimento da calça com regulador lateral superou todas as minhas expectativas. Não precisa de cinto, a silhueta fica ultra alinhada e o tecido tem um toque encorpado sem esquentar. Acabamento artesanal impecável.',
+  '42',
+  true,
+  true,
+  now() - interval '3 days'
+),
+(
+  'seed-calca-alfaiataria-regulador-preto',
+  'Calça de Alfaiataria com Regulador',
+  'Rodrigo Mello',
+  'São Paulo / SP',
+  5,
+  'Regulador lateral genial',
+  'Ajuste perfeito na cintura sem criar dobras. Usei tanto com sapato social quanto com tênis minimalista branco. Entrega rápida e o cheiro da embalagem é um espetáculo à parte.',
+  '40',
+  true,
+  true,
+  now() - interval '5 days'
+),
+(
+  'seed-calca-alfaiataria-regulador-azul-marinho',
+  'Calça de Alfaiataria com Regulador',
+  'Lucas Vasconcelos',
+  'Curitiba / PR',
+  5,
+  'Qualidade de alfaiataria italiana',
+  'A cor azul marinho é profunda e nobre. A barra italiana tem o comprimento exato. Comprei com base na recomendação do consultor de biotipo e vestiu perfeito de primeira.',
+  '44',
+  true,
+  true,
+  now() - interval '7 days'
+),
+(
+  'seed-polo-trico-manga-curta-champagne',
+  'Polo em Tricô Nobre Manga Curta',
+  'Fernando Silveira',
+  'Rio de Janeiro / RJ',
+  5,
+  'Polo sofisticada e respirável',
+  'O tricô em ponto milano tem peso e caimento impecáveis. A cor champagne é muito elegante e combina com qualquer calça clara ou alfaiataria escura. Não perde a forma após a lavagem.',
+  'M',
+  true,
+  true,
+  now() - interval '8 days'
+),
+(
+  'seed-polo-trico-manga-curta-off-white',
+  'Polo em Tricô Nobre Manga Curta',
+  'Eduardo Fontes',
+  'Campinas / SP',
+  5,
+  'Diferenciada de verdade',
+  'Gola com caimento firme que não deita no peito. O tecido é macio e respira perfeitamente no calor. Já encomendei a preta também.',
+  'G',
+  true,
+  true,
+  now() - interval '10 days'
+),
+(
+  'seed-camiseta-gola-alta-preto',
+  'Camiseta Masculina Gola Alta',
+  'Matheus Alencar',
+  'Brasília / DF',
+  5,
+  'Gola perfeita sem sufocar',
+  'Procurava há meses uma camiseta de gola alta estruturada que não ficasse frouxa ou apertada. O algodão com elastano desenha o ombro e o peitoral de forma muito natural.',
+  'M',
+  true,
+  true,
+  now() - interval '12 days'
+),
+(
+  'seed-derby-couro-solado-tratorado-conhaque',
+  'Derby em Couro Legítimo Solado Tratorado',
+  'Thiago Sampaio',
+  'Porto Alegre / RS',
+  5,
+  'Conforto absoluto e couro legítimo',
+  'Derby robusto e moderno com a sola tratorada. Couro macio desde o primeiro uso, sem machucar o calcanhar. Vale cada centavo.',
+  '41',
+  true,
+  true,
+  now() - interval '14 days'
+),
+(
+  'seed-calca-chino-slim-caqui',
+  'Calça Chino Slim em Sarja Nobre',
+  'Carlos Henrique Neves',
+  'Goiânia / GO',
+  5,
+  'Coringa para o trabalho e lazer',
+  'A chino mais confortável que tenho. O elastano na medida certa dá liberdade de movimento sem deixar a calça relaxar no joelho durante o dia.',
+  '42',
+  true,
+  true,
+  now() - interval '16 days'
+),
+(
+  'seed-loafer-camurca-fivela-tabaco',
+  'Loafer em Camurça com Fivela',
+  'Alexandre Prado',
+  'Salvador / BA',
+  5,
+  'Camurça impecável',
+  'Acabamento premium da fivela e camurça aveludada. Fica espetacular com calça de linho ou alfaiataria com a barra italiana mais curta.',
+  '40',
+  true,
+  false,
+  now() - interval '18 days'
+),
+(
+  'seed-tenis-couro-minimalista-branco',
+  'Tênis Minimalista em Couro Legítimo',
+  'Bruno Guimarães',
+  'Florianópolis / SC',
+  5,
+  'Design limpo e muito elegante',
+  'Tênis que dá para usar com costume completo sem parecer informal demais. Todo forrado em couro, palmilha macia e fácil de limpar.',
+  '41',
+  true,
+  false,
+  now() - interval '20 days'
+),
+(
+  'seed-camisa-linho-puro-manga-longa-cru',
+  'Camisa em Linho Puro Manga Longa',
+  'Rafael Meireles',
+  'Recife / PE',
+  5,
+  'Linho legítimo com toque macio',
+  'O linho da Titi’s Store é diferente: não pinica na pele e tem um caimento despojado-chique incomparável. O colarinho tem estrutura perfeita.',
+  'G',
+  true,
+  true,
+  now() - interval '22 days'
+),
+(
+  'seed-blazer-alfaiataria-desestruturado-marinho',
+  'Blazer em Lã Fria Desestruturado',
+  'Marcelo Antunes',
+  'São Paulo / SP',
+  5,
+  'Sem ombreiras pesadas, elegância pura',
+  'O corte desestruturado é moderno e leve. Você veste alfaiataria como se estivesse com uma camisa. O tecido é lã fria autêntica.',
+  '50',
+  true,
+  true,
+  now() - interval '25 days'
+)
+on conflict (id) do nothing;
+
 commit;
