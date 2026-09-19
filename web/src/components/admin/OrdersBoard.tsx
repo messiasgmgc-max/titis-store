@@ -145,9 +145,11 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
           trackingCarrier: carrier,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro ao despachar pedido.');
-      toast('Pedido despachado! Notificações enviadas por WhatsApp e E-mail.', 'success');
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `Falha ao despachar pedido (HTTP ${res.status}).`);
+      }
+      toast('Pedido despachado! Notificações enviadas por WhatsApp, E-mail e Push.', 'success');
       await reload();
     } catch (err: any) {
       toast(err.message || 'Falha ao despachar pedido.', 'error');
@@ -157,21 +159,23 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
   const handleGenerateLabel = async (orderId: string) => {
     setGeneratingLabel((prev) => ({ ...prev, [orderId]: true }));
     try {
-      toast('Conectando ao Melhor Envio e gerando etiqueta...', 'info');
+      toast('Conectando ao serviço de frete e gerando etiqueta...', 'info');
       const res = await fetch('/api/admin/orders/generate-label', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro ao gerar etiqueta.');
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `Falha ao emitir etiqueta (HTTP ${res.status}).`);
+      }
       toast(`Etiqueta gerada! Rastreio: ${data.trackingCode}. Notificações enviadas!`, 'success');
       await reload();
       if (data.labelUrl) {
         window.open(data.labelUrl, '_blank');
       }
     } catch (err: any) {
-      toast(err.message || 'Falha ao emitir etiqueta no Melhor Envio.', 'error');
+      toast(err.message || 'Falha ao emitir etiqueta.', 'error');
     } finally {
       setGeneratingLabel((prev) => {
         const copy = { ...prev };
