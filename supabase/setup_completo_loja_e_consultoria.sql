@@ -1278,4 +1278,42 @@ insert into public.product_reviews (
 )
 on conflict (id) do nothing;
 
+-- ============================================================
+-- TABELA: push_subscriptions (Web Push Notifications PWA / Android / iOS / PC)
+-- ============================================================
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade,
+  endpoint text unique not null,
+  p256dh text not null,
+  auth text not null,
+  device_info jsonb default '{}'::jsonb,
+  customer_email text,
+  customer_phone text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_push_subs_user_id on public.push_subscriptions (user_id);
+create index if not exists idx_push_subs_email on public.push_subscriptions (customer_email);
+create index if not exists idx_push_subs_phone on public.push_subscriptions (customer_phone);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "Inscrição de push pública e autenticada" on public.push_subscriptions;
+create policy "Inscrição de push pública e autenticada"
+  on public.push_subscriptions for all
+  using (true)
+  with check (true);
+
+-- Adiciona na publicação Realtime do Supabase caso exista
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    alter publication supabase_realtime add table public.push_subscriptions;
+  end if;
+exception
+  when duplicate_object then null;
+end $$;
+
 commit;

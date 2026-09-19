@@ -8,6 +8,7 @@ import { SuperFreteService } from '@/lib/server/superfrete';
 import { MelhorEnvioService } from '@/lib/server/melhorenvio';
 import { NotificationService } from '@/lib/server/notifications';
 import { EmailService } from '@/lib/server/email';
+import { WebPushService } from '@/lib/server/webpush';
 
 export async function POST(req: NextRequest) {
   try {
@@ -120,6 +121,18 @@ export async function POST(req: NextRequest) {
         trackingCarrier: carrier,
       }).catch((e) => console.error('[GenerateLabel] Erro E-mail:', e));
     }
+
+    // Dispara Notificação Web Push para Celulares (Android/iOS) e PCs instalados
+    WebPushService.sendOrderLabelNotification({
+      orderId: order.id,
+      customerName: order.customer_name,
+      customerEmail: order.customer_email,
+      customerPhone: order.customer_phone,
+      userId: order.user_id,
+      trackingCode: tracking,
+      carrier,
+      labelUrl: result.labelUrl,
+    }).catch((e) => console.error('[GenerateLabel] Erro Web Push:', e));
 
     return NextResponse.json({
       success: true,

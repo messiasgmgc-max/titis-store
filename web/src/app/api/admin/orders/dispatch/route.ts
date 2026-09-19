@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabase } from '@/lib/server/mercadopago';
 import { NotificationService } from '@/lib/server/notifications';
 import { EmailService } from '@/lib/server/email';
+import { WebPushService } from '@/lib/server/webpush';
 
 export async function POST(req: NextRequest) {
   try {
@@ -70,6 +71,16 @@ export async function POST(req: NextRequest) {
         trackingUrl: trackingUrl ? trackingUrl.trim() : undefined,
       }).catch((e) => console.error('[Dispatch] Falha no E-mail:', e));
     }
+
+    // 3. Notificação Web Push para Celulares (Android/iOS) e PCs
+    WebPushService.sendOrderLabelNotification({
+      orderId: order.id,
+      customerName: order.customer_name,
+      customerEmail: order.customer_email,
+      customerPhone: order.customer_phone,
+      trackingCode: trackingCode.trim(),
+      carrier: trackingCarrier ? trackingCarrier.trim() : 'Correios',
+    }).catch((e) => console.error('[Dispatch] Falha no Web Push:', e));
 
     return NextResponse.json({
       success: true,

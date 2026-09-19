@@ -47,6 +47,16 @@ export const metadata: Metadata = {
     description: SITE.description,
     images: ['/titislogo.jpeg'],
   },
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: "Titi's Store",
+  },
+  icons: {
+    icon: '/titislogo.jpeg',
+    apple: '/titislogo.jpeg',
+  },
 };
 
 export const viewport: Viewport = {

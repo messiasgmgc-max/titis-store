@@ -7,6 +7,7 @@ import { WhatsAppIcon } from '@/components/ui/icons';
 import { supabase } from '@/lib/supabaseClient';
 import { cn, formatBRL, formatDateBR, whatsappLink } from '@/lib/format';
 import type { OrderRow, OrderStatus } from '@/lib/types';
+import { PushNotificationCard } from '@/components/notifications/PushNotificationCard';
 import { useConsultingLink } from './PlanStatusCard';
 import { SkeletonList, StatePanel, TabIntro } from './shared';
 
@@ -128,6 +129,8 @@ export function OrdersTab({ userId, email }: { userId: string; email?: string | 
   return (
     <section aria-label="Pedidos" className="space-y-10">
       {intro}
+
+      <PushNotificationCard />
 
       {state.status === 'loading' && <SkeletonList label="Carregando pedidos" />}
 

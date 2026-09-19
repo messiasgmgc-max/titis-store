@@ -23,6 +23,7 @@ import { useUI } from '@/providers/UIProvider';
 import { supabase } from '@/lib/supabaseClient';
 import { cn, formatBRL, formatDateBR } from '@/lib/format';
 import type { OrderRow, OrderStatus } from '@/lib/types';
+import { PushNotificationCard } from '@/components/notifications/PushNotificationCard';
 import {
   EmptyState,
   ErrorState,
@@ -245,6 +246,8 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
       {error && orders.length > 0 && (
         <InlineError message={error} onRetry={() => void reload()} retrying={refreshing} />
       )}
+
+      <PushNotificationCard />
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Segmented
