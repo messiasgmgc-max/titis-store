@@ -22,6 +22,8 @@ import {
   Plus,
   Minus,
   Trash2,
+  MapPin,
+  Store,
 } from 'lucide-react';
 import { useCart } from '@/providers/CartProvider';
 import { useSession } from '@/providers/SessionProvider';
@@ -37,6 +39,15 @@ interface ShippingOption {
   deliveryDays: number;
   isFree?: boolean;
 }
+
+const DEFAULT_RETIRADA_OPTION: ShippingOption = {
+  id: 'retirada-betim',
+  name: 'Retirada Grátis (Betim)',
+  carrier: 'Retirada',
+  priceCents: 0,
+  deliveryDays: 1,
+  isFree: true,
+};
 
 const STORAGE_KEY = 'titis_checkout_customer';
 
@@ -78,9 +89,9 @@ export default function TransparentCheckoutPage() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('MG');
 
-  // Shipping calculation states
-  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
-  const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
+  // Shipping calculation states (inicia com Retirada Grátis em Betim disponível)
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([DEFAULT_RETIRADA_OPTION]);
+  const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(DEFAULT_RETIRADA_OPTION);
   const [loadingShipping, setLoadingShipping] = useState(false);
 
   // Payment states
@@ -107,6 +118,7 @@ export default function TransparentCheckoutPage() {
   const [hydrated, setHydrated] = useState(false);
 
   // Total calculado (subtotal + frete)
+  const isRetirada = selectedShipping?.id === 'retirada-betim';
   const shippingCents = selectedShipping?.priceCents ?? 0;
   const grandTotalCents = subtotalCents + shippingCents;
 
@@ -167,11 +179,14 @@ export default function TransparentCheckoutPage() {
       sedexCents = 3290;
       pacDays = 5;
       sedexDays = 2;
-    } else if (cepNum >= 80000 && cepNum <= 99999) {
-      // Sul
+    } else if (
+      (cepNum >= 80000 && cepNum <= 87999) || // PR
+      (cepNum >= 88000 && cepNum <= 89999) || // SC
+      (cepNum >= 90000 && cepNum <= 99999) // RS
+    ) {
       pacCents = 2890;
-      sedexCents = 4490;
-      pacDays = 7;
+      sedexCents = 4290;
+      pacDays = 6;
       sedexDays = 3;
     } else if (cepNum >= 70000 && cepNum <= 79999) {
       // Centro-Oeste
@@ -194,6 +209,7 @@ export default function TransparentCheckoutPage() {
     }
 
     const fallbackList: ShippingOption[] = [
+      DEFAULT_RETIRADA_OPTION,
       {
         id: 'pac',
         name: 'Correios PAC',
@@ -248,12 +264,16 @@ export default function TransparentCheckoutPage() {
       if (res.ok && contentType.includes('application/json')) {
         const data = await res.json().catch(() => null);
         if (data?.options && data.options.length > 0) {
-          setShippingOptions(data.options);
+          const mergedOptions: ShippingOption[] = [
+            DEFAULT_RETIRADA_OPTION,
+            ...data.options.filter((o: ShippingOption) => o.id !== 'retirada-betim'),
+          ];
+          setShippingOptions(mergedOptions);
           setSelectedShipping((prev) => {
-            if (prev && data.options.some((o: ShippingOption) => o.id === prev.id)) {
-              return data.options.find((o: ShippingOption) => o.id === prev.id) || data.options[0];
+            if (prev && mergedOptions.some((o: ShippingOption) => o.id === prev.id)) {
+              return mergedOptions.find((o: ShippingOption) => o.id === prev.id) || mergedOptions[0];
             }
-            return data.options[0];
+            return mergedOptions[0];
           });
           return;
         }
@@ -464,7 +484,12 @@ export default function TransparentCheckoutPage() {
     }
 
     if (!selectedShipping) {
-      setErrorMessage('Por favor, selecione uma opção de envio dos Correios ou Jadlog.');
+      setErrorMessage('Por favor, selecione uma opção de envio ou retirada.');
+      return;
+    }
+
+    if (!isRetirada && (!cep.trim() || !street.trim() || !number.trim() || !city.trim() || !state.trim())) {
+      setErrorMessage('Por favor, preencha o endereço completo para envio dos produtos.');
       return;
     }
 
@@ -511,13 +536,13 @@ export default function TransparentCheckoutPage() {
           phone: phone.trim(),
         },
         shipping: {
-          cep: cep.trim(),
-          street: street.trim(),
-          number: number.trim(),
-          complement: complement.trim(),
-          neighborhood: neighborhood.trim(),
-          city: city.trim(),
-          state: state.trim(),
+          cep: cep.trim() || (isRetirada ? '32600-000' : ''),
+          street: street.trim() || (isRetirada ? 'Retirada no Atelier' : ''),
+          number: number.trim() || (isRetirada ? 'S/N' : ''),
+          complement: complement.trim() || (isRetirada ? 'Retirada Presencial (Betim)' : ''),
+          neighborhood: neighborhood.trim() || (isRetirada ? 'Centro' : ''),
+          city: city.trim() || (isRetirada ? 'Betim' : ''),
+          state: state.trim() || (isRetirada ? 'MG' : ''),
         },
         shippingService: {
           id: selectedShipping.id,
@@ -906,19 +931,28 @@ export default function TransparentCheckoutPage() {
                 </div>
               </div>
 
-              {/* ENDEREÇO DE ENTREGA */}
+              {/* ENDEREÇO DE ENTREGA OU RETIRADA */}
               <div className="rounded-2xl border border-line bg-surface/60 p-6 space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-gold flex items-center gap-2">
-                  <Truck className="h-4 w-4" />
-                  <span>2. Endereço de Entrega</span>
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-gold flex items-center gap-2">
+                    {isRetirada ? <Store className="h-4 w-4" /> : <Truck className="h-4 w-4" />}
+                    <span>2. {isRetirada ? 'Retirada no Atelier ou Envio' : 'Endereço de Entrega'}</span>
+                  </h3>
+                  {isRetirada && (
+                    <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20 font-medium">
+                      Retirada Grátis Selecionada
+                    </span>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-[11px] font-bold text-mist mb-1">CEP:</label>
+                    <label className="block text-[11px] font-bold text-mist mb-1">
+                      CEP: {isRetirada && <span className="text-[10px] text-smoke font-normal">(opcional na retirada)</span>}
+                    </label>
                     <input
                       type="text"
-                      required
+                      required={!isRetirada}
                       placeholder="00000-000"
                       value={cep}
                       onChange={(e) => handleCepChange(e.target.value)}
@@ -927,11 +961,13 @@ export default function TransparentCheckoutPage() {
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-bold text-mist mb-1">Rua / Avenida:</label>
+                    <label className="block text-[11px] font-bold text-mist mb-1">
+                      Rua / Avenida: {isRetirada && <span className="text-[10px] text-smoke font-normal">(opcional na retirada)</span>}
+                    </label>
                     <input
                       type="text"
-                      required
-                      placeholder="Nome da rua"
+                      required={!isRetirada}
+                      placeholder={isRetirada ? "Retirada no Atelier Titi's em Betim/MG" : "Nome da rua"}
                       value={street}
                       onChange={(e) => {
                         setStreet(e.target.value);
@@ -944,11 +980,13 @@ export default function TransparentCheckoutPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-[11px] font-bold text-mist mb-1">Número:</label>
+                    <label className="block text-[11px] font-bold text-mist mb-1">
+                      Número: {isRetirada && <span className="text-[10px] text-smoke font-normal">(opcional)</span>}
+                    </label>
                     <input
                       type="text"
-                      required
-                      placeholder="123"
+                      required={!isRetirada}
+                      placeholder={isRetirada ? "S/N" : "123"}
                       value={number}
                       onChange={(e) => {
                         setNumber(e.target.value);
@@ -961,7 +999,7 @@ export default function TransparentCheckoutPage() {
                     <label className="block text-[11px] font-bold text-mist mb-1">Complemento / Apto:</label>
                     <input
                       type="text"
-                      placeholder="Ex: Apto 301 Bloco B"
+                      placeholder={isRetirada ? "Ex: Retirada presencial" : "Ex: Apto 301 Bloco B"}
                       value={complement}
                       onChange={(e) => {
                         setComplement(e.target.value);
@@ -974,11 +1012,13 @@ export default function TransparentCheckoutPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-[11px] font-bold text-mist mb-1">Bairro:</label>
+                    <label className="block text-[11px] font-bold text-mist mb-1">
+                      Bairro: {isRetirada && <span className="text-[10px] text-smoke font-normal">(opcional)</span>}
+                    </label>
                     <input
                       type="text"
-                      required
-                      placeholder="Bairro"
+                      required={!isRetirada}
+                      placeholder={isRetirada ? "Centro" : "Bairro"}
                       value={neighborhood}
                       onChange={(e) => {
                         setNeighborhood(e.target.value);
@@ -988,11 +1028,13 @@ export default function TransparentCheckoutPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-mist mb-1">Cidade:</label>
+                    <label className="block text-[11px] font-bold text-mist mb-1">
+                      Cidade: {isRetirada && <span className="text-[10px] text-smoke font-normal">(opcional)</span>}
+                    </label>
                     <input
                       type="text"
-                      required
-                      placeholder="Cidade"
+                      required={!isRetirada}
+                      placeholder={isRetirada ? "Betim" : "Cidade"}
                       value={city}
                       onChange={(e) => {
                         setCity(e.target.value);
@@ -1002,10 +1044,12 @@ export default function TransparentCheckoutPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-mist mb-1">Estado:</label>
+                    <label className="block text-[11px] font-bold text-mist mb-1">
+                      Estado: {isRetirada && <span className="text-[10px] text-smoke font-normal">(opcional)</span>}
+                    </label>
                     <input
                       type="text"
-                      required
+                      required={!isRetirada}
                       placeholder="MG"
                       value={state}
                       onChange={(e) => {
@@ -1017,11 +1061,11 @@ export default function TransparentCheckoutPage() {
                   </div>
                 </div>
 
-                {/* OPÇÕES DE FRETE (MELHOR ENVIO) */}
+                {/* OPÇÕES DE FRETE & RETIRADA */}
                 <div className="border-t border-line/60 pt-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-parchment">
-                      Opções de Envio (Correios & Jadlog):
+                      Opções de Envio & Retirada:
                     </span>
                     {loadingShipping && (
                       <span className="flex items-center gap-1.5 text-[11px] text-gold animate-pulse">
@@ -1032,9 +1076,10 @@ export default function TransparentCheckoutPage() {
                   </div>
 
                   {shippingOptions.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                       {shippingOptions.map((opt) => {
                         const isSelected = selectedShipping?.id === opt.id;
+                        const isOptRetirada = opt.id === 'retirada-betim' || opt.carrier === 'Retirada';
                         return (
                           <button
                             key={opt.id}
@@ -1042,20 +1087,37 @@ export default function TransparentCheckoutPage() {
                             onClick={() => setSelectedShipping(opt)}
                             className={`p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
                               isSelected
-                                ? 'border-gold bg-gold/10 text-gold shadow-md'
+                                ? 'border-gold bg-gold/10 text-gold shadow-md ring-1 ring-gold/40'
                                 : 'border-line bg-obsidian text-mist hover:border-line-gold'
                             }`}
                           >
                             <div>
                               <div className="flex items-center justify-between gap-1">
-                                <span className="font-bold text-xs text-ivory">{opt.carrier}</span>
-                                <span className="text-[10px] text-smoke uppercase">{opt.name}</span>
+                                <span className="font-bold text-xs text-ivory flex items-center gap-1.5">
+                                  {isOptRetirada ? (
+                                    <>
+                                      <Store className="h-3.5 w-3.5 text-gold shrink-0" />
+                                      <span>Retirada</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Truck className="h-3.5 w-3.5 text-mist shrink-0" />
+                                      <span>{opt.carrier}</span>
+                                    </>
+                                  )}
+                                </span>
+                                <span className="text-[10px] text-smoke uppercase truncate max-w-[100px]" title={opt.name}>
+                                  {opt.name}
+                                </span>
                               </div>
-                              <p className="text-[11px] text-mist mt-1">
-                                Até {opt.deliveryDays} {opt.deliveryDays === 1 ? 'dia útil' : 'dias úteis'}
+                              <p className="text-[11px] text-mist mt-1.5">
+                                {isOptRetirada
+                                  ? 'Pronto em 1 dia útil'
+                                  : `Até ${opt.deliveryDays} ${opt.deliveryDays === 1 ? 'dia útil' : 'dias úteis'}`}
                               </p>
                             </div>
-                            <div className="mt-3">
+                            <div className="mt-3 pt-2 border-t border-line/40 flex items-center justify-between">
+                              <span className="text-[10px] text-smoke uppercase font-medium">Prazo / Preço:</span>
                               {opt.isFree ? (
                                 <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                                   Grátis
@@ -1074,6 +1136,19 @@ export default function TransparentCheckoutPage() {
                     <p className="text-[11px] text-smoke italic">
                       Digite seu CEP acima para carregar as opções de envio dos Correios e Jadlog.
                     </p>
+                  )}
+
+                  {isRetirada && (
+                    <div className="p-3.5 bg-gold/10 border border-gold/30 rounded-xl flex items-start gap-3">
+                      <Store className="h-5 w-5 text-gold shrink-0 mt-0.5" />
+                      <div className="text-xs text-parchment leading-relaxed">
+                        <span className="font-bold text-gold block mb-0.5">
+                          Retirada Grátis no Atelier Titi&apos;s (Betim/MG)
+                        </span>
+                        Seu pedido será preparado com carinho em nosso atelier em Betim/MG em até 1 dia útil.
+                        Não é obrigatório preencher dados de entrega. Assim que o pagamento for confirmado, nossa equipe enviará as instruções de retirada e localização exata pelo WhatsApp cadastrado!
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1375,7 +1450,7 @@ export default function TransparentCheckoutPage() {
                     <span className="text-ivory font-bold">{formatBRL(subtotalCents)}</span>
                   </div>
                   <div className="flex justify-between text-mist items-center">
-                    <span>Frete</span>
+                    <span>{isRetirada ? 'Envio / Retirada' : 'Frete'}</span>
                     {selectedShipping ? (
                       selectedShipping.isFree ? (
                         <span className="text-emerald-400 font-bold">Grátis</span>
@@ -1388,7 +1463,9 @@ export default function TransparentCheckoutPage() {
                   </div>
                   {selectedShipping && (
                     <p className="text-[10px] text-mist text-right">
-                      {selectedShipping.carrier} ({selectedShipping.name}) · {selectedShipping.deliveryDays}d úteis
+                      {isRetirada
+                        ? 'Retirada Grátis (Betim) · Pronto em 1 dia útil'
+                        : `${selectedShipping.carrier} (${selectedShipping.name}) · ${selectedShipping.deliveryDays}d úteis`}
                     </p>
                   )}
                   <div className="border-t border-line pt-3 flex justify-between items-baseline text-sm font-bold text-ivory">

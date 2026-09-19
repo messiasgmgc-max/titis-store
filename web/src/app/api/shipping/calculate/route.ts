@@ -47,19 +47,44 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ options });
+    const retiradaOption = {
+      id: 'retirada-betim',
+      name: 'Retirada Grátis (Betim)',
+      carrier: 'Retirada',
+      priceCents: 0,
+      deliveryDays: 1,
+      isFree: true,
+    };
+
+    const finalOptions = [
+      retiradaOption,
+      ...(options || []).filter((o: any) => o.id !== 'retirada-betim'),
+    ];
+
+    return NextResponse.json({ options: finalOptions });
   } catch (err: any) {
     console.error('[api/shipping/calculate] Erro ao consultar frete, aplicando contingência regional:', err);
+    const retiradaOption = {
+      id: 'retirada-betim',
+      name: 'Retirada Grátis (Betim)',
+      carrier: 'Retirada',
+      priceCents: 0,
+      deliveryDays: 1,
+      isFree: true,
+    };
     try {
       const fallbackOptions = await SuperFreteService.calculateShipping({
         destinationCep: '30130000',
         itemsCount: 1,
         subtotalCents: 0,
       });
-      return NextResponse.json({ options: fallbackOptions });
+      return NextResponse.json({
+        options: [retiradaOption, ...(fallbackOptions || []).filter((o: any) => o.id !== 'retirada-betim')],
+      });
     } catch {
       return NextResponse.json({
         options: [
+          retiradaOption,
           {
             id: 'pac',
             name: 'Correios PAC',
