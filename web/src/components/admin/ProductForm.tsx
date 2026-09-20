@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { CircleAlert, LoaderCircle, WandSparkles, X } from 'lucide-react';
+import { CircleAlert, Layers, LoaderCircle, Plus, Trash2, Upload, WandSparkles, X } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { ColorDot } from '@/components/ui/Swatch';
@@ -10,7 +10,7 @@ import { useUI } from '@/providers/UIProvider';
 import { supabase } from '@/lib/supabaseClient';
 import { ApiRequestError, analyzeProductPhoto } from '@/lib/api';
 import { fileToDataUrl } from '@/lib/image';
-import { cn, formatBRL, formatDateBR, slugify } from '@/lib/format';
+import { cn, formatBRL, formatDateBR, slugify, uid } from '@/lib/format';
 import { slotForCategory } from '@/lib/products';
 import { CLIMATES, OCCASIONS, SKIN_TONES, SLOT_LABELS } from '@/lib/stylist/knowledge';
 import {
@@ -20,6 +20,7 @@ import {
   type OccasionId,
   type PieceSlot,
   type Product,
+  type ProductVariant,
   type ProductVisionSuggestion,
   type SkinToneId,
 } from '@/lib/types';
@@ -37,6 +38,7 @@ import {
   removeBucketFiles,
   sanitizeSuggestion,
   uniqueSlug,
+  uploadProductImage,
   urlToFile,
   urlsInUse,
   withSlugSuffix,
@@ -101,6 +103,7 @@ interface FormState {
   sizes: string[];
   color_name: string;
   hex: string;
+  variants: ProductVariant[];
   fabric: string;
   description: string;
   formality: number;
@@ -132,6 +135,7 @@ function initialForm(product: Product | null, products: Product[]): FormState {
       sizes: [],
       color_name: '',
       hex: '',
+      variants: [],
       fabric: '',
       description: '',
       formality: 3,
@@ -151,6 +155,7 @@ function initialForm(product: Product | null, products: Product[]): FormState {
     sizes: product.sizes,
     color_name: product.color_name ?? '',
     hex: product.hex_color ? (normalizeHex(product.hex_color) ?? product.hex_color) : '',
+    variants: product.variants && Array.isArray(product.variants) ? JSON.parse(JSON.stringify(product.variants)) : [],
     fabric: product.fabric ?? '',
     description: product.description ?? '',
     formality: clampFormality(product.formality),
@@ -439,6 +444,15 @@ export function ProductForm({ product, products, onClose, onSaved }: ProductForm
       hex_color: form.hex.trim() ? normalizeHex(form.hex) : null,
       image_url: images.image_url,
       gallery: images.gallery,
+      variants: form.variants
+        .filter((v) => v.color_name.trim() || v.hex_color.trim() || v.image_url)
+        .map((v) => ({
+          ...v,
+          color_name: v.color_name.trim(),
+          hex_color: normalizeHex(v.hex_color) ?? v.hex_color.trim(),
+          image_url: v.image_url?.trim() || null,
+          sizes: Array.isArray(v.sizes) && v.sizes.length > 0 ? v.sizes : form.sizes,
+        })),
       price_cents: cents,
       sizes: form.sizes,
       skin_tones: form.skin_tones,
@@ -465,7 +479,8 @@ export function ProductForm({ product, products, onClose, onSaved }: ProductForm
       }
 
       // Limpa do Storage as fotos que deixaram de ser usadas.
-      const finalSet = new Set(productImages(images));
+      const variantImages = form.variants.map((v) => v.image_url).filter(Boolean) as string[];
+      const finalSet = new Set([...productImages(images), ...variantImages]);
       const inUse = urlsInUse(products, product?.id);
       const stale = Array.from(new Set([...sessionUploads.current, ...originalImages])).filter(
         (u) => !finalSet.has(u) && !inUse.has(u),
@@ -606,78 +621,97 @@ export function ProductForm({ product, products, onClose, onSaved }: ProductForm
               </Field>
             </section>
 
-            {/* III · Cor e matéria */}
-            <section className="space-y-5" aria-label="Cor e matéria">
-              <SectionLabel numeral="III">Cor e matéria</SectionLabel>
+            {/* III · Cor, variações e matéria */}
+            <section className="space-y-6" aria-label="Cor, variações e matéria">
+              <SectionLabel numeral="III">Cor, variações e matéria</SectionLabel>
 
-              <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,13rem)]">
-                <Field label="Nome da cor" htmlFor={fieldId('color_name')}>
-                  <input
-                    id={fieldId('color_name')}
-                    value={form.color_name}
-                    onChange={(e) => setField('color_name', e.target.value)}
-                    placeholder="Ex.: Azul Marinho"
-                    maxLength={60}
-                    autoComplete="off"
-                    className="field"
-                  />
-                </Field>
-                <Field label="Cor (hex)" htmlFor={fieldId('hex')} error={errors.hex}>
-                  <div className="flex">
+              <div className="space-y-4 rounded-2xl border border-line bg-surface/40 p-4 sm:p-5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-parchment">
+                    Cor Principal (Padrão da Peça)
+                  </h4>
+                  {form.color_name && <span className="text-xs text-gold font-medium">{form.color_name}</span>}
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,13rem)]">
+                  <Field label="Nome da cor principal" htmlFor={fieldId('color_name')}>
                     <input
-                      type="color"
-                      aria-label="Escolher a cor no seletor"
-                      value={(validHex ?? '#1B2A4A').toLowerCase()}
-                      onChange={(e) => setField('hex', e.target.value.toUpperCase())}
-                      className="w-12 shrink-0 cursor-pointer border border-line bg-transparent p-1.5 [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0"
-                    />
-                    <input
-                      id={fieldId('hex')}
-                      value={form.hex}
-                      onChange={(e) => setField('hex', e.target.value)}
-                      onBlur={() => {
-                        const normalized = normalizeHex(form.hex);
-                        if (normalized && normalized !== form.hex) setForm((f) => ({ ...f, hex: normalized }));
-                      }}
-                      placeholder="#1B2A4A"
-                      maxLength={7}
-                      spellCheck={false}
+                      id={fieldId('color_name')}
+                      value={form.color_name}
+                      onChange={(e) => setField('color_name', e.target.value)}
+                      placeholder="Ex.: Azul Marinho"
+                      maxLength={60}
                       autoComplete="off"
-                      aria-invalid={Boolean(errors.hex)}
-                      className="field -ml-px min-w-0 font-mono uppercase"
+                      className="field"
                     />
-                  </div>
-                </Field>
-              </div>
-
-              <div>
-                <span className="label">Tons de alfaiataria</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {COLOR_PRESETS.map((c) => {
-                    const active = validHex === c.hex;
-                    return (
-                      <button
-                        key={c.hex}
-                        type="button"
-                        title={`${c.name} · ${c.hex}`}
-                        aria-label={`Usar ${c.name}`}
-                        aria-pressed={active}
-                        onClick={() => {
-                          setField('hex', c.hex);
-                          const currentName = form.color_name.trim();
-                          if (!currentName || COLOR_PRESETS.some((p) => p.name === currentName)) setField('color_name', c.name);
+                  </Field>
+                  <Field label="Cor (hex)" htmlFor={fieldId('hex')} error={errors.hex}>
+                    <div className="flex">
+                      <input
+                        type="color"
+                        aria-label="Escolher a cor no seletor"
+                        value={(validHex ?? '#1B2A4A').toLowerCase()}
+                        onChange={(e) => setField('hex', e.target.value.toUpperCase())}
+                        className="w-12 shrink-0 cursor-pointer border border-line bg-transparent p-1.5 [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0"
+                      />
+                      <input
+                        id={fieldId('hex')}
+                        value={form.hex}
+                        onChange={(e) => setField('hex', e.target.value)}
+                        onBlur={() => {
+                          const normalized = normalizeHex(form.hex);
+                          if (normalized && normalized !== form.hex) setForm((f) => ({ ...f, hex: normalized }));
                         }}
-                        className={cn(
-                          'grid h-9 w-9 place-items-center rounded-full transition-transform duration-300 hover:scale-110',
-                          active && 'ring-1 ring-gold',
-                        )}
-                      >
-                        <ColorDot hex={c.hex} size={22} />
-                      </button>
-                    );
-                  })}
+                        placeholder="#1B2A4A"
+                        maxLength={7}
+                        spellCheck={false}
+                        autoComplete="off"
+                        aria-invalid={Boolean(errors.hex)}
+                        className="field -ml-px min-w-0 font-mono uppercase"
+                      />
+                    </div>
+                  </Field>
+                </div>
+
+                <div>
+                  <span className="label">Tons de alfaiataria</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {COLOR_PRESETS.map((c) => {
+                      const active = validHex === c.hex;
+                      return (
+                        <button
+                          key={c.hex}
+                          type="button"
+                          title={`${c.name} · ${c.hex}`}
+                          aria-label={`Usar ${c.name}`}
+                          aria-pressed={active}
+                          onClick={() => {
+                            setField('hex', c.hex);
+                            const currentName = form.color_name.trim();
+                            if (!currentName || COLOR_PRESETS.some((p) => p.name === currentName)) setField('color_name', c.name);
+                          }}
+                          className={cn(
+                            'grid h-9 w-9 place-items-center rounded-full transition-transform duration-300 hover:scale-110',
+                            active && 'ring-1 ring-gold',
+                          )}
+                        >
+                          <ColorDot hex={c.hex} size={22} />
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
+
+              {/* Variações adicionais de cores */}
+              <VariantsEditor
+                variants={form.variants}
+                baseSizes={form.sizes}
+                onChange={(variants) => setField('variants', variants)}
+                onUploaded={handleUploaded}
+                onBusyChange={handleBusyChange}
+                disabled={saving}
+              />
 
               <Field label="Tecido" htmlFor={fieldId('fabric')}>
                 <input
@@ -993,6 +1027,257 @@ function ToggleCell({
         <p className="mt-1 text-xs leading-snug text-smoke">{text}</p>
       </div>
       <Switch checked={checked} onChange={onChange} label={title} className="mt-0.5" />
+    </div>
+  );
+}
+
+function VariantsEditor({
+  variants,
+  baseSizes,
+  onChange,
+  onUploaded,
+  onBusyChange,
+  disabled,
+}: {
+  variants: ProductVariant[];
+  baseSizes: string[];
+  onChange: (variants: ProductVariant[]) => void;
+  onUploaded: (url: string, file: File) => void;
+  onBusyChange: (delta: number) => void;
+  disabled?: boolean;
+}) {
+  const { toast } = useUI();
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const addVariant = () => {
+    const newVariant: ProductVariant = {
+      id: uid('var'),
+      color_name: '',
+      hex_color: '#1B2A4A',
+      image_url: null,
+      gallery: [],
+      sizes: baseSizes.length > 0 ? [...baseSizes] : ['P', 'M', 'G', 'GG'],
+      price_cents: null,
+      sku: '',
+      stock: null,
+    };
+    onChange([...variants, newVariant]);
+  };
+
+  const updateVariant = (index: number, patch: Partial<ProductVariant>) => {
+    const next = [...variants];
+    next[index] = { ...next[index], ...patch };
+    onChange(next);
+  };
+
+  const removeVariant = (index: number) => {
+    onChange(variants.filter((_, i) => i !== index));
+  };
+
+  const handleFileUpload = async (index: number, file: File) => {
+    const v = variants[index];
+    if (!v) return;
+    setBusyId(v.id);
+    onBusyChange(1);
+    try {
+      const url = await uploadProductImage(file);
+      onUploaded(url, file);
+      updateVariant(index, { image_url: url });
+      toast('Foto da variação enviada com sucesso.', 'success');
+    } catch (err) {
+      toast(describeError(err, 'Falha ao enviar a foto da variação.'), 'error');
+    } finally {
+      setBusyId(null);
+      onBusyChange(-1);
+    }
+  };
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-line bg-surface/40 p-4 sm:p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-gold" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-parchment">
+              Variações de Cores & Modelos
+            </h4>
+            {variants.length > 0 && (
+              <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[0.65rem] font-bold text-gold-light border border-line-gold">
+                {variants.length} {variants.length === 1 ? 'variação' : 'variações'}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-smoke">
+            Adicione outras cores da mesma peça (ex: Preto, Branco, Marinho) com fotos e tamanhos específicos.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={addVariant}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-line-gold bg-surface px-3 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-50"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span>+ Adicionar Cor</span>
+        </button>
+      </div>
+
+      {variants.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-line p-4 text-center text-xs text-smoke">
+          Nenhuma variação adicional. A peça usará apenas a cor e foto principais acima.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {variants.map((v, i) => {
+            const validHex = normalizeHex(v.hex_color) ?? '#1B2A4A';
+            const isBusy = busyId === v.id;
+            return (
+              <div
+                key={v.id || i}
+                className="relative space-y-3.5 rounded-xl border border-line-gold/30 bg-surface-2/60 p-4 transition-all"
+              >
+                <div className="flex items-center justify-between border-b border-line pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <ColorDot hex={validHex} size={14} />
+                    <span className="text-xs font-bold text-ivory">
+                      {v.color_name ? `Variação ${i + 1}: ${v.color_name}` : `Variação ${i + 1} (Sem nome)`}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeVariant(i)}
+                    disabled={disabled}
+                    className="flex items-center gap-1 text-xs text-smoke hover:text-danger transition-colors"
+                    title="Excluir variação"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Remover</span>
+                  </button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,11rem)]">
+                  <div>
+                    <label className="text-[0.65rem] uppercase tracking-wider text-smoke block mb-1">
+                      Nome da Cor *
+                    </label>
+                    <input
+                      value={v.color_name}
+                      onChange={(e) => updateVariant(i, { color_name: e.target.value })}
+                      placeholder="Ex.: Branco Marfim, Preto, Camel"
+                      maxLength={60}
+                      className="field py-1.5 text-xs"
+                      disabled={disabled}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[0.65rem] uppercase tracking-wider text-smoke block mb-1">
+                      Cor Hex
+                    </label>
+                    <div className="flex">
+                      <input
+                        type="color"
+                        value={validHex.toLowerCase()}
+                        onChange={(e) => updateVariant(i, { hex_color: e.target.value.toUpperCase() })}
+                        className="w-9 h-8 shrink-0 cursor-pointer border border-line bg-transparent p-1 [&::-webkit-color-swatch-wrapper]:p-0"
+                        disabled={disabled}
+                      />
+                      <input
+                        value={v.hex_color}
+                        onChange={(e) => updateVariant(i, { hex_color: e.target.value })}
+                        placeholder="#1B2A4A"
+                        maxLength={7}
+                        className="field -ml-px min-w-0 py-1.5 text-xs font-mono uppercase"
+                        disabled={disabled}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Seletor rápido de cores para a variação */}
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="text-[0.6rem] uppercase tracking-wider text-smoke mr-1">Sugestões:</span>
+                  {COLOR_PRESETS.slice(0, 8).map((c) => (
+                    <button
+                      key={c.hex}
+                      type="button"
+                      title={`${c.name} (${c.hex})`}
+                      onClick={() => updateVariant(i, { hex_color: c.hex, color_name: v.color_name || c.name })}
+                      className="grid h-6 w-6 place-items-center rounded-full hover:scale-110 transition-transform"
+                    >
+                      <ColorDot hex={c.hex} size={14} />
+                    </button>
+                  ))}
+                </div>
+
+                {/* Foto específica da variação */}
+                <div className="space-y-1.5">
+                  <label className="text-[0.65rem] uppercase tracking-wider text-smoke block">
+                    Foto desta Cor (URL ou Envio)
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                    {v.image_url ? (
+                      <div className="relative h-14 w-12 shrink-0 overflow-hidden rounded-lg border border-line-gold bg-surface">
+                        <img src={v.image_url} alt="" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => updateVariant(i, { image_url: null })}
+                          className="absolute top-0 right-0 bg-obsidian/80 p-0.5 text-mist hover:text-danger"
+                          title="Remover foto"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : null}
+
+                    <div className="flex-1 flex gap-2 w-full">
+                      <input
+                        value={v.image_url || ''}
+                        onChange={(e) => updateVariant(i, { image_url: e.target.value })}
+                        placeholder="https://... ou clique em Enviar foto"
+                        className="field py-1.5 text-xs flex-1"
+                        disabled={disabled || isBusy}
+                      />
+                      <label className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-parchment hover:border-gold hover:text-gold cursor-pointer transition-colors shrink-0">
+                        {isBusy ? (
+                          <LoaderCircle className="h-3.5 w-3.5 animate-spin text-gold" />
+                        ) : (
+                          <Upload className="h-3.5 w-3.5" />
+                        )}
+                        <span>{isBusy ? 'Enviando...' : 'Enviar Foto'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          disabled={disabled || isBusy}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              void handleFileUpload(i, file);
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tamanhos da variação */}
+                <div>
+                  <label className="text-[0.65rem] uppercase tracking-wider text-smoke block mb-1">
+                    Tamanhos disponíveis nesta cor (se vazio, usa os tamanhos principais)
+                  </label>
+                  <SizesInput
+                    id={`var-sizes-${v.id || i}`}
+                    value={v.sizes && v.sizes.length > 0 ? v.sizes : baseSizes}
+                    onChange={(sizes) => updateVariant(i, { sizes })}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

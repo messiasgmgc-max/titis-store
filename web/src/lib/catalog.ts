@@ -84,7 +84,13 @@ export function searchProducts(products: Product[], query: string): Product[] {
     const descNorm = (p.description || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const colorNorm = (p.color_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const slugNorm = (p.slug || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const haystack = `${nameNorm} ${catNorm} ${descNorm} ${colorNorm} ${slugNorm}`;
+    const variantsNorm = (p.variants || [])
+      .map((v) => `${v.color_name} ${v.sku || ''}`)
+      .join(' ')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const haystack = `${nameNorm} ${catNorm} ${descNorm} ${colorNorm} ${slugNorm} ${variantsNorm}`;
 
     return terms.every((term) => haystack.includes(term));
   });

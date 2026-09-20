@@ -1,5 +1,5 @@
 // Normalização de linhas da tabela public.products — isomórfico (servidor e navegador).
-import type { PieceSlot, Product } from './types';
+import type { PieceSlot, Product, ProductVariant } from './types';
 
 export const LEGACY_SLOT: Record<string, PieceSlot> = {
   alfaiataria: 'sobreposicao',
@@ -46,6 +46,21 @@ export function sanitizeProductImageUrl(url: string | null | undefined): string 
 export function normalizeProduct(row: Record<string, unknown>): Product {
   const category = String(row.category ?? 'Alfaiataria');
   const slot = (row.slot as PieceSlot) || slotForCategory(category);
+  const rawVariants = Array.isArray(row.variants) ? (row.variants as Record<string, unknown>[]) : [];
+  const variants: ProductVariant[] = rawVariants.map((v, i) => ({
+    id: String(v.id || `variant-${i}`),
+    color_name: String(v.color_name || ''),
+    hex_color: String(v.hex_color || ''),
+    image_url: sanitizeProductImageUrl(v.image_url as string),
+    gallery: arr<string>(v.gallery)
+      .map((u) => sanitizeProductImageUrl(u))
+      .filter((u): u is string => Boolean(u)),
+    sizes: arr<string>(v.sizes),
+    price_cents: typeof v.price_cents === 'number' ? v.price_cents : null,
+    sku: v.sku ? String(v.sku) : null,
+    stock: typeof v.stock === 'number' ? v.stock : null,
+  }));
+
   return {
     id: String(row.id),
     slug: (row.slug as string) ?? null,
@@ -60,6 +75,7 @@ export function normalizeProduct(row: Record<string, unknown>): Product {
     gallery: arr<string>(row.gallery)
       .map((u) => sanitizeProductImageUrl(u))
       .filter((u): u is string => Boolean(u)),
+    variants,
     price_cents: typeof row.price_cents === 'number' ? row.price_cents : null,
     sizes: arr<string>(row.sizes),
     skin_tones: arr(row.skin_tones),

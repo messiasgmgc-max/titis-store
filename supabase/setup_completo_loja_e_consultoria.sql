@@ -203,6 +203,7 @@ create table if not exists public.products (
   hex_color            text,
   image_url            text,
   gallery              text[] not null default '{}',
+  variants             jsonb not null default '[]'::jsonb,
   sizes                text[] not null default '{}',
   skin_tones           text[] not null default '{}',
   occasions            text[] not null default '{}',
@@ -221,6 +222,7 @@ alter table public.products
   add column if not exists price_cents  integer,
   add column if not exists sizes        text[] not null default '{}',
   add column if not exists gallery      text[] not null default '{}',
+  add column if not exists variants     jsonb not null default '[]'::jsonb,
   add column if not exists is_featured  boolean not null default false;
 
 grant select on public.products to anon, authenticated;

@@ -273,10 +273,20 @@ export function ProductManager({ resource, status, onStatusChange }: ProductMana
                           >
                             {p.name}
                           </button>
-                          <p className="mt-1 flex max-w-[20rem] items-center gap-2 text-xs text-smoke">
-                            {p.hex_color && <ColorDot hex={p.hex_color} size={10} />}
+                          <div className="mt-1 flex max-w-[20rem] flex-wrap items-center gap-2 text-xs text-smoke">
+                            <span className="flex items-center gap-1">
+                              {p.hex_color && <ColorDot hex={p.hex_color} size={10} />}
+                              {p.variants?.map((v) => (
+                                v.hex_color ? <ColorDot key={v.id} hex={v.hex_color} size={10} /> : null
+                              ))}
+                            </span>
                             <span className="truncate">{details || 'Cor e tecido não informados'}</span>
-                          </p>
+                            {p.variants && p.variants.length > 0 && (
+                              <span className="rounded bg-gold/10 border border-line-gold/40 px-1.5 py-0.5 text-[0.6rem] font-bold text-gold-light">
+                                +{p.variants.length} {p.variants.length === 1 ? 'cor' : 'cores'}
+                              </span>
+                            )}
+                          </div>
                           <p className="mt-1.5 flex flex-wrap gap-1.5">
                             {!p.is_active && (
                               <span className="border border-line px-1.5 py-0.5 text-[0.55rem] uppercase tracking-[0.2em] text-mist">

@@ -35,6 +35,18 @@ export interface ColorSwatch {
   hex: string;
 }
 
+export interface ProductVariant {
+  id: string;
+  color_name: string;
+  hex_color: string;
+  image_url?: string | null;
+  gallery?: string[];
+  sizes?: string[];
+  price_cents?: number | null;
+  sku?: string | null;
+  stock?: number | null;
+}
+
 // ------------------------------------------------------------
 // Catálogo (tabela public.products)
 // ------------------------------------------------------------
@@ -50,6 +62,7 @@ export interface Product {
   hex_color: string | null;
   image_url: string | null;
   gallery: string[];
+  variants?: ProductVariant[];
   price_cents: number | null; // null = "sob consulta"
   sizes: string[];
   skin_tones: SkinToneId[]; // [] = combina com todos
