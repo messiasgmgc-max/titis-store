@@ -3,6 +3,8 @@
 // Titi's Store (E-commerce) & Consultoria de Imagem
 // ============================================================
 
+import { getNotificationsSettingsFresh } from './settings';
+
 export type NotificationType =
   | 'PIX_GENERATED'
   | 'PAYMENT_CONFIRMED'
@@ -24,9 +26,14 @@ export interface OrderNotificationPayload {
 }
 
 export class NotificationService {
-  private static apiUrl = process.env.EVOLUTION_API_URL?.replace(/\/+$/, '');
-  private static apiKey = process.env.EVOLUTION_API_KEY;
-  private static instance = process.env.EVOLUTION_INSTANCE_NAME || 'titis-store';
+  /** Obtém a configuração da Evolution API priorizando public.settings no Supabase e caindo para process.env */
+  private static async getConfig(): Promise<{ apiUrl: string; apiKey: string; instance: string }> {
+    const notif = await getNotificationsSettingsFresh().catch(() => null);
+    const apiUrl = (notif?.evolution_api_url || process.env.EVOLUTION_API_URL || '').replace(/\/+$/, '');
+    const apiKey = (notif?.evolution_api_key || process.env.EVOLUTION_API_KEY || '').trim();
+    const instance = (notif?.evolution_instance_name || process.env.EVOLUTION_INSTANCE_NAME || 'titis-store').trim();
+    return { apiUrl, apiKey, instance };
+  }
 
   /** Formata o número brasileiro para o padrão internacional DDI+DDD+Número */
   private static formatPhone(phone: string): string {
@@ -37,7 +44,9 @@ export class NotificationService {
 
   /** Dispara mensagem de WhatsApp formatada via Evolution API */
   static async sendOrderNotification(payload: OrderNotificationPayload): Promise<boolean> {
-    if (!this.apiUrl || !this.apiKey) {
+    const { apiUrl, apiKey, instance } = await this.getConfig();
+
+    if (!apiUrl || !apiKey) {
       console.log('[NotificationService] Evolution API não configurada; mensagem em log:', {
         to: payload.phone,
         type: payload.type,
@@ -117,11 +126,11 @@ export class NotificationService {
     }
 
     try {
-      const response = await fetch(`${this.apiUrl}/message/sendText/${this.instance}`, {
+      const response = await fetch(`${apiUrl}/message/sendText/${instance}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: this.apiKey,
+          apikey: apiKey,
         },
         body: JSON.stringify({
           number: formattedPhone,

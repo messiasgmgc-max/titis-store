@@ -21,7 +21,7 @@ import {
   MercadoPagoError,
   createPreference,
   createServiceSupabase,
-  mercadoPagoConfigured,
+  isMercadoPagoConfigured,
 } from '@/lib/server/mercadopago';
 import { PAYMENT_COLUMNS, applyPaymentAccess, type PaymentRecord } from '@/lib/server/payments';
 import { bearerToken, createServerSupabase } from '@/lib/server/supabase-server';
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     }
     const couponCode = readCouponCode(body.coupon);
 
-    if (!mercadoPagoConfigured()) {
+    if (!(await isMercadoPagoConfigured())) {
       return jsonError(503, 'not_configured', 'Pagamento online indisponível. Finalize pelo WhatsApp.');
     }
 

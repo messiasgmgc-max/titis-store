@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   createServiceSupabase,
   createTransparentPayment,
-  mercadoPagoConfigured,
+  isMercadoPagoConfigured,
   MercadoPagoError,
 } from '@/lib/server/mercadopago';
 import { NotificationService } from '@/lib/server/notifications';
@@ -42,11 +42,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Dados do comprador incompletos.' }, { status: 400 });
     }
 
-    if (!mercadoPagoConfigured()) {
+    if (!(await isMercadoPagoConfigured())) {
       return NextResponse.json(
         {
           error:
-            'Chave do Mercado Pago (MERCADOPAGO_ACCESS_TOKEN) não detectada no ambiente. Se você adicionou a variável na Vercel recentemente, acesse Deployments e clique em Redeploy para ativá-la no servidor.',
+            'Chave do Mercado Pago não configurada no Supabase ou Vercel. Configure suas chaves no painel Admin > Configurações.',
         },
         { status: 503 }
       );
@@ -169,7 +169,7 @@ export async function GET() {
   return NextResponse.json({
     status: 'online',
     endpoint: '/api/checkout/transparent',
-    mercadoPagoConfigured: mercadoPagoConfigured(),
+    mercadoPagoConfigured: await isMercadoPagoConfigured(),
     timestamp: new Date().toISOString(),
   });
 }

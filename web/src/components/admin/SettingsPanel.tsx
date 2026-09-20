@@ -14,7 +14,14 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Copy,
+  Check,
+  Download,
+  Database,
+  Code2,
+  RefreshCw,
+  Terminal
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useUI } from '@/providers/UIProvider';
@@ -81,6 +88,13 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
   const [savingKey, setSavingKey] = useState<SettingKey | null>(null);
   const [planErrors, setPlanErrors] = useState<Partial<Record<PlanId, string>>>({});
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
+
+  // Estados do Diagnóstico e Descoberta de Chaves Vercel
+  const [isDiscovering, setIsDiscovering] = useState(false);
+  const [discoveredSql, setDiscoveredSql] = useState<string | null>(null);
+  const [discoveredEnv, setDiscoveredEnv] = useState<string | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
 
   // Sincroniza rascunhos quando o banco chega
   const [syncedFrom, setSyncedFrom] = useState(saved);
@@ -192,6 +206,109 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
     void persist('announcement', { ...saved, announcement: { text, active: announcement.active } }, 'Aviso do site atualizado.');
   };
 
+  // Descobrir chaves ativas na memória da Vercel e gerar SQL
+  const discoverVercelKeys = async () => {
+    setIsDiscovering(true);
+    try {
+      const res = await fetch('/api/admin/env-status?include_values=true');
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const data = await res.json();
+      if (data.sqlScript) {
+        setDiscoveredSql(data.sqlScript);
+      }
+      if (data.envFile) {
+        setDiscoveredEnv(data.envFile);
+      }
+      if (data.unmaskedValues) {
+        if (data.unmaskedValues.shipping) {
+          setShipping((prev) => ({
+            ...prev,
+            ...data.unmaskedValues.shipping,
+            superfrete_token: data.unmaskedValues.shipping.superfrete_token || prev.superfrete_token,
+            melhorenvio_token: data.unmaskedValues.shipping.melhorenvio_token || prev.melhorenvio_token,
+          }));
+        }
+        if (data.unmaskedValues.payments) {
+          setPayments((prev) => ({
+            ...prev,
+            ...data.unmaskedValues.payments,
+            mercadopago_access_token: data.unmaskedValues.payments.mercadopago_access_token || prev.mercadopago_access_token,
+            mercadopago_public_key: data.unmaskedValues.payments.mercadopago_public_key || prev.mercadopago_public_key,
+            mercadopago_webhook_secret: data.unmaskedValues.payments.mercadopago_webhook_secret || prev.mercadopago_webhook_secret,
+          }));
+        }
+        if (data.unmaskedValues.notifications) {
+          setNotifications((prev) => ({
+            ...prev,
+            ...data.unmaskedValues.notifications,
+            evolution_api_url: data.unmaskedValues.notifications.evolution_api_url || prev.evolution_api_url,
+            evolution_api_key: data.unmaskedValues.notifications.evolution_api_key || prev.evolution_api_key,
+          }));
+        }
+      }
+      toast('Chaves do servidor lidas com sucesso! O formulário foi preenchido e o SQL gerado.', 'success');
+    } catch (err) {
+      toast(describeError(err, 'Erro ao consultar variáveis do servidor.'), 'error');
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
+
+  const copySqlToClipboard = async () => {
+    if (!discoveredSql) return;
+    try {
+      await navigator.clipboard.writeText(discoveredSql);
+      setCopiedSql(true);
+      toast('SQL copiado com sucesso! Cole no SQL Editor do Supabase.', 'success');
+      setTimeout(() => setCopiedSql(false), 3000);
+    } catch {
+      toast('Não foi possível copiar automaticamente. Selecione e copie o texto.', 'error');
+    }
+  };
+
+  const downloadEnvFile = () => {
+    if (!discoveredEnv) return;
+    const blob = new Blob([discoveredEnv], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '.env';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast('Arquivo .env baixado com sucesso!', 'success');
+  };
+
+  const syncDirectlyToSupabase = async () => {
+    if (isSyncingAll) return;
+    setIsSyncingAll(true);
+    try {
+      const rowsToUpsert = settingsToRows({
+        ...saved,
+        shipping,
+        payments,
+        notifications,
+        whatsapp: { number: whatsapp },
+        checkout: { provider: checkoutProvider },
+      });
+
+      for (const row of rowsToUpsert) {
+        const { error: upsertErr } = await supabase
+          .from('settings')
+          .upsert({ key: row.key, value: row.value }, { onConflict: 'key' });
+        if (upsertErr) throw upsertErr;
+      }
+
+      await reload();
+      toast('Todas as configurações e chaves foram gravadas com sucesso no Supabase!', 'success');
+    } catch (err) {
+      toast(describeError(err, 'Erro ao salvar configurações no Supabase.'), 'error');
+    } finally {
+      setIsSyncingAll(false);
+    }
+  };
+
   const stamp = (key: SettingKey) => {
     const at = updatedAt.get(key);
     return at ? `Salvo em ${formatShortDateBR(at)}` : 'Padrão (banco/env)';
@@ -213,6 +330,89 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
   } else {
     body = (
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* 🛠️ Sincronizador & Exportador de Chaves da Vercel / Supabase ------- */}
+        <div className="lg:col-span-2 rounded-3xl border border-gold/40 bg-gradient-to-br from-gold/[0.08] via-obsidian-surface/80 to-obsidian-card p-6 shadow-xl backdrop-blur-md">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-gold/20 pb-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gold/20 text-gold border border-gold/40">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-bold text-ivory flex items-center gap-2">
+                  Diagnóstico de Chaves & Gerador SQL Supabase
+                </h3>
+                <p className="text-xs text-mist">
+                  Descubra as variáveis da Vercel em execução e gere o script SQL com 1 clique para gravar tudo no Supabase.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={discoverVercelKeys}
+                loading={isDiscovering}
+                className="bg-gold text-obsidian font-bold text-xs shadow-md hover:bg-gold-light flex items-center gap-2"
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5', isDiscovering && 'animate-spin')} />
+                {isDiscovering ? 'Consultando Vercel...' : '🔍 Descobrir Chaves Ativas'}
+              </Button>
+
+              {discoveredSql && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={syncDirectlyToSupabase}
+                  loading={isSyncingAll}
+                  className="border-gold/60 text-gold hover:bg-gold/15 text-xs font-semibold flex items-center gap-2"
+                >
+                  <Database className="h-3.5 w-3.5" />
+                  ⚡ Gravar Tudo no Supabase Agora
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {discoveredSql && (
+            <div className="mt-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-obsidian/60 px-4 py-3 rounded-2xl border border-line">
+                <span className="text-xs text-smoke font-mono flex items-center gap-2">
+                  <Terminal className="h-4 w-4 text-gold" /> Script SQL Pronto para Supabase
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={copySqlToClipboard}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gold/15 hover:bg-gold/25 px-3 py-1.5 text-xs font-semibold text-gold border border-gold/30 transition-colors"
+                  >
+                    {copiedSql ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiedSql ? 'Copiado!' : 'Copiar SQL'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={downloadEnvFile}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-line/40 hover:bg-line/70 px-3 py-1.5 text-xs font-semibold text-ivory border border-line transition-colors"
+                  >
+                    <Download className="h-3.5 w-3.5 text-mist" />
+                    Baixar .env Restaurado
+                  </button>
+                </div>
+              </div>
+
+              <div className="relative rounded-2xl bg-obsidian border border-line p-4 overflow-x-auto max-h-60 scrollbar-thin">
+                <pre className="text-[11px] font-mono leading-relaxed text-mist select-all">
+                  {discoveredSql}
+                </pre>
+              </div>
+
+              <p className="text-[11px] text-mist/80 leading-relaxed">
+                💡 <strong className="text-gold">Dica:</strong> Seus campos abaixo foram automaticamente preenchidos com as chaves encontradas. Você pode salvar cada bloco individualmente ou clicar em <strong className="text-ivory">⚡ Gravar Tudo no Supabase Agora</strong> para sincronizar o banco instantaneamente.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* 🚚 Frete & Envio (SuperFrete / Melhor Envio) ------------------- */}
         <SettingsCard icon={Truck} title="Envio & Logística de Frete" stamp={stamp('shipping')} className="lg:col-span-2">
           <div className="space-y-6">

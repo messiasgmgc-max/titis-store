@@ -6,6 +6,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ClubPlan } from '@/lib/site';
+import { getPaymentsSettingsFresh } from './settings';
 
 const MP_API = 'https://api.mercadopago.com';
 const MP_TIMEOUT_MS = 15_000;
@@ -13,29 +14,58 @@ const MP_TIMEOUT_MS = 15_000;
 // Mesma URL pública usada em src/lib/server/supabase-server.ts.
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dusavcbgomdosfjodups.supabase.co';
 
-function accessToken(): string {
+export interface MercadoPagoConfig {
+  token: string;
+  publicKey: string;
+  webhookSecret: string;
+  isSandbox: boolean;
+}
+
+/** Obtém as credenciais do Mercado Pago priorizando public.settings no Supabase e caindo para process.env */
+export async function getMercadoPagoConfig(): Promise<MercadoPagoConfig> {
+  const payments = await getPaymentsSettingsFresh().catch(() => null);
+  const tokenFromDb = payments?.mercadopago_access_token?.trim();
+  const tokenFromEnv = (
+    process.env.MERCADOPAGO_ACCESS_TOKEN ||
+    process.env.MP_ACCESS_TOKEN ||
+    process.env.MERCADO_PAGO_ACCESS_TOKEN ||
+    process.env.MERCADOPAGO_TOKEN ||
+    ''
+  ).trim();
+  const token = (tokenFromDb || tokenFromEnv).replace(/^['"]|['"]$/g, '');
+
+  const pubFromDb = payments?.mercadopago_public_key?.trim();
+  const pubFromEnv = (
+    process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ||
+    process.env.MERCADOPAGO_PUBLIC_KEY ||
+    ''
+  ).trim();
+  const publicKey = (pubFromDb || pubFromEnv).replace(/^['"]|['"]$/g, '');
+
+  const secretFromDb = payments?.mercadopago_webhook_secret?.trim();
+  const secretFromEnv = (process.env.MERCADOPAGO_WEBHOOK_SECRET || '').trim();
+  const webhookSecret = (secretFromDb || secretFromEnv).replace(/^['"]|['"]$/g, '');
+
+  const isSandbox = payments ? payments.mercadopago_sandbox : token.startsWith('TEST-');
+
+  return { token, publicKey, webhookSecret, isSandbox };
+}
+
+/** Checkout online pronto para uso (síncrono com fallback de env). */
+export function mercadoPagoConfigured(): boolean {
   const raw =
     process.env.MERCADOPAGO_ACCESS_TOKEN ||
     process.env.MP_ACCESS_TOKEN ||
     process.env.MERCADO_PAGO_ACCESS_TOKEN ||
     process.env.MERCADOPAGO_TOKEN ||
     '';
-  return raw.trim().replace(/^['"]|['"]$/g, '');
+  return Boolean(raw.trim());
 }
 
-function serviceRoleKey(): string {
-  const raw =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    '';
-  return raw.trim().replace(/^['"]|['"]$/g, '');
-}
-
-/** Checkout online pronto para uso: token do Mercado Pago presente. */
-export function mercadoPagoConfigured(): boolean {
-  return Boolean(accessToken());
+/** Checkout online pronto para uso (assíncrono checando Supabase + env). */
+export async function isMercadoPagoConfigured(): Promise<boolean> {
+  const config = await getMercadoPagoConfig();
+  return Boolean(config.token);
 }
 
 /** Falha na API do Mercado Pago. A mensagem nunca contém o token. */
@@ -53,7 +83,13 @@ export class MercadoPagoError extends Error {
  * Use apenas em rotas do servidor (checkout e webhook).
  */
 export function createServiceSupabase(): SupabaseClient {
-  const key = serviceRoleKey();
+  const key = (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    ''
+  ).trim().replace(/^['"]|['"]$/g, '');
   if (!key) throw new Error('Nenhuma chave Supabase (SERVICE_ROLE ou ANON) configurada.');
   return createClient(SUPABASE_URL, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -61,8 +97,8 @@ export function createServiceSupabase(): SupabaseClient {
 }
 
 async function mpFetch(path: string, init: RequestInit & { idempotencyKey?: string } = {}): Promise<unknown> {
-  const token = accessToken();
-  if (!token) throw new MercadoPagoError('MERCADOPAGO_ACCESS_TOKEN não configurado.', 503);
+  const { token } = await getMercadoPagoConfig();
+  if (!token) throw new MercadoPagoError('MERCADOPAGO_ACCESS_TOKEN não configurado no Supabase nem na Vercel.', 503);
   const { idempotencyKey, headers, ...rest } = init;
 
   let res: Response;
@@ -208,8 +244,8 @@ export async function createPreference({
   });
 
   const pref = (data ?? {}) as { id?: unknown; init_point?: unknown; sandbox_init_point?: unknown };
-  const sandbox = accessToken().startsWith('TEST-');
-  const url = sandbox
+  const { isSandbox } = await getMercadoPagoConfig();
+  const url = isSandbox
     ? (typeof pref.sandbox_init_point === 'string' && pref.sandbox_init_point) ||
       (typeof pref.init_point === 'string' && pref.init_point)
     : typeof pref.init_point === 'string' && pref.init_point;
@@ -260,8 +296,9 @@ export async function getPayment(id: string): Promise<MercadoPagoPayment> {
  * Manifesto: `id:${dataId};request-id:${x-request-id};ts:${ts};` com HMAC-SHA256 (hex)
  * da assinatura secreta. Sem MERCADOPAGO_WEBHOOK_SECRET a notificação é sempre rejeitada.
  */
-export function verifyWebhookSignature(req: Request, dataId: string): boolean {
-  const secret = (process.env.MERCADOPAGO_WEBHOOK_SECRET ?? '').trim();
+export async function verifyWebhookSignature(req: Request, dataId: string): Promise<boolean> {
+  const { webhookSecret } = await getMercadoPagoConfig();
+  const secret = webhookSecret.trim();
   if (!secret || !dataId) return false;
 
   const signature = req.headers.get('x-signature') ?? '';

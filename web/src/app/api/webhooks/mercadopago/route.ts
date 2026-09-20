@@ -7,7 +7,8 @@ import {
   MercadoPagoError,
   createServiceSupabase,
   getPayment,
-  mercadoPagoConfigured,
+  getMercadoPagoConfig,
+  isMercadoPagoConfigured,
   verifyWebhookSignature,
   type MercadoPagoPayment,
 } from '@/lib/server/mercadopago';
@@ -32,7 +33,7 @@ function mapStatus(status: string): PaymentStatus {
     case 'cancelled':
       return 'cancelled';
     case 'refunded':
-    case 'charged_back':
+      case 'charged_back':
       return 'refunded';
     default:
       // pending, authorized, in_process, in_mediation
@@ -139,13 +140,13 @@ export async function POST(req: Request) {
     return jsonError(400, 'bad_request', 'Notificação sem identificador de pagamento.');
   }
 
-  if (!mercadoPagoConfigured()) {
+  if (!(await isMercadoPagoConfigured())) {
     return jsonError(503, 'not_configured', 'Pagamento online não configurado.');
   }
 
   // Em produção, valida a assinatura HMAC do webhook caso o secret esteja configurado
-  const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
-  if (webhookSecret && !verifyWebhookSignature(req, dataId)) {
+  const { webhookSecret } = await getMercadoPagoConfig();
+  if (webhookSecret && !(await verifyWebhookSignature(req, dataId))) {
     console.warn(`[webhook/mercadopago] assinatura inválida para o pagamento ${dataId}`);
     return jsonError(401, 'unauthorized', 'Assinatura inválida.');
   }
