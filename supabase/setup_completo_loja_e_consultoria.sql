@@ -557,41 +557,20 @@ update public.products set price_cents = 14990 where slug like 'camiseta-gola-al
 -- 8. Recarrega o cache do PostgREST imediatamente
 notify pgrst, 'reload schema';
 
+-- Remove produtos duplicados legados
+delete from public.products where slug in ('gold-milan-white-3', 'gold-milan-white-2', 'gold-mily-2');
+
 -- Peças Reais Complementares (Blazers, Camisas em Linho, Acessórios, Óculos, Calçados de Couro Nobre)
 insert into public.products (
   slug, name, category, slot, description, fabric, color_name, hex_color, image_url, gallery,
   sizes, skin_tones, occasions, climates, formality, is_featured, sort_order, is_active, price_cents
 )
-select 'gold-milan-white-3', 'Gold Milan white', 'Calçados', 'calcado',
-       'Couro legítimo',
-       'Couro nobre', 'Branco', '#F7F7F5', '/produtos/IMG_8749-2.jpeg', array['/produtos/534f26b5-4e6d-42e1-9b78-666108d320b4-2.jpeg', '/produtos/25bf2866-4635-4512-b5b1-445f263b5b64-2.jpeg']::text[],
+select 'gold-milan-white', 'Gold Milan white', 'Calçados', 'calcado',
+       'Couro legítimo selecionado de alto padrão.',
+       'Couro nobre', 'Branco', '#F7F7F5', '/produtos/IMG_8749.jpeg', array['/produtos/IMG_8749-1.jpeg', '/produtos/IMG_8749-2.jpeg', '/produtos/534f26b5-4e6d-42e1-9b78-666108d320b4.jpeg', '/produtos/25bf2866-4635-4512-b5b1-445f263b5b64.jpeg']::text[],
        array['38', '39', '40', '41', '42', '43']::text[], '{}'::text[],
        array['trabalho', 'casual', 'barzinho', 'jantar', 'festa']::text[], '{}'::text[],
        3, true, 10, true, 44999
- where not exists (select 1 from public.products where slug = 'gold-milan-white-3');
-
-insert into public.products (
-  slug, name, category, slot, description, fabric, color_name, hex_color, image_url, gallery,
-  sizes, skin_tones, occasions, climates, formality, is_featured, sort_order, is_active, price_cents
-)
-select 'gold-milan-white-2', 'Gold Milan white', 'Calçados', 'calcado',
-       'Couro legítimo',
-       'Couro nobre', 'Branco', '#F7F7F5', '/produtos/IMG_8749-1.jpeg', array['/produtos/534f26b5-4e6d-42e1-9b78-666108d320b4-1.jpeg', '/produtos/25bf2866-4635-4512-b5b1-445f263b5b64-1.jpeg']::text[],
-       array['38', '39', '40', '41', '42', '43']::text[], '{}'::text[],
-       array['trabalho', 'casual', 'barzinho', 'jantar', 'festa']::text[], '{}'::text[],
-       3, true, 20, true, 44999
- where not exists (select 1 from public.products where slug = 'gold-milan-white-2');
-
-insert into public.products (
-  slug, name, category, slot, description, fabric, color_name, hex_color, image_url, gallery,
-  sizes, skin_tones, occasions, climates, formality, is_featured, sort_order, is_active, price_cents
-)
-select 'gold-milan-white', 'Gold Milan white', 'Calçados', 'calcado',
-       'Couro legítimo',
-       'Couro nobre', 'Branco', '#F7F7F5', '/produtos/IMG_8749.jpeg', array['/produtos/534f26b5-4e6d-42e1-9b78-666108d320b4.jpeg', '/produtos/25bf2866-4635-4512-b5b1-445f263b5b64.jpeg']::text[],
-       array['38', '39', '40', '41', '42', '43']::text[], '{}'::text[],
-       array['trabalho', 'casual', 'barzinho', 'jantar', 'festa']::text[], '{}'::text[],
-       3, true, 30, true, 44999
  where not exists (select 1 from public.products where slug = 'gold-milan-white');
 
 insert into public.products (
@@ -958,24 +937,12 @@ insert into public.products (
   slug, name, category, slot, description, fabric, color_name, hex_color, image_url, gallery,
   sizes, skin_tones, occasions, climates, formality, is_featured, sort_order, is_active, price_cents
 )
-select 'gold-mily-2', 'Gold mily', 'Calçados', 'calcado',
+select 'gold-mily', 'Gold mily', 'Calçados', 'calcado',
        'O Gold Mily é a definição de luxo silencioso para os seus pés. Confeccionado inteiramente em couro legítimo selecionado, este calçado foi desenhado para quem não abre mão da sofisticação, mas exige o máximo de conforto para o dia a dia. Seu design clean e o solado robusto criam uma estética contemporânea que eleva qualquer visual básico a um novo patamar de estilo.',
-       'Couro nobre', 'Chumbo', '#4A4D52', '/produtos/IMG_4413-1.jpeg', array['/produtos/IMG_4414-1.jpeg']::text[],
+       'Couro nobre', 'Chumbo', '#4A4D52', '/produtos/IMG_4413.jpeg', array['/produtos/IMG_4414.jpeg', '/produtos/IMG_4413-1.jpeg', '/produtos/IMG_4414-1.jpeg']::text[],
        array['38', '39', '40', '41', '42', '43']::text[], '{}'::text[],
        array['trabalho', 'casual', 'barzinho', 'jantar', 'festa']::text[], '{}'::text[],
        3, false, 340, true, 43999
- where not exists (select 1 from public.products where slug = 'gold-mily-2');
-
-insert into public.products (
-  slug, name, category, slot, description, fabric, color_name, hex_color, image_url, gallery,
-  sizes, skin_tones, occasions, climates, formality, is_featured, sort_order, is_active, price_cents
-)
-select 'gold-mily', 'Gold mily', 'Calçados', 'calcado',
-       'O Gold Mily é a definição de luxo silencioso para os seus pés. Confeccionado inteiramente em couro legítimo selecionado, este calçado foi desenhado para quem não abre mão da sofisticação, mas exige o máximo de conforto para o dia a dia. Seu design clean e o solado robusto criam uma estética contemporânea que eleva qualquer visual básico a um novo patamar de estilo.',
-       'Couro nobre', 'Chumbo', '#4A4D52', '/produtos/IMG_4413.jpeg', array['/produtos/IMG_4414.jpeg']::text[],
-       array['38', '39', '40', '41', '42', '43']::text[], '{}'::text[],
-       array['trabalho', 'casual', 'barzinho', 'jantar', 'festa']::text[], '{}'::text[],
-       3, false, 350, true, 41999
  where not exists (select 1 from public.products where slug = 'gold-mily');
 
 insert into public.products (
