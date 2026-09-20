@@ -4,6 +4,9 @@
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 function maskKey(val?: string | null): string {
   if (!val) return 'NÃO CONFIGURADO';
   const clean = val.trim();
@@ -326,4 +329,8 @@ GROQ_API_KEY=${groqKey}
         'Você pode baixar ou copiar o SQL gerado diretamente para rodar no Supabase SQL Editor, ou baixar o arquivo .env restaurado.',
     },
   });
+}
+
+export async function POST(req: NextRequest) {
+  return GET(req);
 }

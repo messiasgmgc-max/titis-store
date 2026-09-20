@@ -30,6 +30,19 @@ export default function middleware(req: NextRequest) {
   const url = req.nextUrl.clone();
   const pathname = url.pathname;
 
+  // Resposta imediata para preflight CORS
+  if (req.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers':
+          'X-Requested-With, Content-Type, Authorization, next-router-prefetch, next-router-state-tree, next-url, rsc',
+      },
+    });
+  }
+
   // Garante bypass absoluto e imediato para todas as APIs e recursos estáticos
   if (
     pathname.startsWith('/api') ||
