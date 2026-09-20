@@ -1,12 +1,36 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CreditCard, Megaphone, MessageCircle, Tags, TriangleAlert } from 'lucide-react';
+import { 
+  CreditCard, 
+  Megaphone, 
+  MessageCircle, 
+  Tags, 
+  Truck, 
+  Key, 
+  ShieldCheck, 
+  Radio, 
+  Send,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  Sparkles
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useUI } from '@/providers/UIProvider';
 import { supabase } from '@/lib/supabaseClient';
 import { cn, formatBRL } from '@/lib/format';
-import { normalizeWhatsappNumber, parseSettings, settingsToRows, type SettingKey, type SettingRow, type SiteSettings } from '@/lib/settings';
+import { 
+  normalizeWhatsappNumber, 
+  parseSettings, 
+  settingsToRows, 
+  type SettingKey, 
+  type SettingRow, 
+  type SiteSettings,
+  type ShippingSetting,
+  type PaymentsSetting,
+  type NotificationsSetting
+} from '@/lib/settings';
 import { CHECKOUT_PROVIDER, CLUB_PLANS } from '@/lib/site';
 import type { CheckoutProvider, PlanId } from '@/lib/types';
 import { ErrorState, Field, InlineError, LoadingRows, PillOption, RefreshButton, SectionLabel, Switch } from './AdminUI';
@@ -45,23 +69,35 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
     return map;
   }, [rows]);
 
+  // Estados locais para edição
   const [whatsapp, setWhatsapp] = useState(saved.whatsapp.number);
-  const [provider, setProvider] = useState<CheckoutProvider>(saved.checkout.provider);
+  const [checkoutProvider, setCheckoutProvider] = useState<CheckoutProvider>(saved.checkout.provider);
   const [plans, setPlans] = useState<Record<PlanId, PlanDraft>>(() => planDrafts(saved));
   const [announcement, setAnnouncement] = useState(saved.announcement);
+  const [shipping, setShipping] = useState<ShippingSetting>(saved.shipping);
+  const [payments, setPayments] = useState<PaymentsSetting>(saved.payments);
+  const [notifications, setNotifications] = useState<NotificationsSetting>(saved.notifications);
+
   const [savingKey, setSavingKey] = useState<SettingKey | null>(null);
   const [planErrors, setPlanErrors] = useState<Partial<Record<PlanId, string>>>({});
+  const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
 
-  // Sincroniza os rascunhos quando o banco chega (primeira carga) ou é recarregado
-  // (ajuste de estado durante a renderização, sem efeito).
+  // Sincroniza rascunhos quando o banco chega
   const [syncedFrom, setSyncedFrom] = useState(saved);
   if (syncedFrom !== saved) {
     setSyncedFrom(saved);
     setWhatsapp(saved.whatsapp.number);
-    setProvider(saved.checkout.provider);
+    setCheckoutProvider(saved.checkout.provider);
     setPlans(planDrafts(saved));
     setAnnouncement(saved.announcement);
+    setShipping(saved.shipping);
+    setPayments(saved.payments);
+    setNotifications(saved.notifications);
   }
+
+  const toggleTokenVisibility = (key: string) => {
+    setShowTokens((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const persist = async (key: SettingKey, next: SiteSettings, message: string) => {
     if (savingKey) return;
@@ -90,6 +126,22 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
     }
   };
 
+  // Salvar Frete & Logística (SuperFrete / Melhor Envio)
+  const saveShipping = () => {
+    void persist('shipping', { ...saved, shipping }, 'Configurações de frete e API salvas com sucesso!');
+  };
+
+  // Salvar Pagamentos (Mercado Pago)
+  const savePayments = () => {
+    void persist('payments', { ...saved, payments }, 'Chaves de API do Mercado Pago salvas com sucesso!');
+  };
+
+  // Salvar Notificações (Evolution API)
+  const saveNotifications = () => {
+    void persist('notifications', { ...saved, notifications }, 'Configurações do WhatsApp / Evolution API salvas!');
+  };
+
+  // Salvar WhatsApp
   const saveWhatsapp = () => {
     const number = normalizeWhatsappNumber(whatsapp);
     if (!number) {
@@ -100,8 +152,10 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
     void persist('whatsapp', { ...saved, whatsapp: { number } }, 'WhatsApp da loja atualizado.');
   };
 
-  const saveCheckout = () => void persist('checkout', { ...saved, checkout: { provider } }, 'Provedor de checkout atualizado.');
+  // Salvar Checkout Provider
+  const saveCheckout = () => void persist('checkout', { ...saved, checkout: { provider: checkoutProvider } }, 'Provedor de checkout atualizado.');
 
+  // Salvar Planos
   const savePlans = () => {
     const errors: Partial<Record<PlanId, string>> = {};
     const next: SiteSettings['plans'] = { ...saved.plans };
@@ -128,6 +182,7 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
     void persist('plans', { ...saved, plans: next }, 'Planos atualizados.');
   };
 
+  // Salvar Anúncio
   const saveAnnouncement = () => {
     const text = announcement.text.trim().slice(0, 280);
     if (announcement.active && !text) {
@@ -137,72 +192,302 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
     void persist('announcement', { ...saved, announcement: { text, active: announcement.active } }, 'Aviso do site atualizado.');
   };
 
-  const mpEnvOn = CHECKOUT_PROVIDER === 'mercadopago';
+  const stamp = (key: SettingKey) => {
+    const at = updatedAt.get(key);
+    return at ? `Salvo em ${formatShortDateBR(at)}` : 'Padrão (banco/env)';
+  };
+
+  const shippingDirty = JSON.stringify(shipping) !== JSON.stringify(saved.shipping);
+  const paymentsDirty = JSON.stringify(payments) !== JSON.stringify(saved.payments);
+  const notificationsDirty = JSON.stringify(notifications) !== JSON.stringify(saved.notifications);
   const whatsappDirty = whatsapp !== saved.whatsapp.number;
-  const checkoutDirty = provider !== saved.checkout.provider;
+  const checkoutDirty = checkoutProvider !== saved.checkout.provider;
   const plansDirty = JSON.stringify(plans) !== JSON.stringify(planDrafts(saved));
   const announcementDirty = announcement.text !== saved.announcement.text || announcement.active !== saved.announcement.active;
 
-  const stamp = (key: SettingKey) => {
-    const at = updatedAt.get(key);
-    return at ? `Salvo em ${formatShortDateBR(at)}` : 'Padrão do site (ainda não salvo)';
-  };
-
   let body: React.ReactNode;
   if (loading) {
-    body = <LoadingRows rows={4} label="Carregando as configurações" />;
+    body = <LoadingRows rows={6} label="Carregando configurações do Supabase..." />;
   } else if (error && rows.length === 0) {
     body = <ErrorState message={error} onRetry={() => void reload()} retrying={refreshing} />;
   } else {
     body = (
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* WhatsApp ------------------------------------------------------------ */}
-        <SettingsCard icon={MessageCircle} title="WhatsApp da loja" stamp={stamp('whatsapp')}>
-          <Field label="Número" htmlFor="cfg-whatsapp" hint={`Só dígitos, com DDI e DDD. Exibido como ${displayPhone(whatsapp) || '—'}.`}>
+        {/* 🚚 Frete & Envio (SuperFrete / Melhor Envio) ------------------- */}
+        <SettingsCard icon={Truck} title="Envio & Logística de Frete" stamp={stamp('shipping')} className="lg:col-span-2">
+          <div className="space-y-6">
+            <div>
+              <p className="label text-xs uppercase tracking-wider text-mist">Provedor de Envio Ativo</p>
+              <div role="group" aria-label="Provedor de frete" className="mt-2.5 flex flex-wrap gap-3">
+                <PillOption
+                  active={shipping.provider === 'superfrete'}
+                  onClick={() => setShipping((s) => ({ ...s, provider: 'superfrete' }))}
+                >
+                  <span className="flex items-center gap-2">
+                    <Radio className={cn('h-3.5 w-3.5', shipping.provider === 'superfrete' ? 'text-gold' : 'text-smoke')} />
+                    <strong>SuperFrete</strong> (Correios & Jadlog com desconto)
+                  </span>
+                </PillOption>
+                <PillOption
+                  active={shipping.provider === 'melhorenvio'}
+                  onClick={() => setShipping((s) => ({ ...s, provider: 'melhorenvio' }))}
+                >
+                  <span className="flex items-center gap-2">
+                    <Radio className={cn('h-3.5 w-3.5', shipping.provider === 'melhorenvio' ? 'text-gold' : 'text-smoke')} />
+                    <strong>Melhor Envio</strong> (Correios, Jadlog, Loggi)
+                  </span>
+                </PillOption>
+              </div>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Bloco SuperFrete */}
+              <div className={cn('rounded-3xl border p-5 transition-all', shipping.provider === 'superfrete' ? 'border-gold/50 bg-gold/[0.02]' : 'border-line opacity-80')}>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-sm text-ivory flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-gold" /> Chaves SuperFrete
+                  </h4>
+                  {shipping.provider === 'superfrete' && (
+                    <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold uppercase text-gold">Ativo</span>
+                  )}
+                </div>
+
+                <div className="mt-4 space-y-4">
+                  <Field label="Token da API (Bearer)" htmlFor="cfg-sf-token">
+                    <div className="relative">
+                      <input
+                        id="cfg-sf-token"
+                        type={showTokens['sf'] ? 'text' : 'password'}
+                        value={shipping.superfrete_token}
+                        onChange={(e) => setShipping((s) => ({ ...s, superfrete_token: e.target.value }))}
+                        placeholder="Insira o token oficial da SuperFrete..."
+                        className="field rounded-2xl pr-10 font-mono text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleTokenVisibility('sf')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-smoke hover:text-ivory"
+                      >
+                        {showTokens['sf'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </Field>
+
+                  <Field label="CEP de Origem (Remetente)" htmlFor="cfg-sf-cep" hint="Apenas dígitos. Padrão: 30130000 (Belo Horizonte / MG)">
+                    <input
+                      id="cfg-sf-cep"
+                      value={shipping.superfrete_origin_cep}
+                      onChange={(e) => setShipping((s) => ({ ...s, superfrete_origin_cep: e.target.value.replace(/\D/g, '').slice(0, 8) }))}
+                      placeholder="30130000"
+                      className="field rounded-2xl tabular-nums text-xs"
+                    />
+                  </Field>
+
+                  <div className="flex items-center justify-between rounded-2xl border border-line p-3">
+                    <span className="text-xs text-smoke">Ambiente Sandbox (Testes)</span>
+                    <Switch
+                      checked={shipping.superfrete_sandbox}
+                      onChange={(val) => setShipping((s) => ({ ...s, superfrete_sandbox: val }))}
+                      label="SuperFrete Sandbox"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bloco Melhor Envio */}
+              <div className={cn('rounded-3xl border p-5 transition-all', shipping.provider === 'melhorenvio' ? 'border-gold/50 bg-gold/[0.02]' : 'border-line opacity-80')}>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-sm text-ivory flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-gold" /> Chaves Melhor Envio
+                  </h4>
+                  {shipping.provider === 'melhorenvio' && (
+                    <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold uppercase text-gold">Ativo</span>
+                  )}
+                </div>
+
+                <div className="mt-4 space-y-4">
+                  <Field label="Token de Acesso (Bearer)" htmlFor="cfg-me-token">
+                    <div className="relative">
+                      <input
+                        id="cfg-me-token"
+                        type={showTokens['me'] ? 'text' : 'password'}
+                        value={shipping.melhorenvio_token}
+                        onChange={(e) => setShipping((s) => ({ ...s, melhorenvio_token: e.target.value }))}
+                        placeholder="Insira o Bearer Token do Melhor Envio..."
+                        className="field rounded-2xl pr-10 font-mono text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleTokenVisibility('me')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-smoke hover:text-ivory"
+                      >
+                        {showTokens['me'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </Field>
+
+                  <Field label="CEP de Origem (Remetente)" htmlFor="cfg-me-cep" hint="Apenas dígitos. Padrão: 30130000">
+                    <input
+                      id="cfg-me-cep"
+                      value={shipping.melhorenvio_origin_cep}
+                      onChange={(e) => setShipping((s) => ({ ...s, melhorenvio_origin_cep: e.target.value.replace(/\D/g, '').slice(0, 8) }))}
+                      placeholder="30130000"
+                      className="field rounded-2xl tabular-nums text-xs"
+                    />
+                  </Field>
+
+                  <div className="flex items-center justify-between rounded-2xl border border-line p-3">
+                    <span className="text-xs text-smoke">Ambiente Sandbox (Testes)</span>
+                    <Switch
+                      checked={shipping.melhorenvio_sandbox}
+                      onChange={(val) => setShipping((s) => ({ ...s, melhorenvio_sandbox: val }))}
+                      label="Melhor Envio Sandbox"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <SaveRow dirty={shippingDirty} busy={savingKey === 'shipping'} onSave={saveShipping} />
+        </SettingsCard>
+
+        {/* 💳 Mercado Pago & Pagamentos ----------------------------------- */}
+        <SettingsCard icon={CreditCard} title="Mercado Pago (Cartão & Pix)" stamp={stamp('payments')} className="lg:col-span-2">
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Access Token (Produção ou Teste)" htmlFor="cfg-mp-token">
+                <div className="relative">
+                  <input
+                    id="cfg-mp-token"
+                    type={showTokens['mp'] ? 'text' : 'password'}
+                    value={payments.mercadopago_access_token}
+                    onChange={(e) => setPayments((p) => ({ ...p, mercadopago_access_token: e.target.value }))}
+                    placeholder="APP_USR-xxxxxxxx..."
+                    className="field rounded-2xl pr-10 font-mono text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleTokenVisibility('mp')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-smoke hover:text-ivory"
+                  >
+                    {showTokens['mp'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </Field>
+
+              <Field label="Public Key (Chave Pública)" htmlFor="cfg-mp-pub">
+                <input
+                  id="cfg-mp-pub"
+                  value={payments.mercadopago_public_key}
+                  onChange={(e) => setPayments((p) => ({ ...p, mercadopago_public_key: e.target.value }))}
+                  placeholder="APP_USR-xxxxxxxx..."
+                  className="field rounded-2xl font-mono text-xs"
+                />
+              </Field>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 items-center">
+              <Field label="Webhook Secret (Opcional)" htmlFor="cfg-mp-wh">
+                <input
+                  id="cfg-mp-wh"
+                  type="password"
+                  value={payments.mercadopago_webhook_secret}
+                  onChange={(e) => setPayments((p) => ({ ...p, mercadopago_webhook_secret: e.target.value }))}
+                  placeholder="Assinatura de validação IPN..."
+                  className="field rounded-2xl font-mono text-xs"
+                />
+              </Field>
+
+              <div className="flex items-center justify-between rounded-2xl border border-line p-3 mt-4 md:mt-0">
+                <span className="text-xs text-smoke">Modo Sandbox / Credenciais de Teste</span>
+                <Switch
+                  checked={payments.mercadopago_sandbox}
+                  onChange={(val) => setPayments((p) => ({ ...p, mercadopago_sandbox: val }))}
+                  label="Mercado Pago Sandbox"
+                />
+              </div>
+            </div>
+          </div>
+          <SaveRow dirty={paymentsDirty} busy={savingKey === 'payments'} onSave={savePayments} />
+        </SettingsCard>
+
+        {/* 💬 WhatsApp & Evolution API (Notificações) --------------------- */}
+        <SettingsCard icon={MessageCircle} title="Evolution API (WhatsApp Automático)" stamp={stamp('notifications')} className="lg:col-span-2">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="URL da API Evolution" htmlFor="cfg-evo-url" hint="Ex: https://api.meuservidor.com">
+              <input
+                id="cfg-evo-url"
+                value={notifications.evolution_api_url}
+                onChange={(e) => setNotifications((n) => ({ ...n, evolution_api_url: e.target.value }))}
+                placeholder="https://api.seuservidor.com"
+                className="field rounded-2xl text-xs"
+              />
+            </Field>
+
+            <Field label="API Key (Chave Global/Instância)" htmlFor="cfg-evo-key">
+              <div className="relative">
+                <input
+                  id="cfg-evo-key"
+                  type={showTokens['evo'] ? 'text' : 'password'}
+                  value={notifications.evolution_api_key}
+                  onChange={(e) => setNotifications((n) => ({ ...n, evolution_api_key: e.target.value }))}
+                  placeholder="Sua API Key da Evolution..."
+                  className="field rounded-2xl pr-10 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => toggleTokenVisibility('evo')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-smoke hover:text-ivory"
+                >
+                  {showTokens['evo'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </Field>
+
+            <Field label="Nome da Instância" htmlFor="cfg-evo-inst" hint="Padrão: titis-store">
+              <input
+                id="cfg-evo-inst"
+                value={notifications.evolution_instance_name}
+                onChange={(e) => setNotifications((n) => ({ ...n, evolution_instance_name: e.target.value }))}
+                placeholder="titis-store"
+                className="field rounded-2xl text-xs"
+              />
+            </Field>
+          </div>
+          <SaveRow dirty={notificationsDirty} busy={savingKey === 'notifications'} onSave={saveNotifications} />
+        </SettingsCard>
+
+        {/* WhatsApp da Loja ----------------------------------------------- */}
+        <SettingsCard icon={MessageCircle} title="WhatsApp de Contato da Loja" stamp={stamp('whatsapp')}>
+          <Field label="Número Principal" htmlFor="cfg-whatsapp" hint={`Exibido no site como ${displayPhone(whatsapp) || '—'}.`}>
             <input
               id="cfg-whatsapp"
               inputMode="numeric"
               value={whatsapp}
               onChange={(e) => setWhatsapp(e.target.value.replace(/\D/g, '').slice(0, 15))}
               placeholder="5531996000213"
-              className="field rounded-2xl tabular-nums"
+              className="field rounded-2xl tabular-nums text-sm"
             />
           </Field>
           <SaveRow dirty={whatsappDirty} busy={savingKey === 'whatsapp'} onSave={saveWhatsapp} />
         </SettingsCard>
 
-        {/* Checkout ------------------------------------------------------------ */}
-        <SettingsCard icon={CreditCard} title="Provedor de checkout" stamp={stamp('checkout')}>
-          <p className="label">Como a compra é concluída</p>
+        {/* Provedor de Checkout ------------------------------------------- */}
+        <SettingsCard icon={CreditCard} title="Método de Checkout da Loja" stamp={stamp('checkout')}>
+          <p className="label">Como a compra é finalizada</p>
           <div role="group" aria-label="Provedor de checkout" className="mt-2 flex flex-wrap gap-2">
-            <PillOption active={provider === 'whatsapp'} onClick={() => setProvider('whatsapp')}>
+            <PillOption active={checkoutProvider === 'whatsapp'} onClick={() => setCheckoutProvider('whatsapp')}>
               WhatsApp · liberação manual
             </PillOption>
-            <PillOption active={provider === 'mercadopago'} onClick={() => setProvider('mercadopago')}>
+            <PillOption active={checkoutProvider === 'mercadopago'} onClick={() => setCheckoutProvider('mercadopago')}>
               Mercado Pago · automático
             </PillOption>
-          </div>
-          <div
-            className={cn(
-              'mt-4 flex gap-3 rounded-2xl border px-4 py-3 text-xs leading-relaxed',
-              provider === 'mercadopago' && !mpEnvOn ? 'border-danger/40 bg-danger/[0.05] text-parchment' : 'border-line text-mist',
-            )}
-            role={provider === 'mercadopago' && !mpEnvOn ? 'alert' : undefined}
-          >
-            <TriangleAlert className={cn('mt-0.5 h-4 w-4 shrink-0', provider === 'mercadopago' && !mpEnvOn ? 'text-danger' : 'text-gold')} strokeWidth={1.5} aria-hidden />
-            <p>
-              Este ajuste é informativo: o site decide pelo deploy. Neste deploy, <code className="text-gold-light">NEXT_PUBLIC_CHECKOUT_PROVIDER</code> está
-              como <strong className="text-ivory">{CHECKOUT_PROVIDER}</strong>.
-              {provider === 'mercadopago' && !mpEnvOn && (
-                <> Para o Mercado Pago funcionar, cadastre a variável e as chaves do servidor na Vercel e faça redeploy (veja supabase/README.md, seção 3).</>
-              )}
-            </p>
           </div>
           <SaveRow dirty={checkoutDirty} busy={savingKey === 'checkout'} onSave={saveCheckout} />
         </SettingsCard>
 
-        {/* Planos -------------------------------------------------------------- */}
-        <SettingsCard icon={Tags} title="Planos" stamp={stamp('plans')} className="lg:col-span-2">
+        {/* Planos --------------------------------------------------------- */}
+        <SettingsCard icon={Tags} title="Planos da Consultoria" stamp={stamp('plans')} className="lg:col-span-2">
           <div className="grid gap-4 md:grid-cols-3">
             {DIGITAL_PLANS.map((p) => {
               const d = plans[p.id];
@@ -250,30 +535,25 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
                     label={`${p.name} ativo`}
                   />
                 </div>
-                <p className="mt-3 text-xs leading-relaxed text-smoke">Sob consulta, agendado pelo WhatsApp. Só é possível ligar ou desligar a exibição.</p>
+                <p className="mt-3 text-xs leading-relaxed text-smoke">Sob consulta, agendado pelo WhatsApp.</p>
               </div>
             ))}
           </div>
-          <p className="mt-4 rounded-2xl border border-line-gold bg-gold/[0.04] px-4 py-3 text-xs leading-relaxed text-parchment">
-            Estes valores valem para o checkout e para a liberação manual assim que o site for reconstruído (cache de até 5 minutos). Os
-            textos e benefícios de cada plano continuam em <code className="text-gold-light">src/lib/site.ts</code>; enquanto a home não estiver
-            ligada a estas configurações, os preços exibidos nela também vêm de lá.
-          </p>
           <SaveRow dirty={plansDirty} busy={savingKey === 'plans'} onSave={savePlans} />
         </SettingsCard>
 
-        {/* Aviso ---------------------------------------------------------------- */}
-        <SettingsCard icon={Megaphone} title="Aviso no site" stamp={stamp('announcement')} className="lg:col-span-2">
+        {/* Aviso ----------------------------------------------------------- */}
+        <SettingsCard icon={Megaphone} title="Aviso no Topo do Site" stamp={stamp('announcement')} className="lg:col-span-2">
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
-            <Field label="Texto" htmlFor="cfg-aviso" hint={`${announcement.text.length}/280 · aparece no topo do site quando ativo.`}>
+            <Field label="Texto do Banner" htmlFor="cfg-aviso" hint={`${announcement.text.length}/280 · aparece no topo do site quando ativo.`}>
               <textarea
                 id="cfg-aviso"
                 value={announcement.text}
                 maxLength={280}
-                rows={3}
+                rows={2}
                 onChange={(e) => setAnnouncement((a) => ({ ...a, text: e.target.value }))}
-                placeholder="Ex.: Agenda de setembro aberta para consultorias presenciais."
-                className="field min-h-[5.5rem] resize-y rounded-2xl text-sm"
+                placeholder="Ex.: Frete grátis para todo o Brasil em compras acima de R$ 499."
+                className="field min-h-[4.5rem] resize-y rounded-2xl text-sm"
               />
             </Field>
             <div className="flex items-center justify-between gap-4 rounded-2xl border border-line px-4 py-3 md:mt-7 md:min-w-[12rem]">
@@ -291,12 +571,12 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
     <section aria-labelledby="config-titulo">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <SectionLabel numeral="VI">Configurações</SectionLabel>
+          <SectionLabel numeral="VI">Configurações & Integrações</SectionLabel>
           <h2 id="config-titulo" className="mt-3 font-display text-3xl font-extrabold text-ivory sm:text-4xl">
-            Ajustes da <span className="text-gold-light">casa</span>
+            Chaves de API & <span className="text-gold-light">Painel de Controle</span>
           </h2>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-mist">
-            WhatsApp, forma de pagamento, preços dos planos e aviso do site. Cada bloco é salvo separadamente.
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-mist">
+            Alterne o provedor de frete ativo (SuperFrete / Melhor Envio), configure chaves de pagamento do Mercado Pago e notificações do WhatsApp. Tudo salvo em tempo real no Supabase.
           </p>
         </div>
         {!loading && <RefreshButton onClick={() => void reload()} busy={refreshing} />}
@@ -328,9 +608,9 @@ function SettingsCard({
 }) {
   return (
     <section className={cn('panel rounded-3xl p-5 sm:p-6', className)} aria-label={title}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-[0.66rem] font-semibold uppercase tracking-[0.22em] text-gold">
-          <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4">
+        <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gold">
+          <Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden />
           {title}
         </h3>
         <span className="text-[0.62rem] uppercase tracking-[0.18em] text-smoke">{stamp}</span>
@@ -342,12 +622,12 @@ function SettingsCard({
 
 function SaveRow({ dirty, busy, onSave }: { dirty: boolean; busy: boolean; onSave: () => void }) {
   return (
-    <div className="mt-5 flex items-center justify-between gap-3">
+    <div className="mt-5 flex items-center justify-between gap-3 border-t border-line pt-4">
       <span className="text-xs text-smoke" aria-live="polite">
-        {dirty ? 'Alterações não salvas' : 'Tudo salvo'}
+        {dirty ? 'Alterações não salvas' : 'Sincronizado com Supabase'}
       </span>
-      <Button size="sm" onClick={onSave} loading={busy} disabled={!dirty}>
-        Salvar
+      <Button size="sm" onClick={onSave} loading={busy} disabled={!dirty} className="bg-gold text-obsidian font-bold text-xs">
+        Salvar Alterações
       </Button>
     </div>
   );

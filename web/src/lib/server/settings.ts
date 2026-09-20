@@ -1,19 +1,11 @@
 // ============================================================
 // Configurações do site no servidor — lê public.settings com a chave anon
 // (leitura pública por RLS) e guarda em cache por até 5 minutos.
-// Nunca lança: qualquer falha devolve os padrões de site.ts.
-//
-// Como plugar na home (fora deste módulo, para não conflitar com quem edita
-// os componentes):
-//   const settings = await getSettings();            // em page.tsx / layout.tsx (Server Component)
-//   const plans    = await getPlansFromSettings();   // CLUB_PLANS com preço/dias/ativo do painel
-//   <PlansSection plans={plans} whatsapp={settings.whatsapp.number} announcement={settings.announcement} />
-// Para invalidar antes dos 5 minutos, chame revalidateSettingsCache() em uma
-// rota do servidor (ex.: POST /api/admin/revalidate protegida por requireAdmin).
+// Nunca lança: qualquer falha devolve os padrões de site.ts e .env.
 // ============================================================
 import { revalidateTag, unstable_cache } from 'next/cache';
 import { CLUB_PLANS, type ClubPlan } from '@/lib/site';
-import { defaultSettings, parseSettings, priceLabelFromCents, type SiteSettings } from '@/lib/settings';
+import { defaultSettings, parseSettings, priceLabelFromCents, type SiteSettings, type ShippingSetting, type PaymentsSetting, type NotificationsSetting } from '@/lib/settings';
 import { createServerSupabase } from './supabase-server';
 
 export const SETTINGS_CACHE_TAG = 'settings';
@@ -31,7 +23,7 @@ async function loadSettings(): Promise<SiteSettings> {
     return parseSettings((data ?? []) as Array<{ key: string; value: unknown }>);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[settings] usando padrões de site.ts — ${message.slice(0, 200)}`);
+    console.warn(`[settings] usando padrões de site.ts / .env — ${message.slice(0, 200)}`);
     return defaultSettings();
   }
 }
@@ -46,14 +38,31 @@ export async function getSettings(): Promise<SiteSettings> {
   try {
     return await cachedSettings();
   } catch {
-    // unstable_cache pode recusar fora de um contexto de requisição (ex.: scripts).
     return loadSettings();
   }
 }
 
-/** Sem cache: para rotas que precisam do valor recém-salvo (ex.: checkout). */
+/** Sem cache: para rotas que precisam do valor recém-salvo (ex.: checkout, envio de etiquetas, webhooks). */
 export function getSettingsFresh(): Promise<SiteSettings> {
   return loadSettings();
+}
+
+/** Obtém as configurações de frete atualizadas diretamente do banco Supabase */
+export async function getShippingSettingsFresh(): Promise<ShippingSetting> {
+  const settings = await getSettingsFresh();
+  return settings.shipping;
+}
+
+/** Obtém as configurações de pagamento atualizadas diretamente do banco Supabase */
+export async function getPaymentsSettingsFresh(): Promise<PaymentsSetting> {
+  const settings = await getSettingsFresh();
+  return settings.payments;
+}
+
+/** Obtém as configurações de notificações atualizadas diretamente do banco Supabase */
+export async function getNotificationsSettingsFresh(): Promise<NotificationsSetting> {
+  const settings = await getSettingsFresh();
+  return settings.notifications;
 }
 
 /** Expira o cache das configurações na próxima requisição. */

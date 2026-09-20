@@ -3,6 +3,8 @@
 // Correios (PAC/SEDEX/Mini Envios) e Jadlog via API Oficial SuperFrete (/api/v0)
 // ============================================================
 
+import { getShippingSettingsFresh } from './settings';
+
 export interface ShippingOption {
   id: string; // Ex: '1' para PAC, '2' para SEDEX, '17' para Mini Envios
   name: string; // Ex: 'Correios PAC', 'Correios SEDEX'
@@ -52,19 +54,14 @@ export interface GenerateLabelResult {
   error?: string;
 }
 
-function getBaseUrl(): string {
-  const isSandbox = process.env.SUPERFRETE_SANDBOX === 'true';
-  return isSandbox
-    ? 'https://sandbox.superfrete.com'
-    : 'https://api.superfrete.com';
-}
+async function getSuperFreteConfig(): Promise<{ token: string; baseUrl: string; originCep: string }> {
+  const shipping = await getShippingSettingsFresh().catch(() => null);
+  const token = (shipping?.superfrete_token || process.env.SUPERFRETE_TOKEN || '').trim();
+  const isSandbox = shipping ? shipping.superfrete_sandbox : process.env.SUPERFRETE_SANDBOX === 'true';
+  const originCep = (shipping?.superfrete_origin_cep || process.env.SUPERFRETE_ORIGIN_CEP || '30130000').replace(/\D/g, '');
+  const baseUrl = isSandbox ? 'https://sandbox.superfrete.com' : 'https://api.superfrete.com';
 
-function getToken(): string {
-  return (process.env.SUPERFRETE_TOKEN ?? '').trim();
-}
-
-function getOriginCep(): string {
-  return (process.env.SUPERFRETE_ORIGIN_CEP ?? '30130000').replace(/\D/g, '');
+  return { token, baseUrl, originCep };
 }
 
 /**
@@ -151,14 +148,13 @@ export class SuperFreteService {
    * Retorna opções reais de Correios PAC, SEDEX, Mini Envios e Jadlog com desconto.
    */
   static async calculateShipping(input: CalculateShippingInput): Promise<ShippingOption[]> {
-    const token = getToken();
-    const originCep = getOriginCep();
+    const { token, baseUrl, originCep } = await getSuperFreteConfig();
     const cleanDestination = input.destinationCep.replace(/\D/g, '');
     const itemsCount = input.itemsCount ?? 1;
     const subtotalCents = input.subtotalCents ?? 0;
 
     if (!token) {
-      console.log('[SuperFrete] SUPERFRETE_TOKEN não configurado; usando cálculo regional de contingência.');
+      console.log('[SuperFrete] Token não configurado; usando cálculo regional de contingência.');
       return getFallbackRates(cleanDestination, subtotalCents);
     }
 
@@ -187,7 +183,7 @@ export class SuperFreteService {
         },
       };
 
-      const res = await fetch(`${getBaseUrl()}/api/v0/calculator`, {
+      const res = await fetch(`${baseUrl}/api/v0/calculator`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -256,7 +252,7 @@ export class SuperFreteService {
    * Cria o envio na SuperFrete (/api/v0/cart) e obtém o link de impressão da etiqueta.
    */
   static async generateShippingLabel(input: GenerateLabelInput): Promise<GenerateLabelResult> {
-    const token = getToken();
+    const { token, baseUrl, originCep } = await getSuperFreteConfig();
 
     if (!token) {
       const fakeTracking = `BR${Math.floor(100000000 + Math.random() * 900000000)}BR`;
@@ -272,7 +268,7 @@ export class SuperFreteService {
       const serviceCode = parseInt(String(input.serviceId || '1'), 10) || 1;
       const cleanPhone = input.to.phone.replace(/\D/g, '');
       const cleanDoc = input.to.document.replace(/\D/g, '');
-      const cleanOrigin = getOriginCep();
+      const cleanOrigin = originCep;
       const cleanDest = input.to.postalCode.replace(/\D/g, '');
 
       const payload = {
@@ -319,7 +315,7 @@ export class SuperFreteService {
       };
 
       // 1. Cria a etiqueta na SuperFrete (/api/v0/cart)
-      const cartRes = await fetch(`${getBaseUrl()}/api/v0/cart`, {
+      const cartRes = await fetch(`${baseUrl}/api/v0/cart`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -347,7 +343,7 @@ export class SuperFreteService {
       let printUrl = `https://web.superfrete.com/#/minhas-etiquetas`;
       if (superOrderId) {
         try {
-          const printRes = await fetch(`${getBaseUrl()}/api/v0/tag/print`, {
+          const printRes = await fetch(`${baseUrl}/api/v0/tag/print`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

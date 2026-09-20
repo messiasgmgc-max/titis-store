@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SuperFreteService } from '@/lib/server/superfrete';
 import { MelhorEnvioService } from '@/lib/server/melhorenvio';
+import { getShippingSettingsFresh } from '@/lib/server/settings';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,9 +21,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'CEP deve conter 8 dígitos numéricos.' }, { status: 400 });
     }
 
-    const provider = (process.env.FRETE_PROVIDER || 'superfrete').toLowerCase();
-    const hasSuperFrete = Boolean((process.env.SUPERFRETE_TOKEN ?? '').trim());
-    const hasMelhorEnvio = Boolean((process.env.MELHORENVIO_TOKEN ?? '').trim());
+    const shippingConfig = await getShippingSettingsFresh().catch(() => null);
+    const provider = shippingConfig?.provider || (process.env.FRETE_PROVIDER || 'superfrete').toLowerCase();
+    const hasSuperFrete = Boolean((shippingConfig?.superfrete_token || process.env.SUPERFRETE_TOKEN || '').trim());
+    const hasMelhorEnvio = Boolean((shippingConfig?.melhorenvio_token || process.env.MELHORENVIO_TOKEN || '').trim());
 
     let options = [];
     if (provider === 'melhorenvio' || (!hasSuperFrete && hasMelhorEnvio)) {

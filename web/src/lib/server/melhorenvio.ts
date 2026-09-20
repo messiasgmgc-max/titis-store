@@ -3,6 +3,8 @@
 // Correios (PAC/Sedex), Jadlog, Loggi em API unificada
 // ============================================================
 
+import { getShippingSettingsFresh } from './settings';
+
 export interface ShippingOption {
   id: string; // id do serviço no Melhor Envio (ex: '1' para PAC, '2' para SEDEX, '3' para Jadlog)
   name: string; // Ex: 'PAC', 'SEDEX', '.Package'
@@ -52,20 +54,14 @@ export interface GenerateLabelResult {
   error?: string;
 }
 
-function getBaseUrl(): string {
-  const isSandbox = process.env.MELHORENVIO_SANDBOX === 'true';
-  return isSandbox
-    ? 'https://sandbox.melhorenvio.com.br'
-    : 'https://melhorenvio.com.br';
-}
+async function getMelhorEnvioConfig(): Promise<{ token: string; baseUrl: string; originCep: string }> {
+  const shipping = await getShippingSettingsFresh().catch(() => null);
+  const token = (shipping?.melhorenvio_token || process.env.MELHORENVIO_TOKEN || '').trim();
+  const isSandbox = shipping ? shipping.melhorenvio_sandbox : process.env.MELHORENVIO_SANDBOX === 'true';
+  const originCep = (shipping?.melhorenvio_origin_cep || process.env.MELHORENVIO_ORIGIN_CEP || '30130000').replace(/\D/g, '');
+  const baseUrl = isSandbox ? 'https://sandbox.melhorenvio.com.br' : 'https://melhorenvio.com.br';
 
-function getToken(): string {
-  return (process.env.MELHORENVIO_TOKEN ?? '').trim();
-}
-
-function getOriginCep(): string {
-  // Padrão: Belo Horizonte / MG
-  return (process.env.MELHORENVIO_ORIGIN_CEP ?? '30130000').replace(/\D/g, '');
+  return { token, baseUrl, originCep };
 }
 
 /** Helper seguro para ler resposta JSON sem estourar SyntaxError em páginas HTML */
@@ -81,8 +77,9 @@ async function safeParseResponse(res: Response): Promise<{ ok: boolean; status: 
 
 export class MelhorEnvioService {
   /** Verifica se o Melhor Envio está configurado com token de acesso */
-  static isConfigured(): boolean {
-    return Boolean(getToken());
+  static async isConfigured(): Promise<boolean> {
+    const { token } = await getMelhorEnvioConfig();
+    return Boolean(token);
   }
 
   /**
@@ -95,23 +92,22 @@ export class MelhorEnvioService {
       return [];
     }
 
-    const token = getToken();
+    const { token, baseUrl, originCep } = await getMelhorEnvioConfig();
     const itemsCount = Math.max(1, input.itemsCount || 1);
     const subtotalCents = input.subtotalCents || 0;
 
     // Regra da Loja: Frete Grátis acima de R$ 499,00
     const qualifiesFreeShipping = subtotalCents >= 49900;
 
-    // Se a API não estiver configurada no .env, usamos o fallback de estimativa inteligente
+    // Se a API não estiver configurada no .env ou banco, usamos o fallback de estimativa inteligente
     if (!token) {
       return this.fallbackCalculation(cleanDestCep, qualifiesFreeShipping);
     }
 
-    const originCep = getOriginCep();
     const weightKg = Math.min(15, Math.max(0.4, itemsCount * 0.45)); // ~450g por peça de vestuário
 
     try {
-      const response = await fetch(`${getBaseUrl()}/api/v2/me/shipment/calculate`, {
+      const response = await fetch(`${baseUrl}/api/v2/me/shipment/calculate`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -245,8 +241,7 @@ export class MelhorEnvioService {
    * Gera a etiqueta de frete no Melhor Envio (adiciona ao carrinho, paga e gera link do PDF)
    */
   static async generateLabel(input: GenerateLabelInput): Promise<GenerateLabelResult> {
-    const token = getToken();
-    const originCep = getOriginCep();
+    const { token, baseUrl, originCep } = await getMelhorEnvioConfig();
     const serviceId = input.serviceId ? parseInt(input.serviceId, 10) : 3; // Padrão: 3 (Jadlog .Package) ou 1 (PAC)
 
     // Se o token não estiver presente, gera etiqueta de simulação para não travar testes
@@ -316,7 +311,7 @@ export class MelhorEnvioService {
         },
       };
 
-      const cartRes = await fetch(`${getBaseUrl()}/api/v2/me/cart`, {
+      const cartRes = await fetch(`${baseUrl}/api/v2/me/cart`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -331,7 +326,7 @@ export class MelhorEnvioService {
 
       if (!parsedCart.ok || !parsedCart.data?.id) {
         if (parsedCart.status === 401) {
-          throw new Error('Token do Melhor Envio não autorizado ou expirado. Verifique MELHORENVIO_TOKEN.');
+          throw new Error('Token do Melhor Envio não autorizado ou expirado. Verifique MELHORENVIO_TOKEN nas configurações.');
         }
         if (parsedCart.status === 422) {
           const detail = parsedCart.data?.errors ? JSON.stringify(parsedCart.data.errors) : (parsedCart.data?.message || 'Dados de envio inválidos.');
@@ -343,7 +338,7 @@ export class MelhorEnvioService {
       const melhorEnvioId = parsedCart.data.id;
 
       // 2. Checkout / Compra da etiqueta (debita do saldo do Melhor Envio)
-      const checkoutRes = await fetch(`${getBaseUrl()}/api/v2/me/shipment/checkout`, {
+      const checkoutRes = await fetch(`${baseUrl}/api/v2/me/shipment/checkout`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -360,7 +355,7 @@ export class MelhorEnvioService {
       }
 
       // 3. Gerar a etiqueta
-      await fetch(`${getBaseUrl()}/api/v2/me/shipment/generate`, {
+      await fetch(`${baseUrl}/api/v2/me/shipment/generate`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -372,7 +367,7 @@ export class MelhorEnvioService {
       });
 
       // 4. Obter link de impressão do PDF
-      const printRes = await fetch(`${getBaseUrl()}/api/v2/me/shipment/print`, {
+      const printRes = await fetch(`${baseUrl}/api/v2/me/shipment/print`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -389,7 +384,7 @@ export class MelhorEnvioService {
       // 5. Tenta consultar o código de rastreamento oficial emitido
       let trackingCode = parsedCart.data.tracking || null;
       try {
-        const orderInfoRes = await fetch(`${getBaseUrl()}/api/v2/me/orders/${melhorEnvioId}`, {
+        const orderInfoRes = await fetch(`${baseUrl}/api/v2/me/orders/${melhorEnvioId}`, {
           headers: {
             Accept: 'application/json',
             Authorization: `Bearer ${token}`,

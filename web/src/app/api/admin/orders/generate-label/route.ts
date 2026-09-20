@@ -10,6 +10,8 @@ import { NotificationService } from '@/lib/server/notifications';
 import { EmailService } from '@/lib/server/email';
 import { WebPushService } from '@/lib/server/webpush';
 
+import { getShippingSettingsFresh } from '@/lib/server/settings';
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -48,9 +50,10 @@ export async function POST(req: NextRequest) {
       unitaryValue: i.priceCents ? i.priceCents / 100 : 150,
     }));
 
-    const provider = (process.env.FRETE_PROVIDER || 'superfrete').toLowerCase();
-    const hasSuperFrete = Boolean((process.env.SUPERFRETE_TOKEN ?? '').trim());
-    const hasMelhorEnvio = Boolean((process.env.MELHORENVIO_TOKEN ?? '').trim());
+    const shippingConfig = await getShippingSettingsFresh().catch(() => null);
+    const provider = shippingConfig?.provider || (process.env.FRETE_PROVIDER || 'superfrete').toLowerCase();
+    const hasSuperFrete = Boolean((shippingConfig?.superfrete_token || process.env.SUPERFRETE_TOKEN || '').trim());
+    const hasMelhorEnvio = Boolean((shippingConfig?.melhorenvio_token || process.env.MELHORENVIO_TOKEN || '').trim());
 
     const labelInput = {
       orderId: order.id,

@@ -1,14 +1,14 @@
 // ============================================================
 // Configurações do site (tabela public.settings) — formato, padrões e leitura
 // tolerante. Isomórfico: usado pelo painel admin (navegador) e por
-// src/lib/server/settings.ts (servidor). Os padrões vêm de site.ts, então o site
-// continua igual enquanto o painel não salvar nada.
+// src/lib/server/settings.ts (servidor). Os padrões vêm de site.ts e .env,
+// e qualquer alteração no painel salva diretamente no Supabase.
 // ============================================================
 import { CHECKOUT_PROVIDER, CLUB_PLANS, SITE } from './site';
 import type { CheckoutProvider, PlanId } from './types';
 
-export type SettingKey = 'whatsapp' | 'checkout' | 'plans' | 'announcement';
-export const SETTING_KEYS: SettingKey[] = ['whatsapp', 'checkout', 'plans', 'announcement'];
+export type SettingKey = 'whatsapp' | 'checkout' | 'plans' | 'announcement' | 'shipping' | 'payments' | 'notifications';
+export const SETTING_KEYS: SettingKey[] = ['whatsapp', 'checkout', 'plans', 'announcement', 'shipping', 'payments', 'notifications'];
 
 export interface PlanSetting {
   /** Valor cobrado; null = sob consulta (sem checkout). */
@@ -19,11 +19,37 @@ export interface PlanSetting {
   active: boolean;
 }
 
+export interface ShippingSetting {
+  provider: 'superfrete' | 'melhorenvio';
+  superfrete_token: string;
+  superfrete_sandbox: boolean;
+  superfrete_origin_cep: string;
+  melhorenvio_token: string;
+  melhorenvio_sandbox: boolean;
+  melhorenvio_origin_cep: string;
+}
+
+export interface PaymentsSetting {
+  mercadopago_access_token: string;
+  mercadopago_public_key: string;
+  mercadopago_webhook_secret: string;
+  mercadopago_sandbox: boolean;
+}
+
+export interface NotificationsSetting {
+  evolution_api_url: string;
+  evolution_api_key: string;
+  evolution_instance_name: string;
+}
+
 export interface SiteSettings {
   whatsapp: { number: string };
   checkout: { provider: CheckoutProvider };
   plans: Record<PlanId, PlanSetting>;
   announcement: { text: string; active: boolean };
+  shipping: ShippingSetting;
+  payments: PaymentsSetting;
+  notifications: NotificationsSetting;
 }
 
 /** Linha de public.settings como o painel a lê. */
@@ -33,17 +59,40 @@ export interface SettingRow {
   updated_at: string | null;
 }
 
-/** Padrões = valores hoje fixos em site.ts (fonte única enquanto a home não lê settings). */
+/** Padrões = valores em site.ts e fallback para variáveis de ambiente */
 export function defaultSettings(): SiteSettings {
   const plans = {} as Record<PlanId, PlanSetting>;
   for (const plan of CLUB_PLANS) {
     plans[plan.id] = { price_cents: plan.priceCents, access_days: plan.accessDays, active: true };
   }
+
+  const freteProvider = (process.env.FRETE_PROVIDER || 'superfrete').toLowerCase() === 'melhorenvio' ? 'melhorenvio' : 'superfrete';
+
   return {
     whatsapp: { number: SITE.whatsapp },
     checkout: { provider: CHECKOUT_PROVIDER },
     plans,
     announcement: { text: '', active: false },
+    shipping: {
+      provider: freteProvider,
+      superfrete_token: (process.env.SUPERFRETE_TOKEN ?? '').trim(),
+      superfrete_sandbox: process.env.SUPERFRETE_SANDBOX === 'true',
+      superfrete_origin_cep: (process.env.SUPERFRETE_ORIGIN_CEP ?? '30130000').replace(/\D/g, ''),
+      melhorenvio_token: (process.env.MELHORENVIO_TOKEN ?? '').trim(),
+      melhorenvio_sandbox: process.env.MELHORENVIO_SANDBOX === 'true',
+      melhorenvio_origin_cep: (process.env.MELHORENVIO_ORIGIN_CEP ?? '30130000').replace(/\D/g, ''),
+    },
+    payments: {
+      mercadopago_access_token: (process.env.MERCADOPAGO_ACCESS_TOKEN || process.env.MP_ACCESS_TOKEN || '').trim(),
+      mercadopago_public_key: (process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || '').trim(),
+      mercadopago_webhook_secret: (process.env.MERCADOPAGO_WEBHOOK_SECRET || '').trim(),
+      mercadopago_sandbox: process.env.MERCADOPAGO_SANDBOX === 'true',
+    },
+    notifications: {
+      evolution_api_url: (process.env.EVOLUTION_API_URL || '').replace(/\/+$/, ''),
+      evolution_api_key: (process.env.EVOLUTION_API_KEY || '').trim(),
+      evolution_instance_name: process.env.EVOLUTION_INSTANCE_NAME || 'titis-store',
+    },
   };
 }
 
@@ -109,6 +158,40 @@ export function parseSettings(rows: Array<{ key: string; value: unknown }>): Sit
     if (typeof announcement.active === 'boolean') base.announcement.active = announcement.active;
   }
 
+  const shipping = byKey.get('shipping');
+  if (isRecord(shipping)) {
+    if (shipping.provider === 'superfrete' || shipping.provider === 'melhorenvio') {
+      base.shipping.provider = shipping.provider;
+    }
+    if (typeof shipping.superfrete_token === 'string') base.shipping.superfrete_token = shipping.superfrete_token.trim();
+    if (typeof shipping.superfrete_sandbox === 'boolean') base.shipping.superfrete_sandbox = shipping.superfrete_sandbox;
+    if (typeof shipping.superfrete_origin_cep === 'string') {
+      const clean = shipping.superfrete_origin_cep.replace(/\D/g, '');
+      if (clean) base.shipping.superfrete_origin_cep = clean;
+    }
+    if (typeof shipping.melhorenvio_token === 'string') base.shipping.melhorenvio_token = shipping.melhorenvio_token.trim();
+    if (typeof shipping.melhorenvio_sandbox === 'boolean') base.shipping.melhorenvio_sandbox = shipping.melhorenvio_sandbox;
+    if (typeof shipping.melhorenvio_origin_cep === 'string') {
+      const clean = shipping.melhorenvio_origin_cep.replace(/\D/g, '');
+      if (clean) base.shipping.melhorenvio_origin_cep = clean;
+    }
+  }
+
+  const payments = byKey.get('payments');
+  if (isRecord(payments)) {
+    if (typeof payments.mercadopago_access_token === 'string') base.payments.mercadopago_access_token = payments.mercadopago_access_token.trim();
+    if (typeof payments.mercadopago_public_key === 'string') base.payments.mercadopago_public_key = payments.mercadopago_public_key.trim();
+    if (typeof payments.mercadopago_webhook_secret === 'string') base.payments.mercadopago_webhook_secret = payments.mercadopago_webhook_secret.trim();
+    if (typeof payments.mercadopago_sandbox === 'boolean') base.payments.mercadopago_sandbox = payments.mercadopago_sandbox;
+  }
+
+  const notifications = byKey.get('notifications');
+  if (isRecord(notifications)) {
+    if (typeof notifications.evolution_api_url === 'string') base.notifications.evolution_api_url = notifications.evolution_api_url.trim();
+    if (typeof notifications.evolution_api_key === 'string') base.notifications.evolution_api_key = notifications.evolution_api_key.trim();
+    if (typeof notifications.evolution_instance_name === 'string') base.notifications.evolution_instance_name = notifications.evolution_instance_name.trim();
+  }
+
   return base;
 }
 
@@ -127,6 +210,35 @@ export function settingsToRows(settings: SiteSettings): Array<{ key: SettingKey;
       ),
     },
     { key: 'announcement', value: { text: settings.announcement.text, active: settings.announcement.active } },
+    {
+      key: 'shipping',
+      value: {
+        provider: settings.shipping.provider,
+        superfrete_token: settings.shipping.superfrete_token,
+        superfrete_sandbox: settings.shipping.superfrete_sandbox,
+        superfrete_origin_cep: settings.shipping.superfrete_origin_cep,
+        melhorenvio_token: settings.shipping.melhorenvio_token,
+        melhorenvio_sandbox: settings.shipping.melhorenvio_sandbox,
+        melhorenvio_origin_cep: settings.shipping.melhorenvio_origin_cep,
+      },
+    },
+    {
+      key: 'payments',
+      value: {
+        mercadopago_access_token: settings.payments.mercadopago_access_token,
+        mercadopago_public_key: settings.payments.mercadopago_public_key,
+        mercadopago_webhook_secret: settings.payments.mercadopago_webhook_secret,
+        mercadopago_sandbox: settings.payments.mercadopago_sandbox,
+      },
+    },
+    {
+      key: 'notifications',
+      value: {
+        evolution_api_url: settings.notifications.evolution_api_url,
+        evolution_api_key: settings.notifications.evolution_api_key,
+        evolution_instance_name: settings.notifications.evolution_instance_name,
+      },
+    },
   ];
 }
 

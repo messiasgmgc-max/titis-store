@@ -1306,10 +1306,88 @@ create policy "Inscrição de push pública e autenticada"
   using (true)
   with check (true);
 
+-- ============================================================
+-- TABELA: settings (Configurações Gerais, Chaves de API de Frete e Pagamento)
+-- ============================================================
+create table if not exists public.settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  updated_at timestamptz default now()
+);
+
+alter table public.settings enable row level security;
+
+drop policy if exists "Leitura de configurações pública" on public.settings;
+create policy "Leitura de configurações pública"
+  on public.settings for select
+  using (true);
+
+drop policy if exists "Edição de configurações por admins ou aberta" on public.settings;
+create policy "Edição de configurações por admins ou aberta"
+  on public.settings for all
+  using (true)
+  with check (true);
+
+-- Seeds padrão de configurações
+insert into public.settings (key, value) values
+(
+  'shipping',
+  '{
+    "provider": "superfrete",
+    "superfrete_token": "",
+    "superfrete_sandbox": false,
+    "superfrete_origin_cep": "30130000",
+    "melhorenvio_token": "",
+    "melhorenvio_sandbox": false,
+    "melhorenvio_origin_cep": "30130000"
+  }'::jsonb
+),
+(
+  'payments',
+  '{
+    "mercadopago_access_token": "",
+    "mercadopago_public_key": "",
+    "mercadopago_webhook_secret": "",
+    "mercadopago_sandbox": false
+  }'::jsonb
+),
+(
+  'notifications',
+  '{
+    "evolution_api_url": "",
+    "evolution_api_key": "",
+    "evolution_instance_name": "titis-store"
+  }'::jsonb
+),
+(
+  'whatsapp',
+  '{"number": "5531996000213"}'::jsonb
+),
+(
+  'checkout',
+  '{"provider": "mercadopago"}'::jsonb
+),
+(
+  'announcement',
+  '{"text": "Frete grátis para todo o Brasil em compras acima de R$ 499.", "active": true}'::jsonb
+),
+(
+  'plans',
+  '{
+    "passe": {"price_cents": 4900, "access_days": 30, "active": true},
+    "clube": {"price_cents": 8900, "access_days": 30, "active": true},
+    "presencial": {"price_cents": null, "access_days": null, "active": true}
+  }'::jsonb
+)
+on conflict (key) do update set
+  value = excluded.value,
+  updated_at = now();
+
 -- Adiciona na publicação Realtime do Supabase caso exista
 do $$
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    alter publication supabase_realtime add table public.settings;
     alter publication supabase_realtime add table public.push_subscriptions;
   end if;
 exception
