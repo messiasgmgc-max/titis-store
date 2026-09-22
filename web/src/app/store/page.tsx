@@ -21,6 +21,7 @@ import { useCatalog } from '@/lib/catalog';
 import { formatBRL } from '@/lib/format';
 import { getInstallmentTeaser } from '@/lib/installments';
 import { fetchReviews, type ProductReview, SEED_REVIEWS } from '@/lib/reviews';
+import { buildProductPath } from '@/lib/products';
 import { useCart } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
 import { Button } from '@/components/ui/Button';
@@ -203,7 +204,7 @@ export default function StoreHomePage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 sm:gap-6 lg:gap-8">
             {featuredProducts.map((product) => {
               const price = product.price_cents ? formatBRL(product.price_cents) : 'Sob consulta';
-              const productUrl = `/produtos/${product.slug || product.id}`;
+              const productUrl = buildProductPath(product);
               return (
                 <div
                   key={product.id}

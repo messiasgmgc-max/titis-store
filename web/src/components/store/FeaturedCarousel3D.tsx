@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, ShoppingBag, Sparkles, Eye } from 'lucide-react';
 import { Tilt3D } from '@/components/ui/Tilt3D';
 import { formatBRL } from '@/lib/format';
+import { buildProductPath } from '@/lib/products';
 import { useCart } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
 import type { Product } from '@/lib/types';
@@ -51,7 +52,7 @@ export function FeaturedCarousel3D({ products }: FeaturedCarousel3DProps) {
 
   const current = products[currentIndex] || products[0];
   const priceLabel = current.price_cents ? formatBRL(current.price_cents) : 'Sob consulta';
-  const productUrl = `/produtos/${current.slug || current.id}`;
+  const productUrl = buildProductPath(current);
   const productImage = current.image_url || '/produtos/calca-alfaiataria-regulador-cinza-grafite.jpg';
 
   const handleQuickBuy = (e: React.MouseEvent) => {

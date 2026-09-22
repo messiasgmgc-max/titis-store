@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Check, Plus } from 'lucide-react';
 import type { ColorSwatch, Diagnosis, Product } from '@/lib/types';
 import { closestSwatch } from '@/lib/stylist/color';
 import { cn, formatBRL } from '@/lib/format';
 import { getInstallmentTeaser } from '@/lib/installments';
+import { buildProductPath } from '@/lib/products';
 import { ColorDot } from '@/components/ui/Swatch';
 import { useCart } from '@/providers/CartProvider';
 import { useDiagnosis } from '@/providers/DiagnosisProvider';
@@ -283,13 +285,12 @@ export function ProductCard({ product, index, lead = false, className }: Product
               : 'text-base font-bold leading-[1.15] tracking-[-0.02em] sm:text-lg lg:text-[1.2rem]',
           )}
         >
-          <button
-            type="button"
-            onClick={open}
+          <Link
+            href={buildProductPath(product)}
             className="card-link text-left transition-colors duration-500 after:absolute after:inset-0 after:z-[1] after:content-[''] hover:text-gold-light focus-visible:outline-none"
           >
             {product.name}
-          </button>
+          </Link>
         </h3>
 
         {(product.fabric || product.color_name) && (

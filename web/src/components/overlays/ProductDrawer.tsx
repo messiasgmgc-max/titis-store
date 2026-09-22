@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Minus, Plus, Ruler, ShoppingBag, ArrowUpRigh
 import type { PieceSlot, Product } from '@/lib/types';
 import { cn, formatBRL, whatsappLink } from '@/lib/format';
 import { climateTitle, occasionTitle } from '@/lib/stylist/knowledge';
+import { buildProductPath } from '@/lib/products';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Swatch } from '@/components/ui/Swatch';
@@ -384,7 +385,7 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
             <div className="mt-8 pt-4 border-t border-line/60 flex items-center justify-between text-xs">
               <span className="text-mist">Ver fotos completas e detalhes</span>
               <a
-                href={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.titisstore.com.br'}/produtos/${product.slug || product.id}`}
+                href={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.titisstore.com.br'}${buildProductPath(product, { colorName: product.color_name, size })}`}
                 className="inline-flex items-center gap-1 font-semibold text-gold hover:underline"
               >
                 <span>Página da peça</span>

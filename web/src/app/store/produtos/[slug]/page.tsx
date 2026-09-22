@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, use } from 'react';
+import React, { useState, useEffect, useRef, use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -12,18 +12,21 @@ import {
   Check, 
   Sparkles, 
   CreditCard,
-  Ruler
+  Ruler,
+  Share2,
+  Copy,
 } from 'lucide-react';
 import { useCatalog } from '@/lib/catalog';
 import { formatBRL } from '@/lib/format';
 import { getInstallmentTeaser } from '@/lib/installments';
+import { buildProductPath, resolveProductFromPath, getCategorySlug } from '@/lib/products';
 import { useCart } from '@/providers/CartProvider';
 import { useUI } from '@/providers/UIProvider';
 import { Button } from '@/components/ui/Button';
 import { ProductReviewsSection } from '@/components/store/ProductReviewsSection';
 
 interface ProductPageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string; category?: string }>;
 }
 
 export default function ProductDetailPage({ params }: ProductPageProps) {
@@ -33,8 +36,12 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   const { add } = useCart();
   const { openOverlay } = useUI();
 
-  // Localiza produto por slug ou por ID
-  const product = products.find(
+  // Localiza produto e variante inicial por slug/categoria composta
+  const resolvedRoute = React.useMemo(() => {
+    return resolveProductFromPath(products, resolvedParams.slug, resolvedParams.category);
+  }, [products, resolvedParams.slug, resolvedParams.category]);
+
+  const product = resolvedRoute?.product || products.find(
     (p) => (p.slug && p.slug === resolvedParams.slug) || p.id === resolvedParams.slug
   );
 
@@ -42,6 +49,17 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   const [selectedVariantId, setSelectedVariantId] = useState<string>('base');
   const [quantity, setQuantity] = useState<number>(1);
   const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  const isInitialized = useRef<boolean>(false);
+
+  // Sincroniza estado inicial com a variante e tamanho detectados na URL
+  useEffect(() => {
+    if (resolvedRoute && !isInitialized.current) {
+      setSelectedVariantId(resolvedRoute.selectedVariantId);
+      setSelectedSize(resolvedRoute.selectedSize);
+      isInitialized.current = true;
+    }
+  }, [resolvedRoute]);
 
   const allVariants = React.useMemo(() => {
     if (!product) return [];
@@ -80,6 +98,50 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   const priceCents = typeof activeVariant?.price_cents === 'number' ? activeVariant.price_cents : product?.price_cents;
   const activeColor = activeVariant?.color_name || product?.color_name || 'Padrão';
   const activeHex = activeVariant?.hex_color || product?.hex_color || '#181b24';
+
+  // Atualiza a URL dinamicamente (/categoria/slug-cor-tamanho) sem recarregar a página ao trocar variação
+  useEffect(() => {
+    if (!product || !isInitialized.current || typeof window === 'undefined') return;
+
+    const newPath = buildProductPath(product, {
+      colorName: activeColor,
+      size: selectedSize,
+    });
+
+    if (window.location.pathname !== newPath) {
+      window.history.replaceState(null, '', newPath);
+    }
+
+    document.title = `${product.name} (${activeColor}, ${selectedSize}) | Titi's Store`;
+  }, [product, activeColor, selectedSize]);
+
+  // Compartilhamento da URL exata com variação e tamanho
+  const handleShare = async () => {
+    if (typeof window === 'undefined' || !product) return;
+    const currentUrl = window.location.href;
+    const shareText = `Olha essa peça na Titi's Store: ${product.name} (${activeColor}, Tam ${selectedSize})`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${product.name} | Titi's Store`,
+          text: `${shareText}\n\nConfira os detalhes:`,
+          url: currentUrl,
+        });
+        return;
+      } catch {
+        // Fallback para cópia
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(currentUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 3000);
+    } catch {
+      // ignore
+    }
+  };
 
   if (loading) {
     return (
@@ -144,16 +206,27 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
     <main id="conteudo" className="min-h-screen bg-obsidian text-ivory pt-28 pb-20 sm:pt-36 sm:pb-28">
         <div className="container-luxe">
           
-          {/* Navegação de retorno */}
-          <div className="mb-8">
+          {/* Navegação de retorno & Breadcrumbs */}
+          <nav aria-label="Breadcrumbs" className="mb-8 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wider text-mist">
             <Link
               href="/colecao"
-              className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-mist hover:text-gold transition-colors"
+              className="inline-flex items-center gap-1.5 text-mist hover:text-gold transition-colors"
             >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Voltar para Coleção</span>
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Coleção</span>
             </Link>
-          </div>
+            <span className="text-line">/</span>
+            <Link
+              href={`/colecao?categoria=${encodeURIComponent(product.category)}`}
+              className="text-mist hover:text-gold transition-colors"
+            >
+              {product.category}
+            </Link>
+            <span className="text-line">/</span>
+            <span className="text-ivory font-bold truncate max-w-[200px] sm:max-w-none">
+              {product.name}
+            </span>
+          </nav>
 
           <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
             
@@ -194,9 +267,46 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
             {/* DETALHES & AÇÕES */}
             <div className="lg:col-span-5 space-y-6">
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-gold">
-                  {product.category}
-                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-bold uppercase tracking-widest text-gold">
+                    {product.category}
+                  </p>
+
+                  {/* Botões de Compartilhar & WhatsApp */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line bg-surface/80 text-mist hover:text-gold hover:border-gold/50 text-[11px] font-semibold transition-all shadow-sm active:scale-95"
+                      title="Compartilhar link desta variação"
+                    >
+                      {copiedLink ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">Link copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Share2 className="h-3.5 w-3.5 text-gold" />
+                          <span>Compartilhar</span>
+                        </>
+                      )}
+                    </button>
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(
+                        `Olha essa peça na Titi's Store: ${product.name} (${activeColor}, Tam ${selectedSize})\n\nConfira os detalhes:\n${typeof window !== 'undefined' ? window.location.href : ''}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-[11px] font-semibold transition-all shadow-sm active:scale-95"
+                      title="Compartilhar no WhatsApp"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>WhatsApp</span>
+                    </a>
+                  </div>
+                </div>
+
                 <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-ivory sm:text-4xl">
                   {product.name}
                 </h1>

@@ -95,7 +95,19 @@ export default function middleware(req: NextRequest) {
   // 1. Roteamento para a aplicação do Consultor (subdomínio consultor.titisstore.com.br)
   if (isConsultorHost) {
     // Se tentar acessar páginas da loja no subdomínio do consultor, redireciona para a loja principal
-    const STORE_SECTIONS = ['/colecao', '/carrinho', '/checkout', '/loja', '/produtos'];
+    const STORE_SECTIONS = [
+      '/colecao',
+      '/carrinho',
+      '/checkout',
+      '/loja',
+      '/produtos',
+      '/alfaiataria',
+      '/camisaria',
+      '/malharia',
+      '/calcas',
+      '/calcados',
+      '/acessorios',
+    ];
     if (STORE_SECTIONS.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
       const storeOrigin =
         process.env.NEXT_PUBLIC_SITE_URL ||

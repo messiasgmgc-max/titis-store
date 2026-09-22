@@ -24,6 +24,7 @@ import { useSession } from '@/providers/SessionProvider';
 import { cn, formatBRL } from '@/lib/format';
 import { useCatalog, searchProducts } from '@/lib/catalog';
 import { getInstallmentTeaser } from '@/lib/installments';
+import { buildProductPath } from '@/lib/products';
 
 const STORE_NAV_LINKS = [
   { label: 'Novidades', href: '/colecao' },
@@ -237,7 +238,7 @@ export function StoreHeader() {
                         searchResults.slice(0, 6).map((product) => (
                           <Link
                             key={product.id}
-                            href={`/produtos/${product.slug || product.id}`}
+                            href={buildProductPath(product)}
                             onClick={() => {
                               setSearchFocused(false);
                               setSearchQuery('');
@@ -521,7 +522,7 @@ export function StoreHeader() {
                   searchResults.slice(0, 5).map((product) => (
                     <Link
                       key={product.id}
-                      href={`/produtos/${product.slug || product.id}`}
+                      href={buildProductPath(product)}
                       onClick={() => {
                         setMobileMenuOpen(false);
                         setSearchQuery('');
