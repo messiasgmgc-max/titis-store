@@ -44,32 +44,13 @@ export async function applyPaymentAccess(db: SupabaseClient, row: PaymentRecord)
   if (!claimed || claimed.length === 0) return 'already';
 
   try {
-    const { data: profile, error: profileError } = await db
-      .from('profiles')
-      .select('role, access_until')
-      .eq('id', row.user_id)
-      .maybeSingle();
-    if (profileError) throw new Error(`ler perfil: ${profileError.message}`);
-    if (!profile) throw new Error('perfil inexistente');
-
-    const current = profile as { role?: unknown; access_until?: unknown };
-    const isAdmin = current.role === 'admin';
-    const currentUntil = typeof current.access_until === 'string' ? current.access_until : null;
-
-    // VIP sem prazo continua sem prazo; nos demais casos soma a partir do maior entre agora e o prazo atual.
-    let accessUntil: string | null;
-    if (current.role === 'vip' && currentUntil === null) {
-      accessUntil = null;
-    } else {
-      const base = Math.max(Date.now(), currentUntil ? new Date(currentUntil).getTime() || 0 : 0);
-      accessUntil = new Date(base + plan.accessDays * DAY_MS).toISOString();
-    }
-
-    const { error: updateError } = await db
-      .from('profiles')
-      .update({ ...(isAdmin ? {} : { role: 'vip' }), plan: plan.id, access_until: accessUntil })
-      .eq('id', row.user_id);
-    if (updateError) throw new Error(`atualizar perfil: ${updateError.message}`);
+    const result = await grantConsultingAccess(db, {
+      userId: row.user_id,
+      planId: plan.id,
+      amountCents: row.amount_cents,
+      paymentProviderId: row.provider_payment_id,
+    });
+    if (!result.success) throw new Error('perfil inexistente ou falha ao aplicar acesso');
   } catch (err) {
     await db
       .from('payments')
@@ -89,3 +70,112 @@ export async function applyPaymentAccess(db: SupabaseClient, row: PaymentRecord)
   }
   return 'applied';
 }
+
+export interface GrantAccessParams {
+  userId?: string | null;
+  email?: string | null;
+  planId: PlanId;
+  amountCents?: number;
+  paymentProviderId?: string | null;
+}
+
+/**
+ * Libera o acesso de consultoria VIP a um usuário a partir do seu ID ou e-mail.
+ * Atualiza role para 'vip' (ou preserva 'admin'), estende access_until acumulando se já houver vigência,
+ * desbloqueia is_blocked e sincroniza a tabela payments.
+ */
+export async function grantConsultingAccess(
+  db: SupabaseClient,
+  params: GrantAccessParams
+): Promise<{ success: boolean; accessUntil: string | null; profileId: string | null }> {
+  const plan = getPlan(params.planId);
+  if (!plan || plan.accessDays === null) {
+    return { success: false, accessUntil: null, profileId: null };
+  }
+
+  let profile: { id: string; role: string; access_until: string | null; is_blocked?: boolean } | null = null;
+
+  if (params.userId) {
+    const { data, error } = await db
+      .from('profiles')
+      .select('id, role, access_until, is_blocked')
+      .eq('id', params.userId)
+      .maybeSingle();
+    if (data && !error) profile = data as any;
+  }
+
+  if (!profile && params.email) {
+    const cleanEmail = params.email.trim().toLowerCase();
+    const { data, error } = await db
+      .from('profiles')
+      .select('id, role, access_until, is_blocked')
+      .ilike('email', cleanEmail)
+      .maybeSingle();
+    if (data && !error) profile = data as any;
+  }
+
+  if (!profile) {
+    console.warn('[grantConsultingAccess] Perfil não encontrado para:', params.userId, params.email);
+    return { success: false, accessUntil: null, profileId: null };
+  }
+
+  const isAdmin = profile.role === 'admin';
+  const currentUntil = profile.access_until ? new Date(profile.access_until).getTime() : 0;
+
+  let accessUntil: string | null;
+  if (profile.role === 'vip' && !profile.access_until) {
+    accessUntil = null; // VIP permanente permanece sem prazo
+  } else {
+    const base = Math.max(Date.now(), currentUntil && currentUntil > Date.now() ? currentUntil : Date.now());
+    accessUntil = new Date(base + plan.accessDays * DAY_MS).toISOString();
+  }
+
+  const { error: updateError } = await db
+    .from('profiles')
+    .update({
+      ...(isAdmin ? {} : { role: 'vip' }),
+      plan: plan.id,
+      access_until: accessUntil,
+      is_blocked: false,
+    })
+    .eq('id', profile.id);
+
+  if (updateError) {
+    console.error('[grantConsultingAccess] Erro ao atualizar perfil:', updateError.message);
+    throw new Error(`atualizar perfil: ${updateError.message}`);
+  }
+
+  // Sincroniza payments para garantir histórico
+  try {
+    const nowIso = new Date().toISOString();
+    if (params.paymentProviderId) {
+      const { data: existingPayment } = await db
+        .from('payments')
+        .select('id, status, applied_at')
+        .eq('provider_payment_id', params.paymentProviderId)
+        .maybeSingle();
+
+      if (existingPayment) {
+        await db
+          .from('payments')
+          .update({ status: 'approved', applied_at: nowIso })
+          .eq('id', existingPayment.id);
+      } else {
+        await db.from('payments').insert({
+          user_id: profile.id,
+          plan: plan.id,
+          amount_cents: params.amountCents || plan.priceCents || 0,
+          provider: 'mercadopago',
+          provider_payment_id: params.paymentProviderId,
+          status: 'approved',
+          applied_at: nowIso,
+        });
+      }
+    }
+  } catch (err: any) {
+    console.warn('[grantConsultingAccess] Aviso ao sincronizar payments:', err?.message);
+  }
+
+  return { success: true, accessUntil, profileId: profile.id };
+}
+

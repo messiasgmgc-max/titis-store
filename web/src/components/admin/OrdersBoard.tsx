@@ -14,7 +14,8 @@ import {
   ExternalLink,
   Printer,
   FileText,
-  Loader2
+  Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ColorDot } from '@/components/ui/Swatch';
@@ -309,6 +310,18 @@ function OrderCard({
   const dateLabel = order.created_at ? formatDateBR(order.created_at) : 'Data não registrada';
   const timeLabel = order.created_at ? formatTimeBR(order.created_at) : '';
 
+  const isPlan =
+    order.id.includes('-PLAN-') ||
+    (order.channel as string) === 'consultor' ||
+    Boolean(order.notes && order.notes.includes('Plano')) ||
+    order.items.some(
+      (i) =>
+        i.name.toLowerCase().includes('assinatura') ||
+        i.name.toLowerCase().includes('consultoria') ||
+        i.name.toLowerCase().includes('passe') ||
+        i.name.toLowerCase().includes('clube')
+    );
+
   const [showDispatchInput, setShowDispatchInput] = useState(false);
   const [trackingInput, setTrackingInput] = useState(order.tracking_code || '');
   const [carrierInput, setCarrierInput] = useState(order.tracking_carrier || 'Correios');
@@ -339,13 +352,18 @@ function OrderCard({
       <div className="grid gap-5 px-5 py-5 sm:px-6 md:grid-cols-[10rem_minmax(0,1fr)_auto] lg:grid-cols-[10.5rem_minmax(0,1fr)_9.5rem_17.5rem] xl:grid-cols-[11rem_minmax(0,1fr)_10rem_19rem] lg:items-center">
         {/* Data e ID */}
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <p className="font-display text-lg leading-tight text-ivory">{dateLabel}</p>
+            {isPlan && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/40">
+                Consultor
+              </span>
+            )}
             {order.channel === 'mercadopago' ? (
               <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                 Mercado Pago
               </span>
-            ) : (
+            ) : (order.channel as string) === 'consultor' ? null : (
               <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gold/10 text-gold border border-line-gold">
                 WhatsApp
               </span>
@@ -420,8 +438,13 @@ function OrderCard({
           </div>
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center lg:flex-col lg:items-stretch">
-            {/* Ação de Etiqueta Melhor Envio / Correios */}
-            {order.shipping_label_url ? (
+            {/* Ação de Etiqueta Melhor Envio / Correios ou Acesso Digital */}
+            {isPlan ? (
+              <span className="inline-flex h-8 items-center justify-center gap-1.5 px-3 bg-purple-500/10 border border-purple-500/25 text-purple-300 rounded-full text-xs font-semibold tracking-wide shrink-0 w-full md:w-auto lg:w-full">
+                <CheckCircle className="h-3.5 w-3.5 text-purple-400" />
+                <span className="truncate">Acesso Digital</span>
+              </span>
+            ) : order.shipping_label_url ? (
               <a
                 href={order.shipping_label_url}
                 target="_blank"
@@ -431,7 +454,7 @@ function OrderCard({
                 <Printer className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">Imprimir Etiqueta</span>
               </a>
-            ) : order.shipping_address ? (
+            ) : order.shipping_address?.street ? (
               <button
                 type="button"
                 onClick={onGenerateLabel}
@@ -584,8 +607,8 @@ function OrderCard({
         </div>
       )}
 
-      {/* ENDEREÇO DE ENTREGA */}
-      {order.shipping_address && (
+      {/* ENDEREÇO DE ENTREGA OU ACESSO DIGITAL */}
+      {order.shipping_address?.street && (
         <div className="border-t border-line bg-surface/20 px-5 py-3 sm:px-6 text-xs text-mist flex gap-2 items-start">
           <Truck className="h-4 w-4 text-gold shrink-0 mt-0.5" />
           <div>
@@ -595,6 +618,13 @@ function OrderCard({
             {order.shipping_address.neighborhood}, {order.shipping_address.city}/{order.shipping_address.state} ·{' '}
             CEP {order.shipping_address.cep}
           </div>
+        </div>
+      )}
+
+      {isPlan && (
+        <div className="border-t border-line bg-purple-500/5 px-5 py-2.5 sm:px-6 text-xs text-purple-300 flex gap-2 items-center">
+          <Sparkles className="h-4 w-4 text-purple-400 shrink-0" />
+          <span>Plano de Consultoria Online · Acesso liberado no sistema para o comprador</span>
         </div>
       )}
 

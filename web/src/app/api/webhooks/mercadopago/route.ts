@@ -12,10 +12,10 @@ import {
   verifyWebhookSignature,
   type MercadoPagoPayment,
 } from '@/lib/server/mercadopago';
-import { PAYMENT_COLUMNS, applyPaymentAccess, type PaymentRecord } from '@/lib/server/payments';
+import { PAYMENT_COLUMNS, applyPaymentAccess, grantConsultingAccess, type PaymentRecord } from '@/lib/server/payments';
 import { NotificationService } from '@/lib/server/notifications';
 import { EmailService } from '@/lib/server/email';
-import type { PaymentStatus } from '@/lib/types';
+import type { PaymentStatus, PlanId } from '@/lib/types';
 
 export const maxDuration = 30;
 
@@ -163,12 +163,12 @@ export async function POST(req: Request) {
     const db = createServiceSupabase();
 
     // ------------------------------------------------------------
-    // 1. Tratamento de pedidos do E-Commerce (orders table)
+    // 1. Tratamento de pedidos da Loja e Consultoria (orders table)
     // ------------------------------------------------------------
     if (payment.external_reference && payment.external_reference.startsWith('TITIS-')) {
       const { data: order } = await db
         .from('orders')
-        .select('id, status, customer_name, customer_email, customer_phone, total_cents, items, shipping_address')
+        .select('id, user_id, status, customer_name, customer_email, customer_phone, total_cents, items, notes, shipping_address')
         .eq('id', payment.external_reference)
         .maybeSingle();
 
@@ -184,7 +184,65 @@ export async function POST(req: Request) {
             .update({ status: 'paid', paid_at: new Date().toISOString() })
             .eq('id', order.id);
 
-          // Disparo de notificação via WhatsApp (Evolution API)
+          // Verifica se o pedido é de plano da consultoria
+          const isPlanOrder =
+            order.id.includes('-PLAN-') ||
+            (order.notes && order.notes.includes('Plano')) ||
+            (Array.isArray(order.items) &&
+              order.items.some(
+                (i: any) =>
+                  i?.planId ||
+                  (typeof i?.name === 'string' &&
+                    (i.name.toLowerCase().includes('assinatura') ||
+                      i.name.toLowerCase().includes('consultoria') ||
+                      i.name.toLowerCase().includes('passe') ||
+                      i.name.toLowerCase().includes('clube')))
+              ));
+
+          if (isPlanOrder) {
+            let planId: PlanId = 'passe';
+            const items = Array.isArray(order.items) ? order.items : [];
+            const planItem = items.find((i: any) => i?.planId || i?.name);
+            if (planItem?.planId === 'clube' || planItem?.name?.toLowerCase().includes('clube')) {
+              planId = 'clube';
+            }
+
+            // Libera o acesso para o cliente comprador!
+            await grantConsultingAccess(db, {
+              userId: order.user_id,
+              email: order.customer_email,
+              planId,
+              amountCents: order.total_cents || 0,
+              paymentProviderId: payment.id,
+            });
+
+            const planInfo = getPlan(planId);
+            const planName = planInfo?.name || 'Clube VIP';
+            const customerName = order.customer_name || 'Cliente VIP';
+
+            if (order.customer_phone) {
+              NotificationService.sendOrderNotification({
+                phone: order.customer_phone,
+                customerName,
+                orderId: order.id,
+                amountCents: order.total_cents || 0,
+                type: 'CONSULTING_ACCESS_GRANTED',
+                planName,
+              }).catch((e) => console.error('[Webhook MP Consultor] Erro WhatsApp:', e));
+            }
+
+            if (order.customer_email) {
+              EmailService.sendConsultingAccessGranted({
+                customerName,
+                customerEmail: order.customer_email,
+                planName,
+              }).catch((e) => console.error('[Webhook MP Consultor] Erro E-mail:', e));
+            }
+
+            return jsonOk({ received: true, status: payment.status, consultingGranted: true });
+          }
+
+          // Pedido físico da loja:
           if (order.customer_phone) {
             NotificationService.sendOrderNotification({
               phone: order.customer_phone,
@@ -195,7 +253,6 @@ export async function POST(req: Request) {
             }).catch((e) => console.error('[Webhook MP] Erro notificação WhatsApp:', e));
           }
 
-          // Disparo de confirmação via E-mail
           if (order.customer_email) {
             EmailService.sendOrderPaymentConfirmed({
               orderId: order.id,
@@ -239,10 +296,10 @@ export async function POST(req: Request) {
 
       const result = await applyPaymentAccess(db, row);
 
-      // Notificações para o Consultor (WhatsApp + E-mail)
+      // Busca dados do perfil do cliente
       const { data: userProfile } = await db
         .from('profiles')
-        .select('full_name, email, phone')
+        .select('full_name, email, phone, cpf')
         .eq('id', row.user_id)
         .maybeSingle();
 
@@ -251,6 +308,42 @@ export async function POST(req: Request) {
       const customerName = userProfile?.full_name || 'Cliente VIP';
       const customerPhone = userProfile?.phone;
       const customerEmail = userProfile?.email;
+
+      // Sincroniza em public.orders para aparecer no painel de admin!
+      const syncOrderId = `TITIS-PLAN-${row.id.slice(0, 8).toUpperCase()}`;
+      await db
+        .from('orders')
+        .upsert(
+          {
+            id: syncOrderId,
+            user_id: row.user_id,
+            total_cents: row.amount_cents,
+            status: 'paid',
+            channel: 'mercadopago',
+            payment_method: 'mercadopago',
+            payment_provider_id: payment.id,
+            customer_name: customerName,
+            customer_email: customerEmail || null,
+            customer_phone: customerPhone || null,
+            customer_cpf: userProfile?.cpf || null,
+            shipping_address: { type: 'digital', plan: planName },
+            shipping_service_name: 'Acesso Digital Imediato',
+            shipping_price_cents: 0,
+            items: [
+              {
+                name: `Assinatura Consultoria · ${planName}`,
+                priceCents: row.amount_cents,
+                quantity: 1,
+                detail: planInfo?.cadence || '30 dias de acesso',
+                planId: row.plan,
+              },
+            ],
+            notes: `Assinatura Consultoria: ${planName} (${row.plan})`,
+            paid_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        )
+        .then(undefined, (err) => console.warn('[Webhook MP] Erro ao sincronizar orders:', err?.message));
 
       if (customerPhone) {
         NotificationService.sendOrderNotification({
