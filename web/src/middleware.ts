@@ -17,6 +17,8 @@ export const config = {
 const SHARED_ROUTES = [
   '/login',
   '/redefinir-senha',
+  '/auth',
+  '/auth/callback',
   '/admin',
   '/termos',
   '/privacidade',
@@ -46,6 +48,7 @@ export default function middleware(req: NextRequest) {
   // Garante bypass absoluto e imediato para todas as APIs e recursos estáticos
   if (
     pathname.startsWith('/api') ||
+    pathname.startsWith('/auth') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/bio/') ||
     /\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt)$/i.test(pathname)

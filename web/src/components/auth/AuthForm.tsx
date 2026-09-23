@@ -432,15 +432,15 @@ export function AuthForm({
         await finish();
       } else if (mode === 'register') {
         const digits = phone.replace(/\D/g, '');
+        const currentTarget = `${window.location.pathname}${window.location.search}`;
+        const redirectUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(currentTarget)}`;
+
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
           options: {
             data: { full_name: name.trim(), phone: digits ? formatPhoneBR(digits) : null },
-            // Quem se cadastra no fluxo de compra volta para a mesma página (com o plano escolhido).
-            emailRedirectTo: /^\/(assinar|consultoria)(\/|$)/.test(window.location.pathname)
-              ? `${window.location.origin}${window.location.pathname}${window.location.search}`
-              : `${window.location.origin}/dashboard`,
+            emailRedirectTo: redirectUrl,
           },
         });
         if (error) throw error;
@@ -455,8 +455,9 @@ export function AuthForm({
           await finish();
         }
       } else {
+        const resetRedirect = `${window.location.origin}/auth/callback?next=${encodeURIComponent('/redefinir-senha')}`;
         const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-          redirectTo: `${window.location.origin}/redefinir-senha`,
+          redirectTo: resetRedirect,
         });
         if (error) throw error;
         setSentTo({ kind: 'reset', email: cleanEmail });
