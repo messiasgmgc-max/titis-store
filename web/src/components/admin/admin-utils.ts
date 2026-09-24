@@ -578,6 +578,7 @@ export function normalizeOrder(row: Record<string, unknown>): OrderRow {
     tracking_carrier: typeof row.tracking_carrier === 'string' && row.tracking_carrier ? row.tracking_carrier : null,
     tracking_url: typeof row.tracking_url === 'string' && row.tracking_url ? row.tracking_url : null,
     shipping_label_url: typeof row.shipping_label_url === 'string' && row.shipping_label_url ? row.shipping_label_url : null,
+    shipping_service_id: typeof row.shipping_service_id === 'string' && row.shipping_service_id ? row.shipping_service_id : null,
     shipping_service_name: typeof row.shipping_service_name === 'string' && row.shipping_service_name ? row.shipping_service_name : null,
     shipping_price_cents: typeof row.shipping_price_cents === 'number' ? row.shipping_price_cents : null,
     melhor_envio_order_id: typeof row.melhor_envio_order_id === 'string' && row.melhor_envio_order_id ? row.melhor_envio_order_id : null,

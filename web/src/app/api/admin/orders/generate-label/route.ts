@@ -10,13 +10,13 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { orderId, serviceId } = body;
+    const { orderId, serviceId, order } = body;
 
     if (!orderId) {
       return NextResponse.json({ error: 'orderId obrigatório.' }, { status: 400 });
     }
 
-    const result = await generateShippingLabelForOrder(orderId, serviceId);
+    const result = await generateShippingLabelForOrder(orderId, serviceId, order);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });

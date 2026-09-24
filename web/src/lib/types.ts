@@ -183,6 +183,7 @@ export interface OrderRow {
   tracking_carrier?: string | null;
   tracking_url?: string | null;
   shipping_label_url?: string | null;
+  shipping_service_id?: string | null;
   shipping_service_name?: string | null;
   shipping_price_cents?: number | null;
   melhor_envio_order_id?: string | null;

@@ -207,17 +207,18 @@ export async function testNtfyAction(config: { serverUrl?: string; topic?: strin
   return await testNtfyConnection(config);
 }
 
-export async function generateShippingLabelAction(orderId: string, serviceId?: string) {
+export async function generateShippingLabelAction(orderId: string, serviceId?: string, clientOrder?: any) {
   const { generateShippingLabelForOrder } = await import('@/lib/server/shipping-operations');
-  return await generateShippingLabelForOrder(orderId, serviceId);
+  return await generateShippingLabelForOrder(orderId, serviceId, clientOrder);
 }
 
 export async function dispatchOrderAction(
   orderId: string,
   trackingCode: string,
   trackingCarrier?: string,
-  trackingUrl?: string
+  trackingUrl?: string,
+  clientOrder?: any
 ) {
   const { dispatchOrderManually } = await import('@/lib/server/shipping-operations');
-  return await dispatchOrderManually(orderId, trackingCode, trackingCarrier, trackingUrl);
+  return await dispatchOrderManually(orderId, trackingCode, trackingCarrier, trackingUrl, clientOrder);
 }

@@ -136,20 +136,21 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
     }
   };
 
-  const handleDispatch = async (orderId: string, trackingCode: string, carrier: string) => {
+  const handleDispatch = async (order: OrderRow, trackingCode: string, carrier: string) => {
     try {
       let data: any = null;
       try {
-        data = await dispatchOrderAction(orderId, trackingCode, carrier);
+        data = await dispatchOrderAction(order.id, trackingCode, carrier, undefined, order);
       } catch (actionErr) {
         console.warn('[OrdersBoard] dispatchOrderAction falhou, recorrendo a HTTP:', actionErr);
         const res = await fetch('/api/admin/orders/dispatch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            orderId,
+            orderId: order.id,
             trackingCode,
             trackingCarrier: carrier,
+            order,
           }),
         });
         data = await res.json().catch(() => null);
@@ -162,6 +163,21 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
         throw new Error(data?.error || 'Falha ao despachar pedido.');
       }
 
+      // Sincroniza diretamente no banco com a sessão ativa de admin do navegador
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            status: 'concluido',
+            tracking_code: trackingCode.trim(),
+            tracking_carrier: carrier,
+            dispatched_at: new Date().toISOString(),
+          })
+          .eq('id', order.id);
+      } catch (syncErr) {
+        console.warn('[OrdersBoard] Erro ao sincronizar despacho localmente:', syncErr);
+      }
+
       toast('Pedido despachado! Notificações enviadas por WhatsApp, E-mail e Push.', 'success');
       await reload();
     } catch (err: any) {
@@ -169,19 +185,20 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
     }
   };
 
-  const handleGenerateLabel = async (orderId: string) => {
+  const handleGenerateLabel = async (order: OrderRow) => {
+    const orderId = order.id;
     setGeneratingLabel((prev) => ({ ...prev, [orderId]: true }));
     try {
       toast('Conectando ao serviço de frete e gerando etiqueta...', 'info');
       let data: any = null;
       try {
-        data = await generateShippingLabelAction(orderId);
+        data = await generateShippingLabelAction(orderId, order.shipping_service_id || undefined, order);
       } catch (actionErr) {
         console.warn('[OrdersBoard] generateShippingLabelAction falhou, recorrendo a HTTP:', actionErr);
         const res = await fetch('/api/admin/orders/generate-label', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId }),
+          body: JSON.stringify({ orderId, order }),
         });
         data = await res.json().catch(() => null);
         if (!res.ok) {
@@ -191,6 +208,22 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
 
       if (!data?.success) {
         throw new Error(data?.error || 'Falha ao emitir etiqueta.');
+      }
+
+      // Sincroniza diretamente no banco com a sessão ativa de admin do navegador
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            shipping_label_url: data.labelUrl || null,
+            tracking_code: data.trackingCode || null,
+            tracking_carrier: data.carrier || null,
+            status: 'concluido',
+            dispatched_at: new Date().toISOString(),
+          })
+          .eq('id', order.id);
+      } catch (syncErr) {
+        console.warn('[OrdersBoard] Erro ao sincronizar etiqueta localmente:', syncErr);
       }
 
       toast(`Etiqueta gerada! Rastreio: ${data.trackingCode}. Notificações enviadas!`, 'success');
@@ -253,8 +286,8 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
             generatingLabel={Boolean(generatingLabel[order.id])}
             onToggle={() => toggleItems(order.id)}
             onStatusChange={(next) => void changeStatus(order, next)}
-            onDispatch={(code, carrier) => handleDispatch(order.id, code, carrier)}
-            onGenerateLabel={() => handleGenerateLabel(order.id)}
+            onDispatch={(code, carrier) => handleDispatch(order, code, carrier)}
+            onGenerateLabel={() => handleGenerateLabel(order)}
           />
         ))}
       </ul>

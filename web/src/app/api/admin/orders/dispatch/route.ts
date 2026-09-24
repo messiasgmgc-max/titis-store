@@ -10,13 +10,13 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { orderId, trackingCode, trackingCarrier, trackingUrl } = body;
+    const { orderId, trackingCode, trackingCarrier, trackingUrl, order } = body;
 
     if (!orderId || !trackingCode) {
       return NextResponse.json({ error: 'orderId e trackingCode são obrigatórios.' }, { status: 400 });
     }
 
-    const result = await dispatchOrderManually(orderId, trackingCode, trackingCarrier, trackingUrl);
+    const result = await dispatchOrderManually(orderId, trackingCode, trackingCarrier, trackingUrl, order);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
