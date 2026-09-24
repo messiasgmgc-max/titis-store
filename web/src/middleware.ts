@@ -9,7 +9,7 @@ export const config = {
      * - _next/static, _next/image (arquivos internos do Next.js)
      * - favicon.ico e extensões de arquivos estáticos
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt|xml)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt|xml|csv)$).*)',
   ],
 };
 
@@ -27,6 +27,7 @@ const SHARED_ROUTES = [
   '/minha-conta',
   '/conta',
   '/feed.xml',
+  '/catalog.csv',
 ];
 
 export default function middleware(req: NextRequest) {
@@ -53,7 +54,8 @@ export default function middleware(req: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/bio/') ||
     pathname === '/feed.xml' ||
-    /\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt|xml)$/i.test(pathname)
+    pathname === '/catalog.csv' ||
+    /\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|woff|woff2|ttf|eot|pdf|json|txt|xml|csv)$/i.test(pathname)
   ) {
     return NextResponse.next();
   }

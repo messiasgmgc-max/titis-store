@@ -1,6 +1,7 @@
 // ============================================================
 // Helper de Feed de Catálogo Meta (Facebook / Instagram Shopping) & Google
-// Formato: RSS 2.0 XML (Google Merchant / Meta Catalog)
+// Formato 1: RSS 2.0 XML (Google Merchant / Meta Catalog)
+// Formato 2: CSV (Padrão RFC 4180 / Meta Commerce Manager)
 // ============================================================
 import { NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/server/supabase-server';
@@ -18,6 +19,12 @@ function escapeXml(unsafe: string | null | undefined): string {
     .replace(/'/g, '&apos;');
 }
 
+function escapeCsv(val: string | null | undefined): string {
+  if (!val) return '""';
+  const clean = String(val).replace(/"/g, '""').replace(/[\r\n]+/g, ' ').trim();
+  return `"${clean}"`;
+}
+
 function getBaseUrl(): string {
   const url = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.titisstore.com.br';
   return url.replace(/\/+$/, '');
@@ -31,11 +38,7 @@ function resolveFullImageUrl(imageUrl: string | null | undefined, baseUrl: strin
   return `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
 }
 
-export async function generateCatalogFeedResponse(): Promise<NextResponse> {
-  const baseUrl = getBaseUrl();
-
-  // 1. Busca produtos no Supabase com fallback seguro para SEED_PRODUCTS
-  let products: Product[] = [];
+async function fetchActiveProducts(): Promise<Product[]> {
   try {
     const { data, error } = await createServerSupabase()
       .from('products')
@@ -44,20 +47,24 @@ export async function generateCatalogFeedResponse(): Promise<NextResponse> {
       .limit(1000);
 
     if (error || !data || data.length === 0) {
-      products = SEED_PRODUCTS.filter((p) => p.is_active !== false);
-    } else {
-      products = sortProducts(data.map((r) => normalizeProduct(r as Record<string, unknown>)));
+      return SEED_PRODUCTS.filter((p) => p.is_active !== false);
     }
+    return sortProducts(data.map((r) => normalizeProduct(r as Record<string, unknown>)));
   } catch {
-    products = SEED_PRODUCTS.filter((p) => p.is_active !== false);
+    return SEED_PRODUCTS.filter((p) => p.is_active !== false);
   }
+}
 
-  // 2. Geração dos itens no formato XML padrão Google Merchant / Meta Catalog
+/**
+ * Gera o Feed de Catálogo em formato XML RSS 2.0 (Google Merchant / Meta Catalog)
+ */
+export async function generateCatalogFeedResponse(): Promise<NextResponse> {
+  const baseUrl = getBaseUrl();
+  const products = await fetchActiveProducts();
   const itemsXml: string[] = [];
 
   for (const product of products) {
     const parentId = product.id;
-    const categorySlug = getCategorySlug(product.category);
     const defaultPriceCents = product.price_cents || 19900;
     const formattedPrice = `${(defaultPriceCents / 100).toFixed(2)} BRL`;
     const description = product.description || `${product.name} — Peça exclusiva de alta alfaiataria masculina da Titi's Store.`;
@@ -152,7 +159,97 @@ ${itemsXml.join('\n')}
     headers: {
       'Content-Type': 'application/xml; charset=utf-8',
       'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
-      'X-Robots-Tag': 'noindex',
+    },
+  });
+}
+
+/**
+ * Gera o Feed de Catálogo em formato CSV (Compatibilidade Universal com Meta Commerce Manager)
+ */
+export async function generateCatalogCsvResponse(): Promise<NextResponse> {
+  const baseUrl = getBaseUrl();
+  const products = await fetchActiveProducts();
+
+  const rows: string[] = [
+    'id,title,description,availability,condition,price,link,image_link,brand,google_product_category,item_group_id,color,size,gender,age_group,material,additional_image_link',
+  ];
+
+  for (const product of products) {
+    const parentId = product.id;
+    const defaultPriceCents = product.price_cents || 19900;
+    const formattedPrice = `${(defaultPriceCents / 100).toFixed(2)} BRL`;
+    const description = product.description || `${product.name} — Peça exclusiva de alta alfaiataria masculina da Titi's Store.`;
+    const mainImage = resolveFullImageUrl(product.image_url, baseUrl);
+    const variants = product.variants || [];
+
+    if (variants.length > 0) {
+      for (const variant of variants) {
+        const variantId = `${parentId}_${variant.id || variant.color_name || 'var'}`;
+        const variantColor = variant.color_name || product.color_name || 'Única';
+        const variantImage = resolveFullImageUrl(variant.image_url || product.image_url, baseUrl);
+        const variantPriceCents = variant.price_cents || defaultPriceCents;
+        const variantFormattedPrice = `${(variantPriceCents / 100).toFixed(2)} BRL`;
+        const variantSizes = variant.sizes && variant.sizes.length > 0 ? variant.sizes.join('/') : (product.sizes?.join('/') || 'Tamanho Único');
+        const productLink = `${baseUrl}${buildProductPath(product, { colorName: variantColor })}`;
+        const additionalImages = (variant.gallery || product.gallery || []).slice(0, 5).map((img) => resolveFullImageUrl(img, baseUrl)).join(',');
+
+        rows.push([
+          escapeCsv(variantId),
+          escapeCsv(`${product.name} - ${variantColor}`),
+          escapeCsv(description),
+          escapeCsv('in stock'),
+          escapeCsv('new'),
+          escapeCsv(variantFormattedPrice),
+          escapeCsv(productLink),
+          escapeCsv(variantImage),
+          escapeCsv("Titi's Store"),
+          escapeCsv('1604'),
+          escapeCsv(parentId),
+          escapeCsv(variantColor),
+          escapeCsv(variantSizes),
+          escapeCsv('male'),
+          escapeCsv('adult'),
+          escapeCsv(product.fabric || ''),
+          escapeCsv(additionalImages),
+        ].join(','));
+      }
+    } else {
+      const productLink = `${baseUrl}${buildProductPath(product)}`;
+      const color = product.color_name || 'Única';
+      const sizes = product.sizes && product.sizes.length > 0 ? product.sizes.join('/') : 'Tamanho Único';
+      const additionalImages = (product.gallery || []).slice(0, 5).map((img) => resolveFullImageUrl(img, baseUrl)).join(',');
+
+      rows.push([
+        escapeCsv(parentId),
+        escapeCsv(product.name),
+        escapeCsv(description),
+        escapeCsv('in stock'),
+        escapeCsv('new'),
+        escapeCsv(formattedPrice),
+        escapeCsv(productLink),
+        escapeCsv(mainImage),
+        escapeCsv("Titi's Store"),
+        escapeCsv('1604'),
+        escapeCsv(''),
+        escapeCsv(color),
+        escapeCsv(sizes),
+        escapeCsv('male'),
+        escapeCsv('adult'),
+        escapeCsv(product.fabric || ''),
+        escapeCsv(additionalImages),
+      ].join(','));
+    }
+  }
+
+  // Prefixo BOM UTF-8 (\uFEFF) para compatibilidade perfeita com leitores de caracteres latinos
+  const csvContent = '\uFEFF' + rows.join('\r\n');
+
+  return new NextResponse(csvContent, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'inline; filename="catalog.csv"',
+      'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
     },
   });
 }
