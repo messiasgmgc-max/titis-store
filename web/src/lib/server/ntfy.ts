@@ -98,29 +98,47 @@ export async function sendNtfyMessage(options: {
       return { success: false, error: 'Tópico do ntfy não configurado.' };
     }
 
-    const endpoint = `${activeConfig.serverUrl}/${encodeURIComponent(activeConfig.topic)}`;
-    const headers: Record<string, string> = {
-      'Content-Type': 'text/plain; charset=utf-8',
-      Title: options.title,
-      Priority: options.priority || 'default',
+    let endpoint = activeConfig.serverUrl;
+    try {
+      endpoint = new URL(activeConfig.serverUrl).origin;
+    } catch {
+      endpoint = 'https://ntfy.sh';
+    }
+
+    const priorityMap: Record<string, number> = {
+      min: 1,
+      low: 2,
+      default: 3,
+      high: 4,
+      urgent: 5,
     };
 
-    if (options.tags && options.tags.length > 0) {
-      headers['Tags'] = options.tags.join(',');
-    }
+    const numPriority = options.priority ? (priorityMap[options.priority] ?? 3) : 3;
 
-    if (options.clickUrl) {
-      headers['Click'] = options.clickUrl;
-    }
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
 
     if (activeConfig.token) {
       headers['Authorization'] = `Bearer ${activeConfig.token}`;
     }
 
+    const payload: Record<string, unknown> = {
+      topic: activeConfig.topic,
+      title: options.title,
+      message: options.message,
+      priority: numPriority,
+      tags: options.tags || [],
+    };
+
+    if (options.clickUrl) {
+      payload.click = options.clickUrl;
+    }
+
     const res = await fetch(endpoint, {
       method: 'POST',
-      body: options.message,
       headers,
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(6000),
     });
 
