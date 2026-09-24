@@ -22,7 +22,7 @@ import {
   Code2,
   RefreshCw,
   Terminal,
-  ShoppingBag,
+  Bell,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useUI } from '@/providers/UIProvider';
@@ -38,14 +38,13 @@ import {
   type ShippingSetting,
   type PaymentsSetting,
   type NotificationsSetting,
-  type WooCommerceSetting,
 } from '@/lib/settings';
 import { CHECKOUT_PROVIDER, CLUB_PLANS } from '@/lib/site';
 import type { CheckoutProvider, PlanId } from '@/lib/types';
 import { ErrorState, Field, InlineError, LoadingRows, PillOption, RefreshButton, SectionLabel, Switch } from './AdminUI';
 import { centsToInput, describeError, displayPhone, formatShortDateBR, parsePriceToCents } from './admin-utils';
 import type { Resource } from './useAdminData';
-import { getAdminEnvStatusAction, testWooCommerceAction } from '@/app/admin/actions';
+import { getAdminEnvStatusAction, testNtfyAction } from '@/app/admin/actions';
 
 type IconComponent = React.ComponentType<{ className?: string; strokeWidth?: number; 'aria-hidden'?: boolean }>;
 
@@ -87,12 +86,11 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
   const [shipping, setShipping] = useState<ShippingSetting>(saved.shipping);
   const [payments, setPayments] = useState<PaymentsSetting>(saved.payments);
   const [notifications, setNotifications] = useState<NotificationsSetting>(saved.notifications);
-  const [woocommerce, setWooCommerce] = useState<WooCommerceSetting>(saved.woocommerce);
 
   const [savingKey, setSavingKey] = useState<SettingKey | null>(null);
   const [planErrors, setPlanErrors] = useState<Partial<Record<PlanId, string>>>({});
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
-  const [testingWooCommerce, setTestingWooCommerce] = useState(false);
+  const [testingNtfy, setTestingNtfy] = useState(false);
 
   // Estados do Diagnóstico e Descoberta de Chaves Vercel
   const [isDiscovering, setIsDiscovering] = useState(false);
@@ -112,7 +110,6 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
     setShipping(saved.shipping);
     setPayments(saved.payments);
     setNotifications(saved.notifications);
-    setWooCommerce(saved.woocommerce);
   }
 
   const toggleTokenVisibility = (key: string) => {
@@ -156,29 +153,28 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
     void persist('payments', { ...saved, payments }, 'Chaves de API do Mercado Pago salvas com sucesso!');
   };
 
-  // Salvar Notificações (Evolution API)
+  // Salvar Notificações (WhatsApp & ntfy.sh)
   const saveNotifications = () => {
-    void persist('notifications', { ...saved, notifications }, 'Configurações do WhatsApp / Evolution API salvas!');
+    void persist('notifications', { ...saved, notifications }, 'Configurações de notificações e ntfy salvas com sucesso!');
   };
 
-  // Salvar WooCommerce & Aplicativo de Vendas
-  const saveWooCommerce = () => {
-    void persist('woocommerce', { ...saved, woocommerce }, 'Configurações do WooCommerce salvas com sucesso!');
-  };
-
-  const handleTestWooCommerce = async () => {
-    setTestingWooCommerce(true);
+  const handleTestNtfy = async () => {
+    setTestingNtfy(true);
     try {
-      const res = await testWooCommerceAction(woocommerce);
+      const res = await testNtfyAction({
+        serverUrl: notifications.ntfy_server_url,
+        topic: notifications.ntfy_topic,
+        token: notifications.ntfy_token,
+      });
       if (res.success) {
         toast(res.message, 'success');
       } else {
         toast(res.message, 'error');
       }
     } catch {
-      toast('Erro de rede ao testar conexão com o WooCommerce.', 'error');
+      toast('Erro de rede ao testar notificação ntfy.', 'error');
     } finally {
-      setTestingWooCommerce(false);
+      setTestingNtfy(false);
     }
   };
 
@@ -286,15 +282,8 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
             ...data.unmaskedValues.notifications,
             evolution_api_url: data.unmaskedValues.notifications.evolution_api_url || prev.evolution_api_url,
             evolution_api_key: data.unmaskedValues.notifications.evolution_api_key || prev.evolution_api_key,
-          }));
-        }
-        if (data.unmaskedValues.woocommerce) {
-          setWooCommerce((prev) => ({
-            ...prev,
-            ...data.unmaskedValues.woocommerce,
-            store_url: data.unmaskedValues.woocommerce.store_url || prev.store_url,
-            consumer_key: data.unmaskedValues.woocommerce.consumer_key || prev.consumer_key,
-            consumer_secret: data.unmaskedValues.woocommerce.consumer_secret || prev.consumer_secret,
+            ntfy_topic: data.unmaskedValues.notifications.ntfy_topic || prev.ntfy_topic,
+            ntfy_server_url: data.unmaskedValues.notifications.ntfy_server_url || prev.ntfy_server_url,
           }));
         }
       }
@@ -341,7 +330,6 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
         shipping,
         payments,
         notifications,
-        woocommerce,
         whatsapp: { number: whatsapp },
         checkout: { provider: checkoutProvider },
       });
@@ -370,7 +358,6 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
   const shippingDirty = JSON.stringify(shipping) !== JSON.stringify(saved.shipping);
   const paymentsDirty = JSON.stringify(payments) !== JSON.stringify(saved.payments);
   const notificationsDirty = JSON.stringify(notifications) !== JSON.stringify(saved.notifications);
-  const woocommerceDirty = JSON.stringify(woocommerce) !== JSON.stringify(saved.woocommerce);
   const whatsappDirty = whatsapp !== saved.whatsapp.number;
   const checkoutDirty = checkoutProvider !== saved.checkout.provider;
   const plansDirty = JSON.stringify(plans) !== JSON.stringify(planDrafts(saved));
@@ -711,108 +698,91 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
           <SaveRow dirty={notificationsDirty} busy={savingKey === 'notifications'} onSave={saveNotifications} />
         </SettingsCard>
 
-        {/* 🛍️ Integração WooCommerce & Aplicativo de Vendas ----------------- */}
-        <SettingsCard icon={ShoppingBag} title="Integração WooCommerce & Aplicativo de Vendas" stamp={stamp('woocommerce')} className="lg:col-span-2">
+        {/* 🔔 Alertas Push no Celular (ntfy.sh) --------------------------- */}
+        <SettingsCard icon={Bell} title="Alertas Push no Celular em Tempo Real (ntfy.sh)" stamp={stamp('notifications')} className="lg:col-span-2">
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-line p-4 bg-surface/40">
               <div>
-                <p className="text-sm font-semibold text-ivory">Sincronização com WooCommerce</p>
+                <p className="text-sm font-semibold text-ivory">Notificações Push Instantâneas</p>
                 <p className="text-xs text-mist">
-                  Envie automaticamente os pedidos aprovados na Titi&apos;s Store para sua loja ou aplicativo de vendas WooCommerce.
+                  Receba alertas sonoros no seu smartphone a cada venda aprovada, Pix gerado ou assinatura realizada na loja.
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={handleTestWooCommerce}
-                  loading={testingWooCommerce}
-                  disabled={!woocommerce.store_url || !woocommerce.consumer_key || !woocommerce.consumer_secret}
+                  onClick={handleTestNtfy}
+                  loading={testingNtfy}
+                  disabled={!notifications.ntfy_topic}
                   className="text-xs border-gold/40 text-gold hover:bg-gold/10"
                 >
-                  Testar Conexão
+                  Testar Notificação Push
                 </Button>
                 <Switch
-                  checked={woocommerce.enabled}
-                  onChange={(val) => setWooCommerce((w) => ({ ...w, enabled: val }))}
-                  label="Habilitar WooCommerce"
+                  checked={notifications.ntfy_enabled}
+                  onChange={(val) => setNotifications((n) => ({ ...n, ntfy_enabled: val }))}
+                  label="Habilitar Alertas"
                 />
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <Field label="URL da Loja WooCommerce" htmlFor="cfg-wc-url" hint="Ex: https://antiga.titisstore.com.br">
+              <Field label="Nome do Tópico ntfy" htmlFor="cfg-ntfy-topic" hint="Ex: titis-store-vendas (use letras minúsculas e hífen)">
                 <input
-                  id="cfg-wc-url"
-                  value={woocommerce.store_url}
-                  onChange={(e) => setWooCommerce((w) => ({ ...w, store_url: e.target.value }))}
-                  placeholder="https://sualoja.com.br"
+                  id="cfg-ntfy-topic"
+                  value={notifications.ntfy_topic}
+                  onChange={(e) => setNotifications((n) => ({ ...n, ntfy_topic: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') }))}
+                  placeholder="titis-store-vendas"
+                  className="field rounded-2xl text-xs font-mono"
+                />
+              </Field>
+
+              <Field label="Servidor ntfy" htmlFor="cfg-ntfy-url" hint="Padrão público gratuito: https://ntfy.sh">
+                <input
+                  id="cfg-ntfy-url"
+                  value={notifications.ntfy_server_url}
+                  onChange={(e) => setNotifications((n) => ({ ...n, ntfy_server_url: e.target.value }))}
+                  placeholder="https://ntfy.sh"
                   className="field rounded-2xl text-xs"
                 />
               </Field>
 
-              <Field label="Consumer Key (ck_...)" htmlFor="cfg-wc-key">
+              <Field label="Token de Acesso (Opcional)" htmlFor="cfg-ntfy-token" hint="Apenas se usar tópico protegido ou privado">
                 <div className="relative">
                   <input
-                    id="cfg-wc-key"
-                    type={showTokens['wc_key'] ? 'text' : 'password'}
-                    value={woocommerce.consumer_key}
-                    onChange={(e) => setWooCommerce((w) => ({ ...w, consumer_key: e.target.value }))}
-                    placeholder="ck_xxxxxxxxxxxxxxxxx"
+                    id="cfg-ntfy-token"
+                    type={showTokens['ntfy'] ? 'text' : 'password'}
+                    value={notifications.ntfy_token}
+                    onChange={(e) => setNotifications((n) => ({ ...n, ntfy_token: e.target.value }))}
+                    placeholder="tk_xxxxxxxx (opcional)"
                     className="field rounded-2xl pr-10 font-mono text-xs"
                   />
                   <button
                     type="button"
-                    onClick={() => toggleTokenVisibility('wc_key')}
+                    onClick={() => toggleTokenVisibility('ntfy')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-smoke hover:text-ivory"
                   >
-                    {showTokens['wc_key'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </Field>
-
-              <Field label="Consumer Secret (cs_...)" htmlFor="cfg-wc-secret">
-                <div className="relative">
-                  <input
-                    id="cfg-wc-secret"
-                    type={showTokens['wc_secret'] ? 'text' : 'password'}
-                    value={woocommerce.consumer_secret}
-                    onChange={(e) => setWooCommerce((w) => ({ ...w, consumer_secret: e.target.value }))}
-                    placeholder="cs_xxxxxxxxxxxxxxxxx"
-                    className="field rounded-2xl pr-10 font-mono text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => toggleTokenVisibility('wc_secret')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-smoke hover:text-ivory"
-                  >
-                    {showTokens['wc_secret'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showTokens['ntfy'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </Field>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 pt-2">
-              <div className="flex items-center justify-between rounded-2xl border border-line p-3">
-                <span className="text-xs text-smoke">Sincronizar novos pedidos automaticamente</span>
-                <Switch
-                  checked={woocommerce.sync_orders}
-                  onChange={(val) => setWooCommerce((w) => ({ ...w, sync_orders: val }))}
-                  label="Sincronizar Pedidos"
-                />
-              </div>
-
-              <div className="flex items-center justify-between rounded-2xl border border-line p-3">
-                <span className="text-xs text-smoke">Consultar / dar baixa de estoque no WooCommerce</span>
-                <Switch
-                  checked={woocommerce.sync_stock}
-                  onChange={(val) => setWooCommerce((w) => ({ ...w, sync_stock: val }))}
-                  label="Sincronizar Estoque"
-                />
-              </div>
+            {/* Guia visual de configuração rápida no smartphone */}
+            <div className="rounded-2xl border border-gold/20 bg-gold/[0.03] p-4 text-xs space-y-2 text-smoke">
+              <p className="font-semibold text-ivory flex items-center gap-1.5">
+                <Bell className="h-4 w-4 text-gold" /> Como receber os alertas de vendas no seu celular em 1 minuto:
+              </p>
+              <ol className="list-decimal list-inside space-y-1.5 text-mist pl-1">
+                <li>Baixe o aplicativo oficial e gratuito <strong>ntfy</strong> na <strong>App Store (iPhone)</strong> ou <strong>Google Play Store (Android)</strong>.</li>
+                <li>Abra o aplicativo ntfy no celular e toque no botão <strong>+</strong> (Inscrever-se no tópico).</li>
+                <li>Digite o nome do tópico configurado acima (ex.: <code className="text-gold font-mono font-bold">{notifications.ntfy_topic || 'titis-store-vendas'}</code>) e clique em Inscrever-se.</li>
+                <li>Clique no botão <strong>&quot;Testar Notificação Push&quot;</strong> acima para confirmar que o celular toca e vibra instantaneamente!</li>
+              </ol>
             </div>
           </div>
-          <SaveRow dirty={woocommerceDirty} busy={savingKey === 'woocommerce'} onSave={saveWooCommerce} />
+          <SaveRow dirty={notificationsDirty} busy={savingKey === 'notifications'} onSave={saveNotifications} />
         </SettingsCard>
 
         {/* WhatsApp da Loja ----------------------------------------------- */}

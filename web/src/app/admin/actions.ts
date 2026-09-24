@@ -3,8 +3,7 @@
 // ============================================================
 // SERVER ACTIONS ADMINISTRATIVAS (Resilientes contra 404 de rotas HTTP)
 // ============================================================
-import { testWooCommerceConnection, type WooCommerceSyncResult } from '@/lib/server/woocommerce';
-import type { WooCommerceSetting } from '@/lib/settings';
+import { testNtfyConnection } from '@/lib/server/ntfy';
 
 export async function getAdminEnvStatusAction() {
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dusavcbgomdosfjodups.supabase.co').trim();
@@ -35,10 +34,10 @@ export async function getAdminEnvStatusAction() {
   const evoKey = (process.env.EVOLUTION_API_KEY || '').trim();
   const evoInstance = (process.env.EVOLUTION_INSTANCE_NAME || 'titis-store').trim();
 
-  const wcUrl = (process.env.WOOCOMMERCE_URL || '').replace(/\/+$/, '');
-  const wcKey = (process.env.WOOCOMMERCE_CONSUMER_KEY || '').trim();
-  const wcSecret = (process.env.WOOCOMMERCE_CONSUMER_SECRET || '').trim();
-  const wcEnabled = process.env.WOOCOMMERCE_ENABLED === 'true';
+  const ntfyEnabled = process.env.NTFY_ENABLED !== 'false';
+  const ntfyUrl = (process.env.NTFY_SERVER_URL || 'https://ntfy.sh').replace(/\/+$/, '');
+  const ntfyTopic = (process.env.NTFY_TOPIC || 'titis-store-vendas').trim();
+  const ntfyToken = (process.env.NTFY_TOKEN || '').trim();
 
   const resendKey = (process.env.RESEND_API_KEY || '').trim();
   const emailFrom = (process.env.EMAIL_FROM || "Titi's Store <pedidos@titisstore.com.br>").trim();
@@ -76,7 +75,7 @@ CREATE POLICY "Permitir atualizacao de settings por usuarios autenticados"
   ON public.settings FOR ALL
   USING (auth.role() = 'authenticated');
 
--- 3. Insere ou atualiza as chaves de Frete, Pagamento, WhatsApp, WooCommerce e Checkout
+-- 3. Insere ou atualiza as chaves de Frete, Pagamento, WhatsApp, ntfy.sh e Checkout
 INSERT INTO public.settings (key, value, updated_at)
 VALUES
   ('shipping', jsonb_build_object(
@@ -99,16 +98,11 @@ VALUES
   ('notifications', jsonb_build_object(
     'evolution_api_url', '${evoUrl.replace(/'/g, "''")}',
     'evolution_api_key', '${evoKey.replace(/'/g, "''")}',
-    'evolution_instance_name', '${evoInstance.replace(/'/g, "''")}'
-  ), NOW()),
-
-  ('woocommerce', jsonb_build_object(
-    'enabled', ${wcEnabled ? 'true' : 'false'},
-    'store_url', '${wcUrl.replace(/'/g, "''")}',
-    'consumer_key', '${wcKey.replace(/'/g, "''")}',
-    'consumer_secret', '${wcSecret.replace(/'/g, "''")}',
-    'sync_orders', true,
-    'sync_stock', false
+    'evolution_instance_name', '${evoInstance.replace(/'/g, "''")}',
+    'ntfy_enabled', ${ntfyEnabled ? 'true' : 'false'},
+    'ntfy_server_url', '${ntfyUrl.replace(/'/g, "''")}',
+    'ntfy_topic', '${ntfyTopic.replace(/'/g, "''")}',
+    'ntfy_token', '${ntfyToken.replace(/'/g, "''")}'
   ), NOW()),
 
   ('whatsapp', jsonb_build_object(
@@ -152,10 +146,14 @@ MELHORENVIO_TOKEN=${meToken}
 MELHORENVIO_ORIGIN_CEP=${meOriginCep}
 MELHORENVIO_SANDBOX=${meSandbox}
 
-# 4. DISPAROS DE WHATSAPP (EVOLUTION API)
+# 4. DISPAROS DE WHATSAPP (EVOLUTION API) & ALERTAS PUSH NO CELULAR (NTFY.SH)
 EVOLUTION_API_URL=${evoUrl}
 EVOLUTION_API_KEY=${evoKey}
 EVOLUTION_INSTANCE_NAME=${evoInstance}
+NTFY_ENABLED=${ntfyEnabled}
+NTFY_SERVER_URL=${ntfyUrl}
+NTFY_TOPIC=${ntfyTopic}
+NTFY_TOKEN=${ntfyToken}
 
 # 5. DISPARO DE E-MAILS & NEWSLETTER (RESEND)
 RESEND_API_KEY=${resendKey}
@@ -167,13 +165,7 @@ NEXT_PUBLIC_CONSULTOR_URL=${consultorUrl}
 NEXT_PUBLIC_CONSULTOR_DOMAIN=consultor.titisstore.com.br
 NEXT_PUBLIC_CHECKOUT_PROVIDER=${checkoutProvider}
 
-# 7. INTEGRAÇÃO WOOCOMMERCE & APP DE VENDAS
-WOOCOMMERCE_ENABLED=${wcEnabled}
-WOOCOMMERCE_URL=${wcUrl}
-WOOCOMMERCE_CONSUMER_KEY=${wcKey}
-WOOCOMMERCE_CONSUMER_SECRET=${wcSecret}
-
-# 8. INTELIGÊNCIA ARTIFICIAL (GEMINI & GROQ)
+# 7. INTELIGÊNCIA ARTIFICIAL (GEMINI & GROQ)
 GEMINI_API_KEY=${geminiKey}
 GROQ_API_KEY=${groqKey}
 `;
@@ -202,19 +194,15 @@ GROQ_API_KEY=${groqKey}
         evolution_api_url: evoUrl,
         evolution_api_key: evoKey,
         evolution_instance_name: evoInstance,
-      },
-      woocommerce: {
-        enabled: wcEnabled,
-        store_url: wcUrl,
-        consumer_key: wcKey,
-        consumer_secret: wcSecret,
-        sync_orders: true,
-        sync_stock: false,
+        ntfy_enabled: ntfyEnabled,
+        ntfy_server_url: ntfyUrl,
+        ntfy_topic: ntfyTopic,
+        ntfy_token: ntfyToken,
       },
     },
   };
 }
 
-export async function testWooCommerceAction(config: Partial<WooCommerceSetting>) {
-  return await testWooCommerceConnection(config);
+export async function testNtfyAction(config: { serverUrl?: string; topic?: string; token?: string }) {
+  return await testNtfyConnection(config);
 }

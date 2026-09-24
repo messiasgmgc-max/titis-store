@@ -8,7 +8,7 @@ import {
 } from '@/lib/server/mercadopago';
 import { NotificationService } from '@/lib/server/notifications';
 import { EmailService } from '@/lib/server/email';
-import { syncOrderToWooCommerce } from '@/lib/server/woocommerce';
+import { sendNtfySaleNotification } from '@/lib/server/ntfy';
 
 export interface ProcessCheckoutPayload {
   userId?: string | null;
@@ -123,17 +123,21 @@ export async function processTransparentCheckoutAction(
         console.warn('[actions/checkout] Falha ao gravar pedido em orders:', err?.message);
       });
 
-    // Sincronização assíncrona não-bloqueante com o WooCommerce (se habilitado em public.settings)
-    syncOrderToWooCommerce({
+    // Notificação push instantânea via ntfy.sh para o lojista
+    sendNtfySaleNotification({
       orderId,
       totalCents: data.amountCents,
+      amountCents: data.amountCents,
       paymentMethod: data.paymentMethod,
       status: isApproved ? 'paid' : 'pending',
-      payer: data.payer,
-      shippingAddress: data.shipping as any,
-      shippingService: data.shippingService,
+      customerName: `${data.payer.firstName} ${data.payer.lastName || ''}`.trim(),
+      customerEmail: data.payer.email,
+      customerPhone: data.payer.phone,
+      shippingService: data.shippingService?.name,
+      city: (data.shipping as any)?.city,
+      state: (data.shipping as any)?.state,
       items: data.items || [],
-    }).catch((err) => console.error('[WooCommerceSync checkout action]', err));
+    }).catch((err) => console.error('[Ntfy checkout action]', err));
 
     if (data.paymentMethod === 'pix') {
       if (data.payer.phone && result.qrCode) {

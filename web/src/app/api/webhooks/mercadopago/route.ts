@@ -15,7 +15,7 @@ import {
 import { PAYMENT_COLUMNS, applyPaymentAccess, grantConsultingAccess, type PaymentRecord } from '@/lib/server/payments';
 import { NotificationService } from '@/lib/server/notifications';
 import { EmailService } from '@/lib/server/email';
-import { syncOrderToWooCommerce } from '@/lib/server/woocommerce';
+import { sendNtfySaleNotification, sendNtfyPlanNotification } from '@/lib/server/ntfy';
 import type { PaymentStatus, PlanId } from '@/lib/types';
 
 export const maxDuration = 30;
@@ -265,22 +265,21 @@ export async function POST(req: Request) {
             }).catch((e) => console.error('[Webhook MP] Erro envio de e-mail:', e));
           }
 
-          // Sincronização não-bloqueante com o WooCommerce / aplicativo de vendas
-          const nameParts = (order.customer_name || 'Cliente').split(' ');
-          syncOrderToWooCommerce({
+          // Notificação push instantânea de venda aprovada via ntfy.sh para o lojista
+          sendNtfySaleNotification({
             orderId: order.id,
             totalCents: order.total_cents || 0,
+            amountCents: order.total_cents || 0,
             paymentMethod: 'mercadopago',
             status: 'paid',
-            payer: {
-              firstName: nameParts[0] || 'Cliente',
-              lastName: nameParts.slice(1).join(' ') || '',
-              email: order.customer_email || '',
-              phone: order.customer_phone || '',
-            },
-            shippingAddress: order.shipping_address as any,
+            customerName: order.customer_name || 'Cliente',
+            customerEmail: order.customer_email,
+            customerPhone: order.customer_phone,
+            shippingService: (order as any).shipping_service_name,
+            city: (order.shipping_address as any)?.city,
+            state: (order.shipping_address as any)?.state,
             items: (order.items as any) || [],
-          }).catch((e) => console.error('[Webhook MP] Erro sincronização WooCommerce:', e));
+          }).catch((e) => console.error('[Webhook MP] Erro notificação ntfy:', e));
         }
         return jsonOk({ received: true, status: payment.status });
       }
@@ -373,6 +372,16 @@ export async function POST(req: Request) {
           planName,
         }).catch((e) => console.error('[Webhook MP Consultor] Erro WhatsApp:', e));
       }
+
+      // Notificação push no celular via ntfy.sh para o administrador
+      sendNtfyPlanNotification({
+        orderId: syncOrderId,
+        planId: row.plan,
+        planName,
+        amountCents: row.amount_cents,
+        customerName,
+        customerEmail,
+      }).catch((e) => console.error('[Webhook MP Consultor] Erro ntfy plano:', e));
 
       if (customerEmail) {
         EmailService.sendConsultingAccessGranted({
