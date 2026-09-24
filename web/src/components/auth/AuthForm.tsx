@@ -449,6 +449,15 @@ export function AuthForm({
           throw Object.assign(new Error('User already registered'), { code: 'user_already_exists' });
         }
         if (!data.session) {
+          // Tenta login imediato caso a auto-confirmação do Supabase esteja ativa sem session síncrona
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password,
+          });
+          if (!signInErr && signInData?.session) {
+            await finish();
+            return;
+          }
           setPassword('');
           setSentTo({ kind: 'confirm', email: cleanEmail });
         } else {

@@ -1,25 +1,12 @@
+'use server';
+
 // ============================================================
-// GET /api/admin/env-status — Diagnóstico, Exportação de .env e Gerador de SQL para Supabase
-// Permite auditar e recuperar as chaves ativas na Vercel e gerar o SQL para public.settings
+// SERVER ACTIONS ADMINISTRATIVAS (Resilientes contra 404 de rotas HTTP)
 // ============================================================
-import { NextRequest, NextResponse } from 'next/server';
+import { testWooCommerceConnection, type WooCommerceSyncResult } from '@/lib/server/woocommerce';
+import type { WooCommerceSetting } from '@/lib/settings';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-function maskKey(val?: string | null): string {
-  if (!val) return 'NÃO CONFIGURADO';
-  const clean = val.trim();
-  if (clean.length <= 8) return '********';
-  return `${clean.substring(0, 4)}...${clean.substring(clean.length - 4)}`;
-}
-
-export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const format = url.searchParams.get('format'); // 'sql', 'raw', 'env', 'json'
-  const includeValues = url.searchParams.get('include_values') === 'true' || format === 'sql' || format === 'raw' || format === 'env';
-
-  // 1. Extração segura dos valores reais presentes na memória da Vercel
+export async function getAdminEnvStatusAction() {
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dusavcbgomdosfjodups.supabase.co').trim();
   const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
   const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '').trim();
@@ -48,6 +35,11 @@ export async function GET(req: NextRequest) {
   const evoKey = (process.env.EVOLUTION_API_KEY || '').trim();
   const evoInstance = (process.env.EVOLUTION_INSTANCE_NAME || 'titis-store').trim();
 
+  const wcUrl = (process.env.WOOCOMMERCE_URL || '').replace(/\/+$/, '');
+  const wcKey = (process.env.WOOCOMMERCE_CONSUMER_KEY || '').trim();
+  const wcSecret = (process.env.WOOCOMMERCE_CONSUMER_SECRET || '').trim();
+  const wcEnabled = process.env.WOOCOMMERCE_ENABLED === 'true';
+
   const resendKey = (process.env.RESEND_API_KEY || '').trim();
   const emailFrom = (process.env.EMAIL_FROM || "Titi's Store <pedidos@titisstore.com.br>").trim();
 
@@ -58,12 +50,6 @@ export async function GET(req: NextRequest) {
   const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
   const groqKey = (process.env.GROQ_API_KEY || '').trim();
 
-  const wcUrl = (process.env.WOOCOMMERCE_URL || '').replace(/\/+$/, '');
-  const wcKey = (process.env.WOOCOMMERCE_CONSUMER_KEY || '').trim();
-  const wcSecret = (process.env.WOOCOMMERCE_CONSUMER_SECRET || '').trim();
-  const wcEnabled = process.env.WOOCOMMERCE_ENABLED === 'true';
-
-  // 2. Montagem do SQL para preenchimento direto de public.settings no Supabase
   const sqlContent = `-- =============================================================================
 -- TITI'S STORE & CONSULTOR — ATUALIZAÇÃO DIRETA DE PUBLIC.SETTINGS NO SUPABASE
 -- Gerado automaticamente a partir das credenciais ativas no servidor Vercel
@@ -141,7 +127,6 @@ SET value = EXCLUDED.value,
 SELECT key, value, updated_at FROM public.settings;
 `;
 
-  // 3. Montagem do arquivo .env completo recuperado da Vercel
   const rawEnvContent = `# =============================================================================
 # TITI'S STORE & CONSULTOR — VARIÁVEIS DE AMBIENTE (.ENV)
 # Recuperado da memória do servidor Vercel
@@ -193,172 +178,43 @@ GEMINI_API_KEY=${geminiKey}
 GROQ_API_KEY=${groqKey}
 `;
 
-  if (format === 'sql') {
-    return new NextResponse(sqlContent, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Content-Disposition': 'inline; filename="titis_store_settings.sql"',
-      },
-    });
-  }
-
-  if (format === 'raw' || format === 'env' || format === 'text') {
-    return new NextResponse(rawEnvContent, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Content-Disposition': 'inline; filename=".env"',
-      },
-    });
-  }
-
-  const envs = {
-    NEXT_PUBLIC_SUPABASE_URL: {
-      configured: Boolean(supabaseUrl),
-      preview: supabaseUrl,
-      required: true,
-      category: 'Supabase',
-    },
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: {
-      configured: Boolean(supabaseAnonKey),
-      preview: maskKey(supabaseAnonKey),
-      required: true,
-      category: 'Supabase',
-    },
-    SUPABASE_SERVICE_ROLE_KEY: {
-      configured: Boolean(supabaseServiceKey),
-      preview: maskKey(supabaseServiceKey),
-      required: true,
-      category: 'Supabase',
-    },
-    MERCADOPAGO_ACCESS_TOKEN: {
-      configured: Boolean(mpToken),
-      preview: maskKey(mpToken),
-      required: true,
-      category: 'Mercado Pago',
-    },
-    MERCADOPAGO_PUBLIC_KEY: {
-      configured: Boolean(mpPubKey),
-      preview: maskKey(mpPubKey),
-      required: true,
-      category: 'Mercado Pago',
-    },
-    MERCADOPAGO_WEBHOOK_SECRET: {
-      configured: Boolean(mpWebhookSecret),
-      preview: maskKey(mpWebhookSecret),
-      required: false,
-      category: 'Mercado Pago',
-    },
-    FRETE_PROVIDER: {
-      configured: Boolean(freteProvider),
-      preview: freteProvider,
-      required: true,
-      category: 'Logística',
-    },
-    SUPERFRETE_TOKEN: {
-      configured: Boolean(sfToken),
-      preview: maskKey(sfToken),
-      required: true,
-      category: 'Logística',
-    },
-    SUPERFRETE_ORIGIN_CEP: {
-      configured: Boolean(sfOriginCep),
-      preview: sfOriginCep,
-      required: true,
-      category: 'Logística',
-    },
-    MELHORENVIO_TOKEN: {
-      configured: Boolean(meToken),
-      preview: maskKey(meToken),
-      required: false,
-      category: 'Logística',
-    },
-    EVOLUTION_API_URL: {
-      configured: Boolean(evoUrl),
-      preview: evoUrl ? maskKey(evoUrl) : 'NÃO CONFIGURADO',
-      required: false,
-      category: 'WhatsApp',
-    },
-    EVOLUTION_API_KEY: {
-      configured: Boolean(evoKey),
-      preview: maskKey(evoKey),
-      required: false,
-      category: 'WhatsApp',
-    },
-    EVOLUTION_INSTANCE_NAME: {
-      configured: Boolean(evoInstance),
-      preview: evoInstance,
-      required: false,
-      category: 'WhatsApp',
-    },
-    RESEND_API_KEY: {
-      configured: Boolean(resendKey),
-      preview: maskKey(resendKey),
-      required: false,
-      category: 'Email',
-    },
-    GEMINI_API_KEY: {
-      configured: Boolean(geminiKey),
-      preview: maskKey(geminiKey),
-      required: false,
-      category: 'IA',
-    },
-  };
-
-  const missingRequired = Object.entries(envs)
-    .filter(([_, meta]) => meta.required && !meta.configured)
-    .map(([key]) => key);
-
-  return NextResponse.json({
-    status: missingRequired.length === 0 ? 'healthy' : 'pending_configuration',
-    missingRequired,
-    variables: envs,
-    unmaskedValues: includeValues
-      ? {
-          shipping: {
-            provider: freteProvider,
-            superfrete_token: sfToken,
-            superfrete_sandbox: sfSandbox,
-            superfrete_origin_cep: sfOriginCep,
-            melhorenvio_token: meToken,
-            melhorenvio_sandbox: meSandbox,
-            melhorenvio_origin_cep: meOriginCep,
-          },
-          payments: {
-            mercadopago_access_token: mpToken,
-            mercadopago_public_key: mpPubKey,
-            mercadopago_webhook_secret: mpWebhookSecret,
-            mercadopago_sandbox: mpSandbox,
-          },
-          notifications: {
-            evolution_api_url: evoUrl,
-            evolution_api_key: evoKey,
-            evolution_instance_name: evoInstance,
-          },
-          woocommerce: {
-            enabled: wcEnabled,
-            store_url: wcUrl,
-            consumer_key: wcKey,
-            consumer_secret: wcSecret,
-            sync_orders: true,
-            sync_stock: false,
-          },
-          ai: {
-            gemini_api_key: geminiKey,
-            groq_api_key: groqKey,
-          },
-        }
-      : null,
+  return {
+    success: true,
     sqlScript: sqlContent,
     envFile: rawEnvContent,
-    exportHelp: {
-      sqlUrl: '/api/admin/env-status?format=sql',
-      envUrl: '/api/admin/env-status?format=raw',
-      instructions:
-        'Você pode baixar ou copiar o SQL gerado diretamente para rodar no Supabase SQL Editor, ou baixar o arquivo .env restaurado.',
+    unmaskedValues: {
+      shipping: {
+        provider: freteProvider,
+        superfrete_token: sfToken,
+        superfrete_sandbox: sfSandbox,
+        superfrete_origin_cep: sfOriginCep,
+        melhorenvio_token: meToken,
+        melhorenvio_sandbox: meSandbox,
+        melhorenvio_origin_cep: meOriginCep,
+      },
+      payments: {
+        mercadopago_access_token: mpToken,
+        mercadopago_public_key: mpPubKey,
+        mercadopago_webhook_secret: mpWebhookSecret,
+        mercadopago_sandbox: mpSandbox,
+      },
+      notifications: {
+        evolution_api_url: evoUrl,
+        evolution_api_key: evoKey,
+        evolution_instance_name: evoInstance,
+      },
+      woocommerce: {
+        enabled: wcEnabled,
+        store_url: wcUrl,
+        consumer_key: wcKey,
+        consumer_secret: wcSecret,
+        sync_orders: true,
+        sync_stock: false,
+      },
     },
-  });
+  };
 }
 
-export async function POST(req: NextRequest) {
-  return GET(req);
+export async function testWooCommerceAction(config: Partial<WooCommerceSetting>) {
+  return await testWooCommerceConnection(config);
 }

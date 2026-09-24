@@ -21,7 +21,8 @@ import {
   Database,
   Code2,
   RefreshCw,
-  Terminal
+  Terminal,
+  ShoppingBag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useUI } from '@/providers/UIProvider';
@@ -36,13 +37,15 @@ import {
   type SiteSettings,
   type ShippingSetting,
   type PaymentsSetting,
-  type NotificationsSetting
+  type NotificationsSetting,
+  type WooCommerceSetting,
 } from '@/lib/settings';
 import { CHECKOUT_PROVIDER, CLUB_PLANS } from '@/lib/site';
 import type { CheckoutProvider, PlanId } from '@/lib/types';
 import { ErrorState, Field, InlineError, LoadingRows, PillOption, RefreshButton, SectionLabel, Switch } from './AdminUI';
 import { centsToInput, describeError, displayPhone, formatShortDateBR, parsePriceToCents } from './admin-utils';
 import type { Resource } from './useAdminData';
+import { getAdminEnvStatusAction, testWooCommerceAction } from '@/app/admin/actions';
 
 type IconComponent = React.ComponentType<{ className?: string; strokeWidth?: number; 'aria-hidden'?: boolean }>;
 
@@ -84,10 +87,12 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
   const [shipping, setShipping] = useState<ShippingSetting>(saved.shipping);
   const [payments, setPayments] = useState<PaymentsSetting>(saved.payments);
   const [notifications, setNotifications] = useState<NotificationsSetting>(saved.notifications);
+  const [woocommerce, setWooCommerce] = useState<WooCommerceSetting>(saved.woocommerce);
 
   const [savingKey, setSavingKey] = useState<SettingKey | null>(null);
   const [planErrors, setPlanErrors] = useState<Partial<Record<PlanId, string>>>({});
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
+  const [testingWooCommerce, setTestingWooCommerce] = useState(false);
 
   // Estados do Diagnóstico e Descoberta de Chaves Vercel
   const [isDiscovering, setIsDiscovering] = useState(false);
@@ -107,6 +112,7 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
     setShipping(saved.shipping);
     setPayments(saved.payments);
     setNotifications(saved.notifications);
+    setWooCommerce(saved.woocommerce);
   }
 
   const toggleTokenVisibility = (key: string) => {
@@ -153,6 +159,27 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
   // Salvar Notificações (Evolution API)
   const saveNotifications = () => {
     void persist('notifications', { ...saved, notifications }, 'Configurações do WhatsApp / Evolution API salvas!');
+  };
+
+  // Salvar WooCommerce & Aplicativo de Vendas
+  const saveWooCommerce = () => {
+    void persist('woocommerce', { ...saved, woocommerce }, 'Configurações do WooCommerce salvas com sucesso!');
+  };
+
+  const handleTestWooCommerce = async () => {
+    setTestingWooCommerce(true);
+    try {
+      const res = await testWooCommerceAction(woocommerce);
+      if (res.success) {
+        toast(res.message, 'success');
+      } else {
+        toast(res.message, 'error');
+      }
+    } catch {
+      toast('Erro de rede ao testar conexão com o WooCommerce.', 'error');
+    } finally {
+      setTestingWooCommerce(false);
+    }
   };
 
   // Salvar WhatsApp
@@ -210,9 +237,25 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
   const discoverVercelKeys = async () => {
     setIsDiscovering(true);
     try {
-      const res = await fetch('/api/admin/env-status?include_values=true');
-      if (!res.ok) throw new Error(`Status ${res.status}`);
-      const data = await res.json();
+      let data: any = null;
+
+      // 1. Tenta prioritariamente via Server Action nativa (imune a erros de proxy ou 404 de rotas)
+      try {
+        const actionRes = await getAdminEnvStatusAction();
+        if (actionRes?.success) {
+          data = actionRes;
+        }
+      } catch (actionErr) {
+        console.warn('[SettingsPanel] Server action falhou, recorrendo a HTTP:', actionErr);
+      }
+
+      // 2. Se a action falhou, recorre à rota HTTP /api/admin/env-status
+      if (!data) {
+        const res = await fetch('/api/admin/env-status?include_values=true');
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        data = await res.json();
+      }
+
       if (data.sqlScript) {
         setDiscoveredSql(data.sqlScript);
       }
@@ -243,6 +286,15 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
             ...data.unmaskedValues.notifications,
             evolution_api_url: data.unmaskedValues.notifications.evolution_api_url || prev.evolution_api_url,
             evolution_api_key: data.unmaskedValues.notifications.evolution_api_key || prev.evolution_api_key,
+          }));
+        }
+        if (data.unmaskedValues.woocommerce) {
+          setWooCommerce((prev) => ({
+            ...prev,
+            ...data.unmaskedValues.woocommerce,
+            store_url: data.unmaskedValues.woocommerce.store_url || prev.store_url,
+            consumer_key: data.unmaskedValues.woocommerce.consumer_key || prev.consumer_key,
+            consumer_secret: data.unmaskedValues.woocommerce.consumer_secret || prev.consumer_secret,
           }));
         }
       }
@@ -289,6 +341,7 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
         shipping,
         payments,
         notifications,
+        woocommerce,
         whatsapp: { number: whatsapp },
         checkout: { provider: checkoutProvider },
       });
@@ -317,6 +370,7 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
   const shippingDirty = JSON.stringify(shipping) !== JSON.stringify(saved.shipping);
   const paymentsDirty = JSON.stringify(payments) !== JSON.stringify(saved.payments);
   const notificationsDirty = JSON.stringify(notifications) !== JSON.stringify(saved.notifications);
+  const woocommerceDirty = JSON.stringify(woocommerce) !== JSON.stringify(saved.woocommerce);
   const whatsappDirty = whatsapp !== saved.whatsapp.number;
   const checkoutDirty = checkoutProvider !== saved.checkout.provider;
   const plansDirty = JSON.stringify(plans) !== JSON.stringify(planDrafts(saved));
@@ -655,6 +709,110 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
             </Field>
           </div>
           <SaveRow dirty={notificationsDirty} busy={savingKey === 'notifications'} onSave={saveNotifications} />
+        </SettingsCard>
+
+        {/* 🛍️ Integração WooCommerce & Aplicativo de Vendas ----------------- */}
+        <SettingsCard icon={ShoppingBag} title="Integração WooCommerce & Aplicativo de Vendas" stamp={stamp('woocommerce')} className="lg:col-span-2">
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-line p-4 bg-surface/40">
+              <div>
+                <p className="text-sm font-semibold text-ivory">Sincronização com WooCommerce</p>
+                <p className="text-xs text-mist">
+                  Envie automaticamente os pedidos aprovados na Titi&apos;s Store para sua loja ou aplicativo de vendas WooCommerce.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleTestWooCommerce}
+                  loading={testingWooCommerce}
+                  disabled={!woocommerce.store_url || !woocommerce.consumer_key || !woocommerce.consumer_secret}
+                  className="text-xs border-gold/40 text-gold hover:bg-gold/10"
+                >
+                  Testar Conexão
+                </Button>
+                <Switch
+                  checked={woocommerce.enabled}
+                  onChange={(val) => setWooCommerce((w) => ({ ...w, enabled: val }))}
+                  label="Habilitar WooCommerce"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <Field label="URL da Loja WooCommerce" htmlFor="cfg-wc-url" hint="Ex: https://antiga.titisstore.com.br">
+                <input
+                  id="cfg-wc-url"
+                  value={woocommerce.store_url}
+                  onChange={(e) => setWooCommerce((w) => ({ ...w, store_url: e.target.value }))}
+                  placeholder="https://sualoja.com.br"
+                  className="field rounded-2xl text-xs"
+                />
+              </Field>
+
+              <Field label="Consumer Key (ck_...)" htmlFor="cfg-wc-key">
+                <div className="relative">
+                  <input
+                    id="cfg-wc-key"
+                    type={showTokens['wc_key'] ? 'text' : 'password'}
+                    value={woocommerce.consumer_key}
+                    onChange={(e) => setWooCommerce((w) => ({ ...w, consumer_key: e.target.value }))}
+                    placeholder="ck_xxxxxxxxxxxxxxxxx"
+                    className="field rounded-2xl pr-10 font-mono text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleTokenVisibility('wc_key')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-smoke hover:text-ivory"
+                  >
+                    {showTokens['wc_key'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </Field>
+
+              <Field label="Consumer Secret (cs_...)" htmlFor="cfg-wc-secret">
+                <div className="relative">
+                  <input
+                    id="cfg-wc-secret"
+                    type={showTokens['wc_secret'] ? 'text' : 'password'}
+                    value={woocommerce.consumer_secret}
+                    onChange={(e) => setWooCommerce((w) => ({ ...w, consumer_secret: e.target.value }))}
+                    placeholder="cs_xxxxxxxxxxxxxxxxx"
+                    className="field rounded-2xl pr-10 font-mono text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleTokenVisibility('wc_secret')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-smoke hover:text-ivory"
+                  >
+                    {showTokens['wc_secret'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 pt-2">
+              <div className="flex items-center justify-between rounded-2xl border border-line p-3">
+                <span className="text-xs text-smoke">Sincronizar novos pedidos automaticamente</span>
+                <Switch
+                  checked={woocommerce.sync_orders}
+                  onChange={(val) => setWooCommerce((w) => ({ ...w, sync_orders: val }))}
+                  label="Sincronizar Pedidos"
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-2xl border border-line p-3">
+                <span className="text-xs text-smoke">Consultar / dar baixa de estoque no WooCommerce</span>
+                <Switch
+                  checked={woocommerce.sync_stock}
+                  onChange={(val) => setWooCommerce((w) => ({ ...w, sync_stock: val }))}
+                  label="Sincronizar Estoque"
+                />
+              </div>
+            </div>
+          </div>
+          <SaveRow dirty={woocommerceDirty} busy={savingKey === 'woocommerce'} onSave={saveWooCommerce} />
         </SettingsCard>
 
         {/* WhatsApp da Loja ----------------------------------------------- */}

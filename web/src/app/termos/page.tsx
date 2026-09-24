@@ -66,28 +66,54 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>
-          A sacola do site organiza as peças de interesse e gera uma mensagem de pedido enviada pelo WhatsApp. O envio{' '}
-          <strong>não conclui uma compra</strong>: ele inicia o atendimento.
+          O site da <strong>{SITE.name}</strong> disponibiliza checkout seguro integrado via Mercado Pago (Pix à vista e Cartão de Crédito em até 12x), além de atendimento personalizado via WhatsApp para quem preferir assessoria direta com nossos consultores.
         </p>
         <ul>
-          <li>Preços, disponibilidade, tamanhos, ajustes, prazos e frete são confirmados durante o atendimento.</li>
-          <li>Peças indicadas como “sob consulta” têm valor informado no atendimento.</li>
-          <li>O site não processa pagamentos; forma e condições são combinadas diretamente com a equipe.</li>
-          <li>Imagens e cores das peças são ilustrativas e podem variar em relação ao produto físico.</li>
+          <li>Preços, disponibilidade de tamanhos e opções de frete (Correios, Jadlog ou Retirada em Betim/MG) são calculados em tempo real no checkout.</li>
+          <li>Pagamentos com cartão de crédito passam por análise antifraude segura do Mercado Pago.</li>
+          <li>Pagamentos via Pix contam com compensação instantânea e liberação imediata do pedido ou plano digital.</li>
+          <li>Imagens, cores e medidas são fiéis ao catálogo, respeitando as variações naturais de iluminação e telas.</li>
         </ul>
-        <p>Ficam preservados todos os direitos garantidos pelo Código de Defesa do Consumidor.</p>
+      </>
+    ),
+  },
+  {
+    id: 'devolucoes',
+    title: 'Trocas, devoluções e direito de arrependimento (Art. 49 do CDC)',
+    body: (
+      <>
+        <p>
+          Em conformidade estrita com o <strong>Artigo 49 do Código de Defesa do Consumidor (Lei nº 8.078/1990)</strong> e o Decreto do Comércio Eletrônico (Decreto nº 7.962/2013):
+        </p>
+        <ul>
+          <li>
+            <strong>Prazo Legal de 7 Dias:</strong> Para compras online de peças físicas ou contratação de planos digitais, o consumidor tem o direito de desistir da compra em até <strong>7 (sete) dias corridos</strong>, contados do recebimento do produto físico ou da ativação do plano digital.
+          </li>
+          <li>
+            <strong>Primeira Troca Grátis:</strong> A {SITE.name} oferece a 1ª troca de numeração ou cor com frete reverso gratuito para o cliente.
+          </li>
+          <li>
+            <strong>Reembolso Integral:</strong> No caso de exercício do direito de arrependimento no prazo de 7 dias, todos os valores pagos (incluindo o frete inicial) serão reembolsados integralmente via Pix imediato ou estorno na fatura do cartão.
+          </li>
+          <li>
+            <strong>Condições das Peças:</strong> Os produtos devolvidos devem estar acompanhados de suas etiquetas originais, sem indícios de uso, lavagem ou ajustes de alfaiataria já realizados sob medida.
+          </li>
+          <li>
+            <strong>Canal de Atendimento:</strong> Para solicitar troca ou devolução, basta entrar em contato pelo WhatsApp {SITE.whatsappDisplay} ou e-mail de suporte informando o número do pedido.
+          </li>
+        </ul>
       </>
     ),
   },
   {
     id: 'planos',
-    title: 'Planos e Clube',
+    title: 'Planos e Clube VIP',
     body: (
       <ul>
-        <li>Os planos apresentados no site são contratados e ativados pelo WhatsApp, após confirmação do atendimento.</li>
-        <li>Os benefícios são os descritos no momento da contratação.</li>
-        <li>Condições de pagamento, renovação e cancelamento são informadas antes da ativação.</li>
-        <li>Alguns recursos do site podem ficar disponíveis apenas para contas com plano ativo.</li>
+        <li>Os planos e assinaturas da consultoria de estilo digital podem ser contratados diretamente pelo site ou pelo WhatsApp.</li>
+        <li>O acesso às ferramentas digitais (cartela de cores, sugestão de looks, provador virtual) permanece ativo durante a vigência do plano contratado.</li>
+        <li>O assinante pode solicitar o cancelamento a qualquer momento através do painel da sua conta ou pelo suporte.</li>
+        <li>Fica garantido o direito de arrependimento legal de 7 dias a contar da primeira contratação.</li>
       </ul>
     ),
   },

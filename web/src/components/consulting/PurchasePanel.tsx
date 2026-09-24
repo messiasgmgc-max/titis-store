@@ -264,6 +264,7 @@ export function PurchasePanel({
 
   const handleSubmitPayment = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (submitting) return;
     setErrorMessage('');
 
     if (!user) return;
@@ -814,7 +815,7 @@ export function PurchasePanel({
         <p className="flex items-start gap-2.5 text-xs leading-relaxed text-mist">
           <ShieldCheck className="mt-px h-4 w-4 shrink-0 text-gold" strokeWidth={1.5} aria-hidden />
           {online
-            ? "Pagamento seguro processado pelo Mercado Pago. Seus dados estão protegidos por criptografia de ponta a ponta."
+            ? "Garantia Legal de 7 dias (Art. 49 do CDC) com direito a arrependimento e reembolso integral. Pagamento seguro com criptografia de ponta a ponta processado pelo Mercado Pago."
             : 'Nenhum pagamento é feito neste site: você combina direto com o Titi.'}
         </p>
         <a

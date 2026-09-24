@@ -15,6 +15,7 @@ import {
 import { PAYMENT_COLUMNS, applyPaymentAccess, grantConsultingAccess, type PaymentRecord } from '@/lib/server/payments';
 import { NotificationService } from '@/lib/server/notifications';
 import { EmailService } from '@/lib/server/email';
+import { syncOrderToWooCommerce } from '@/lib/server/woocommerce';
 import type { PaymentStatus, PlanId } from '@/lib/types';
 
 export const maxDuration = 30;
@@ -263,6 +264,23 @@ export async function POST(req: Request) {
               shippingAddress: order.shipping_address,
             }).catch((e) => console.error('[Webhook MP] Erro envio de e-mail:', e));
           }
+
+          // Sincronização não-bloqueante com o WooCommerce / aplicativo de vendas
+          const nameParts = (order.customer_name || 'Cliente').split(' ');
+          syncOrderToWooCommerce({
+            orderId: order.id,
+            totalCents: order.total_cents || 0,
+            paymentMethod: 'mercadopago',
+            status: 'paid',
+            payer: {
+              firstName: nameParts[0] || 'Cliente',
+              lastName: nameParts.slice(1).join(' ') || '',
+              email: order.customer_email || '',
+              phone: order.customer_phone || '',
+            },
+            shippingAddress: order.shipping_address as any,
+            items: (order.items as any) || [],
+          }).catch((e) => console.error('[Webhook MP] Erro sincronização WooCommerce:', e));
         }
         return jsonOk({ received: true, status: payment.status });
       }

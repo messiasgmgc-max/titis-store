@@ -7,8 +7,8 @@
 import { CHECKOUT_PROVIDER, CLUB_PLANS, SITE } from './site';
 import type { CheckoutProvider, PlanId } from './types';
 
-export type SettingKey = 'whatsapp' | 'checkout' | 'plans' | 'announcement' | 'shipping' | 'payments' | 'notifications';
-export const SETTING_KEYS: SettingKey[] = ['whatsapp', 'checkout', 'plans', 'announcement', 'shipping', 'payments', 'notifications'];
+export type SettingKey = 'whatsapp' | 'checkout' | 'plans' | 'announcement' | 'shipping' | 'payments' | 'notifications' | 'woocommerce';
+export const SETTING_KEYS: SettingKey[] = ['whatsapp', 'checkout', 'plans', 'announcement', 'shipping', 'payments', 'notifications', 'woocommerce'];
 
 export interface PlanSetting {
   /** Valor cobrado; null = sob consulta (sem checkout). */
@@ -42,6 +42,15 @@ export interface NotificationsSetting {
   evolution_instance_name: string;
 }
 
+export interface WooCommerceSetting {
+  enabled: boolean;
+  store_url: string;
+  consumer_key: string;
+  consumer_secret: string;
+  sync_orders: boolean;
+  sync_stock: boolean;
+}
+
 export interface SiteSettings {
   whatsapp: { number: string };
   checkout: { provider: CheckoutProvider };
@@ -50,6 +59,7 @@ export interface SiteSettings {
   shipping: ShippingSetting;
   payments: PaymentsSetting;
   notifications: NotificationsSetting;
+  woocommerce: WooCommerceSetting;
 }
 
 /** Linha de public.settings como o painel a lê. */
@@ -92,6 +102,14 @@ export function defaultSettings(): SiteSettings {
       evolution_api_url: (process.env.EVOLUTION_API_URL || '').replace(/\/+$/, ''),
       evolution_api_key: (process.env.EVOLUTION_API_KEY || '').trim(),
       evolution_instance_name: process.env.EVOLUTION_INSTANCE_NAME || 'titis-store',
+    },
+    woocommerce: {
+      enabled: process.env.WOOCOMMERCE_ENABLED === 'true',
+      store_url: (process.env.WOOCOMMERCE_URL || '').replace(/\/+$/, ''),
+      consumer_key: (process.env.WOOCOMMERCE_CONSUMER_KEY || '').trim(),
+      consumer_secret: (process.env.WOOCOMMERCE_CONSUMER_SECRET || '').trim(),
+      sync_orders: process.env.WOOCOMMERCE_SYNC_ORDERS !== 'false',
+      sync_stock: process.env.WOOCOMMERCE_SYNC_STOCK === 'true',
     },
   };
 }
@@ -192,6 +210,16 @@ export function parseSettings(rows: Array<{ key: string; value: unknown }>): Sit
     if (typeof notifications.evolution_instance_name === 'string') base.notifications.evolution_instance_name = notifications.evolution_instance_name.trim();
   }
 
+  const woocommerce = byKey.get('woocommerce');
+  if (isRecord(woocommerce)) {
+    if (typeof woocommerce.enabled === 'boolean') base.woocommerce.enabled = woocommerce.enabled;
+    if (typeof woocommerce.store_url === 'string') base.woocommerce.store_url = woocommerce.store_url.trim().replace(/\/+$/, '');
+    if (typeof woocommerce.consumer_key === 'string') base.woocommerce.consumer_key = woocommerce.consumer_key.trim();
+    if (typeof woocommerce.consumer_secret === 'string') base.woocommerce.consumer_secret = woocommerce.consumer_secret.trim();
+    if (typeof woocommerce.sync_orders === 'boolean') base.woocommerce.sync_orders = woocommerce.sync_orders;
+    if (typeof woocommerce.sync_stock === 'boolean') base.woocommerce.sync_stock = woocommerce.sync_stock;
+  }
+
   return base;
 }
 
@@ -237,6 +265,17 @@ export function settingsToRows(settings: SiteSettings): Array<{ key: SettingKey;
         evolution_api_url: settings.notifications.evolution_api_url,
         evolution_api_key: settings.notifications.evolution_api_key,
         evolution_instance_name: settings.notifications.evolution_instance_name,
+      },
+    },
+    {
+      key: 'woocommerce',
+      value: {
+        enabled: settings.woocommerce.enabled,
+        store_url: settings.woocommerce.store_url,
+        consumer_key: settings.woocommerce.consumer_key,
+        consumer_secret: settings.woocommerce.consumer_secret,
+        sync_orders: settings.woocommerce.sync_orders,
+        sync_stock: settings.woocommerce.sync_stock,
       },
     },
   ];

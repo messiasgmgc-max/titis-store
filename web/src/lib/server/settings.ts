@@ -5,7 +5,16 @@
 // ============================================================
 import { revalidateTag, unstable_cache } from 'next/cache';
 import { CLUB_PLANS, type ClubPlan } from '@/lib/site';
-import { defaultSettings, parseSettings, priceLabelFromCents, type SiteSettings, type ShippingSetting, type PaymentsSetting, type NotificationsSetting } from '@/lib/settings';
+import { 
+  defaultSettings, 
+  parseSettings, 
+  priceLabelFromCents, 
+  type SiteSettings, 
+  type ShippingSetting, 
+  type PaymentsSetting, 
+  type NotificationsSetting,
+  type WooCommerceSetting
+} from '@/lib/settings';
 import { createServerSupabase } from './supabase-server';
 
 export const SETTINGS_CACHE_TAG = 'settings';
@@ -63,6 +72,12 @@ export async function getPaymentsSettingsFresh(): Promise<PaymentsSetting> {
 export async function getNotificationsSettingsFresh(): Promise<NotificationsSetting> {
   const settings = await getSettingsFresh();
   return settings.notifications;
+}
+
+/** Obtém as configurações de integração com o WooCommerce diretamente do banco Supabase */
+export async function getWooCommerceSettingsFresh(): Promise<WooCommerceSetting> {
+  const settings = await getSettingsFresh();
+  return settings.woocommerce;
 }
 
 /** Expira o cache das configurações na próxima requisição. */

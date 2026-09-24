@@ -473,6 +473,7 @@ export default function TransparentCheckoutPage() {
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setErrorMessage('');
 
     const cleanCpf = cpf.replace(/\D/g, '');
@@ -1350,6 +1351,11 @@ export default function TransparentCheckoutPage() {
                         : `Finalizar Pedido · ${formatBRL(grandTotalCents)}`}
                   </span>
                 </button>
+
+                <div className="flex items-center justify-center gap-2 text-[11px] text-mist/80 pt-1 text-center">
+                  <ShieldCheck className="h-4 w-4 text-gold shrink-0" />
+                  <span>Garantia Legal de 7 dias (Art. 49 CDC) · Devolução garantida e 1ª troca grátis sem custos</span>
+                </div>
               </div>
 
             </div>
