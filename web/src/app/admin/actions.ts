@@ -222,3 +222,60 @@ export async function dispatchOrderAction(
   const { dispatchOrderManually } = await import('@/lib/server/shipping-operations');
   return await dispatchOrderManually(orderId, trackingCode, trackingCarrier, trackingUrl, clientOrder);
 }
+
+export async function updateOrderAddressAction(
+  orderId: string,
+  shippingAddress: {
+    street: string;
+    number: string;
+    complement?: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    cep: string;
+  },
+  customer?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    cpf?: string;
+  }
+) {
+  const { createServiceSupabase } = await import('@/lib/server/mercadopago');
+  const service = createServiceSupabase();
+
+  let cleanCep = String(shippingAddress.cep || '').replace(/\D/g, '');
+  if (cleanCep.length === 7) {
+    cleanCep = cleanCep.padStart(8, '0');
+  }
+
+  const normalizedAddress = {
+    ...shippingAddress,
+    cep: cleanCep,
+  };
+
+  const updateData: Record<string, any> = {
+    shipping_address: normalizedAddress,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (customer?.name) updateData.customer_name = customer.name.trim();
+  if (customer?.phone) updateData.customer_phone = customer.phone.trim();
+  if (customer?.email) updateData.customer_email = customer.email.trim();
+  if (customer?.cpf) updateData.customer_cpf = customer.cpf.trim();
+
+  const { data, error } = await service
+    .from('orders')
+    .update(updateData)
+    .eq('id', orderId.trim())
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[updateOrderAddressAction] Erro no Supabase:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, order: data };
+}
+

@@ -68,11 +68,57 @@ export async function generateShippingLabelForOrder(
       return { success: false, error: `Pedido #${orderId} não encontrado no banco de dados.` };
     }
 
-    const addr = order.shipping_address as Record<string, any> | null;
-    if (!addr || (!addr.street && !addr.logradouro) || !addr.cep) {
+    // 1. Extração e validação rigorosa do endereço
+    let addr: Record<string, any> = {};
+    if (typeof order.shipping_address === 'string') {
+      try {
+        addr = JSON.parse(order.shipping_address);
+      } catch {
+        addr = {};
+      }
+    } else if (order.shipping_address && typeof order.shipping_address === 'object') {
+      addr = order.shipping_address;
+    }
+
+    const isRetirada =
+      order.shipping_service_id === 'retirada-betim' ||
+      String(order.shipping_service_name || '').toLowerCase().includes('retirada') ||
+      String(addr.street || '').toLowerCase().includes('retirada');
+
+    if (isRetirada) {
       return {
         success: false,
-        error: 'O pedido não possui endereço de entrega completo (rua/CEP) para gerar a etiqueta.',
+        error: 'Este pedido foi feito com a opção "Retirada Presencial no Atelier". Não há emissão de etiqueta de postagem para retirada.',
+      };
+    }
+
+    const rawCep =
+      addr.cep ||
+      addr.postal_code ||
+      addr.postalCode ||
+      addr.zip ||
+      addr.zipcode ||
+      addr.zip_code ||
+      addr.cep_destino ||
+      '';
+
+    let cleanDest = String(rawCep).replace(/\D/g, '');
+    if (cleanDest.length === 7) {
+      cleanDest = cleanDest.padStart(8, '0');
+    }
+
+    if (!cleanDest || cleanDest.length !== 8) {
+      return {
+        success: false,
+        error: `O CEP de entrega cadastrado no pedido ("${rawCep || 'vazio'}") é inválido. A transportadora exige exatamente 8 dígitos numéricos válidos. Edite o endereço do pedido no painel para informar o CEP correto.`,
+      };
+    }
+
+    const street = addr.street || addr.logradouro || addr.endereco || addr.rua || '';
+    if (!street) {
+      return {
+        success: false,
+        error: 'O endereço de entrega não possui o nome da rua/logradouro. Edite o endereço do pedido no painel para gerar a etiqueta.',
       };
     }
 
@@ -102,16 +148,16 @@ export async function generateShippingLabelForOrder(
       serviceId: serviceId || order.shipping_service_id || '1',
       to: {
         name: order.customer_name || 'Cliente',
-        phone: order.customer_phone || '31999999999',
+        phone: order.customer_phone || '',
         email: order.customer_email || 'pedidos@titisstore.com.br',
         document: order.customer_cpf || '00000000000',
-        address: addr.street || addr.logradouro || 'Rua Principal',
-        number: addr.number || addr.numero || 'SN',
+        address: street,
+        number: addr.number || addr.numero || '',
         complement: addr.complement || addr.complemento || '',
-        neighborhood: addr.neighborhood || addr.bairro || 'Centro',
-        city: addr.city || addr.cidade || 'Belo Horizonte',
-        state: addr.state || addr.estado || 'MG',
-        postalCode: String(addr.cep).replace(/\D/g, ''),
+        neighborhood: addr.neighborhood || addr.bairro || addr.district || 'Centro',
+        city: addr.city || addr.cidade || addr.localidade || 'Belo Horizonte',
+        state: addr.state || addr.estado || addr.uf || 'MG',
+        postalCode: cleanDest,
       },
       products: products.length > 0 ? products : [{ name: 'Vestuário Masculino', quantity: 1, unitaryValue: 200 }],
     };

@@ -16,8 +16,12 @@ import {
   FileText,
   Loader2,
   Sparkles,
+  MapPin,
+  Edit2,
+  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { ColorDot } from '@/components/ui/Swatch';
 import { WhatsAppIcon } from '@/components/ui/icons';
 import { useUI } from '@/providers/UIProvider';
@@ -39,7 +43,7 @@ import {
 } from './AdminUI';
 import { ORDER_STATUSES, describeError, displayPhone, formatTimeBR, normalizeSearch, waLinkFor } from './admin-utils';
 import type { Resource } from './useAdminData';
-import { generateShippingLabelAction, dispatchOrderAction } from '@/app/admin/actions';
+import { generateShippingLabelAction, dispatchOrderAction, updateOrderAddressAction } from '@/app/admin/actions';
 
 type StatusFilter = 'all' | OrderStatus;
 
@@ -72,6 +76,7 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [generatingLabel, setGeneratingLabel] = useState<Record<string, boolean>>({});
+  const [editingAddressOrder, setEditingAddressOrder] = useState<OrderRow | null>(null);
 
   const counts = useMemo(() => {
     const base: Record<StatusFilter, number> = { 
@@ -187,9 +192,48 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
 
   const handleGenerateLabel = async (order: OrderRow) => {
     const orderId = order.id;
+
+    // 1. Verifica se é Retirada no Atelier
+    let addr = order.shipping_address;
+    if (typeof addr === 'string') {
+      try {
+        addr = JSON.parse(addr);
+      } catch {
+        addr = {};
+      }
+    }
+
+    const isRetirada =
+      order.shipping_service_id === 'retirada-betim' ||
+      String(order.shipping_service_name || '').toLowerCase().includes('retirada') ||
+      String(addr?.street || '').toLowerCase().includes('retirada');
+
+    if (isRetirada) {
+      toast('Este pedido é para "Retirada Presencial no Atelier". Não há emissão de etiqueta postal.', 'info');
+      return;
+    }
+
+    // 2. Extrai e valida o CEP antes de chamar a transportadora
+    const rawCep = addr?.cep || addr?.postal_code || addr?.postalCode || addr?.zip || '';
+    let cleanDest = String(rawCep).replace(/\D/g, '');
+    if (cleanDest.length === 7) cleanDest = cleanDest.padStart(8, '0');
+
+    if (!cleanDest || cleanDest.length !== 8) {
+      toast(`O CEP de entrega cadastrado ("${rawCep || 'vazio'}") é inválido. A transportadora exige 8 dígitos. Abrindo editor de endereço...`, 'error');
+      setEditingAddressOrder(order);
+      return;
+    }
+
+    const street = addr?.street || addr?.logradouro || addr?.endereco || '';
+    if (!street) {
+      toast('O endereço de entrega está sem rua/logradouro. Preencha o endereço.', 'error');
+      setEditingAddressOrder(order);
+      return;
+    }
+
     setGeneratingLabel((prev) => ({ ...prev, [orderId]: true }));
     try {
-      toast('Conectando ao serviço de frete e gerando etiqueta...', 'info');
+      toast('Conectando ao SuperFrete e emitindo etiqueta oficial...', 'info');
       let data: any = null;
       try {
         data = await generateShippingLabelAction(orderId, order.shipping_service_id || undefined, order);
@@ -288,6 +332,7 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
             onStatusChange={(next) => void changeStatus(order, next)}
             onDispatch={(code, carrier) => handleDispatch(order, code, carrier)}
             onGenerateLabel={() => handleGenerateLabel(order)}
+            onEditAddress={() => setEditingAddressOrder(order)}
           />
         ))}
       </ul>
@@ -335,6 +380,17 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-line bg-surface/30">{body}</div>
+
+      {editingAddressOrder && (
+        <EditAddressModal
+          order={editingAddressOrder}
+          onClose={() => setEditingAddressOrder(null)}
+          onSaved={(updated) => {
+            setData((list) => list.map((o) => (o.id === updated.id ? updated : o)));
+            setEditingAddressOrder(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -349,6 +405,7 @@ function OrderCard({
   onStatusChange,
   onDispatch,
   onGenerateLabel,
+  onEditAddress,
 }: {
   order: OrderRow;
   open: boolean;
@@ -358,6 +415,7 @@ function OrderCard({
   onStatusChange: (next: OrderStatus) => void;
   onDispatch: (code: string, carrier: string) => Promise<void>;
   onGenerateLabel: () => Promise<void>;
+  onEditAddress: () => void;
 }) {
   const tone = STATUS_TONE[order.status] || STATUS_TONE.novo;
   const pieces = itemCount(order);
@@ -365,6 +423,23 @@ function OrderCard({
   const phone = displayPhone(order.customer_phone);
   const dateLabel = order.created_at ? formatDateBR(order.created_at) : 'Data não registrada';
   const timeLabel = order.created_at ? formatTimeBR(order.created_at) : '';
+
+  const addressObj = useMemo(() => {
+    if (!order.shipping_address) return null;
+    if (typeof order.shipping_address === 'string') {
+      try {
+        return JSON.parse(order.shipping_address);
+      } catch {
+        return null;
+      }
+    }
+    return order.shipping_address;
+  }, [order.shipping_address]);
+
+  const isRetirada =
+    order.shipping_service_id === 'retirada-betim' ||
+    String(order.shipping_service_name || '').toLowerCase().includes('retirada') ||
+    String(addressObj?.street || '').toLowerCase().includes('retirada');
 
   const isPlan =
     order.id.includes('-PLAN-') ||
@@ -494,11 +569,16 @@ function OrderCard({
           </div>
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center lg:flex-col lg:items-stretch">
-            {/* Ação de Etiqueta Melhor Envio / Correios ou Acesso Digital */}
+            {/* Ação de Etiqueta SuperFrete / Correios ou Acesso Digital / Retirada */}
             {isPlan ? (
               <span className="inline-flex h-8 items-center justify-center gap-1.5 px-3 bg-purple-500/10 border border-purple-500/25 text-purple-300 rounded-full text-xs font-semibold tracking-wide shrink-0 w-full md:w-auto lg:w-full">
                 <CheckCircle className="h-3.5 w-3.5 text-purple-400" />
                 <span className="truncate">Acesso Digital</span>
+              </span>
+            ) : isRetirada ? (
+              <span className="inline-flex h-8 items-center justify-center gap-1.5 px-3 bg-amber-500/10 border border-amber-500/25 text-amber-300 rounded-full text-xs font-semibold tracking-wide shrink-0 w-full md:w-auto lg:w-full" title="Retirada no Atelier em Betim/MG">
+                <Truck className="h-3.5 w-3.5 text-amber-400" />
+                <span className="truncate">Retirada no Atelier</span>
               </span>
             ) : order.shipping_label_url ? (
               <a
@@ -510,7 +590,7 @@ function OrderCard({
                 <Printer className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">Imprimir Etiqueta</span>
               </a>
-            ) : order.shipping_address?.street ? (
+            ) : (
               <button
                 type="button"
                 onClick={onGenerateLabel}
@@ -524,7 +604,7 @@ function OrderCard({
                 )}
                 <span className="truncate">{generatingLabel ? 'Emitindo...' : 'Gerar Etiqueta'}</span>
               </button>
-            ) : null}
+            )}
 
             {/* Ações Secundárias: WhatsApp e Despacho */}
             <div
@@ -664,18 +744,49 @@ function OrderCard({
       )}
 
       {/* ENDEREÇO DE ENTREGA OU ACESSO DIGITAL */}
-      {order.shipping_address?.street && (
-        <div className="border-t border-line bg-surface/20 px-5 py-3 sm:px-6 text-xs text-mist flex gap-2 items-start">
-          <Truck className="h-4 w-4 text-gold shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold text-parchment">Endereço de Entrega: </span>
-            {order.shipping_address.street}, {order.shipping_address.number}
-            {order.shipping_address.complement ? ` (${order.shipping_address.complement})` : ''} -{' '}
-            {order.shipping_address.neighborhood}, {order.shipping_address.city}/{order.shipping_address.state} ·{' '}
-            CEP {order.shipping_address.cep}
+      {addressObj ? (
+        <div className="border-t border-line bg-surface/20 px-5 py-3 sm:px-6 text-xs text-mist flex flex-wrap gap-2 items-center justify-between">
+          <div className="flex gap-2 items-start flex-1 min-w-[200px]">
+            <Truck className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-parchment">Endereço de Entrega: </span>
+              {addressObj.street ? `${addressObj.street}, ${addressObj.number || 'S/N'}` : 'Rua não informada'}
+              {addressObj.complement ? ` (${addressObj.complement})` : ''}
+              {addressObj.neighborhood ? ` - ${addressObj.neighborhood}` : ''}
+              {addressObj.city ? `, ${addressObj.city}/${addressObj.state || 'MG'}` : ''}
+              {addressObj.cep ? (
+                <span className="font-mono ml-1 text-ivory">· CEP {addressObj.cep}</span>
+              ) : (
+                <span className="text-amber-400 font-bold ml-1">· CEP NÃO INFORMADO</span>
+              )}
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={onEditAddress}
+            className="btn btn-outline h-7 px-2.5 text-[11px] gap-1 text-gold hover:text-gold-light border-gold/40 hover:border-gold ml-auto shrink-0"
+            title="Editar endereço ou CEP para transportadora"
+          >
+            <Edit2 className="h-3 w-3" />
+            <span>Editar Endereço</span>
+          </button>
         </div>
-      )}
+      ) : !isPlan && !isRetirada ? (
+        <div className="border-t border-line bg-amber-500/5 px-5 py-3 sm:px-6 text-xs text-amber-300 flex flex-wrap gap-2 items-center justify-between">
+          <div className="flex gap-2 items-center">
+            <Truck className="h-4 w-4 text-amber-400 shrink-0" />
+            <span>Endereço de entrega não cadastrado neste pedido.</span>
+          </div>
+          <button
+            type="button"
+            onClick={onEditAddress}
+            className="btn btn-gold h-7 px-2.5 text-[11px] gap-1 ml-auto shrink-0"
+          >
+            <MapPin className="h-3 w-3" />
+            <span>Cadastrar Endereço</span>
+          </button>
+        </div>
+      ) : null}
 
       {isPlan && (
         <div className="border-t border-line bg-purple-500/5 px-5 py-2.5 sm:px-6 text-xs text-purple-300 flex gap-2 items-center">
@@ -788,3 +899,365 @@ function OrderCard({
     </li>
   );
 }
+
+// ------------------------------------------------------------
+// MODAL DE EDIÇÃO DE ENDEREÇO E DESTINATÁRIO DO PEDIDO
+// ------------------------------------------------------------
+interface EditAddressModalProps {
+  order: OrderRow;
+  onClose: () => void;
+  onSaved: (updatedOrder: OrderRow) => void;
+}
+
+function EditAddressModal({ order, onClose, onSaved }: EditAddressModalProps) {
+  const { toast } = useUI();
+
+  let initialAddr: Record<string, any> = {};
+  if (typeof order.shipping_address === 'string') {
+    try {
+      initialAddr = JSON.parse(order.shipping_address);
+    } catch {
+      initialAddr = {};
+    }
+  } else if (order.shipping_address && typeof order.shipping_address === 'object') {
+    initialAddr = order.shipping_address;
+  }
+
+  const [name, setName] = useState(order.customer_name || initialAddr.name || '');
+  const [phone, setPhone] = useState(order.customer_phone || initialAddr.phone || '');
+  const [email, setEmail] = useState(order.customer_email || initialAddr.email || '');
+  const [cpf, setCpf] = useState(order.customer_cpf || initialAddr.document || initialAddr.cpf || '');
+
+  const [cep, setCep] = useState(
+    initialAddr.cep || initialAddr.postal_code || initialAddr.postalCode || initialAddr.zip || ''
+  );
+  const [street, setStreet] = useState(
+    initialAddr.street || initialAddr.logradouro || initialAddr.rua || ''
+  );
+  const [number, setNumber] = useState(
+    initialAddr.number || initialAddr.numero || ''
+  );
+  const [complement, setComplement] = useState(
+    initialAddr.complement || initialAddr.complemento || ''
+  );
+  const [neighborhood, setNeighborhood] = useState(
+    initialAddr.neighborhood || initialAddr.bairro || ''
+  );
+  const [city, setCity] = useState(
+    initialAddr.city || initialAddr.cidade || ''
+  );
+  const [state, setState] = useState(
+    initialAddr.state || initialAddr.uf || 'MG'
+  );
+
+  const [searchingCep, setSearchingCep] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleCepSearch = async (cepInput: string) => {
+    const clean = cepInput.replace(/\D/g, '');
+    if (clean.length !== 8) return;
+    setSearchingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+      if (res.ok) {
+        const data = await res.json();
+        if (!data.erro) {
+          if (data.logradouro) setStreet(data.logradouro);
+          if (data.bairro) setNeighborhood(data.bairro);
+          if (data.localidade) setCity(data.localidade);
+          if (data.uf) setState(data.uf);
+          toast('Endereço autocompletado pelo CEP via ViaCEP!', 'success');
+        } else {
+          toast('CEP não encontrado na base dos Correios.', 'error');
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao consultar ViaCEP:', e);
+    } finally {
+      setSearchingCep(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    let cleanCep = cep.replace(/\D/g, '');
+    if (cleanCep.length === 7) cleanCep = cleanCep.padStart(8, '0');
+
+    if (cleanCep.length !== 8) {
+      toast('O CEP deve conter exatamente 8 dígitos válidos.', 'error');
+      return;
+    }
+
+    if (!street.trim()) {
+      toast('O logradouro/rua é obrigatório.', 'error');
+      return;
+    }
+
+    if (!city.trim() || !state.trim()) {
+      toast('Cidade e Estado são obrigatórios.', 'error');
+      return;
+    }
+
+    setSaving(true);
+    const shippingAddress = {
+      street: street.trim(),
+      number: number.trim() || 'S/N',
+      complement: complement.trim(),
+      neighborhood: neighborhood.trim() || 'Centro',
+      city: city.trim(),
+      state: state.trim().toUpperCase().slice(0, 2),
+      cep: cleanCep,
+    };
+
+    const customer = {
+      name: name.trim(),
+      phone: phone.trim() || undefined,
+      email: email.trim() || undefined,
+      cpf: cpf.trim() || undefined,
+    };
+
+    try {
+      let resData: any = null;
+      try {
+        resData = await updateOrderAddressAction(order.id, shippingAddress, customer);
+      } catch (actionErr) {
+        console.warn('updateOrderAddressAction falhou, tentando API route:', actionErr);
+        const res = await fetch('/api/admin/orders/update-address', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: order.id,
+            shippingAddress,
+            customer,
+          }),
+        });
+        resData = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(resData?.error || `Falha ao salvar endereço (HTTP ${res.status}).`);
+        }
+      }
+
+      if (!resData?.success) {
+        throw new Error(resData?.error || 'Falha ao salvar endereço.');
+      }
+
+      // Sincroniza diretamente no Supabase com a sessão do navegador
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            shipping_address: shippingAddress,
+            customer_name: customer.name || order.customer_name,
+            customer_phone: customer.phone || order.customer_phone,
+            customer_email: customer.email || order.customer_email,
+            customer_cpf: customer.cpf || order.customer_cpf,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', order.id);
+      } catch (clientSyncErr) {
+        console.warn('Erro ao atualizar Supabase pelo cliente:', clientSyncErr);
+      }
+
+      const updatedOrder: OrderRow = {
+        ...order,
+        customer_name: customer.name || order.customer_name,
+        customer_phone: customer.phone || order.customer_phone,
+        customer_email: customer.email || order.customer_email,
+        customer_cpf: customer.cpf || order.customer_cpf,
+        shipping_address: shippingAddress,
+      };
+
+      onSaved(updatedOrder);
+      toast('Endereço e dados do pedido salvos com sucesso!', 'success');
+      onClose();
+    } catch (err: any) {
+      toast(err.message || 'Erro ao salvar alterações no endereço.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={`Editar Endereço · Pedido #${order.id}`} showTitle onClose={onClose} size="lg">
+      <form onSubmit={handleSubmit} className="space-y-5 p-6">
+        <div className="rounded-xl border border-gold/30 bg-gold/5 p-4 text-xs text-parchment leading-relaxed flex items-start gap-3">
+          <Truck className="h-5 w-5 text-gold shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-gold">Validação para SuperFrete e Correios</p>
+            <p className="text-smoke mt-0.5">
+              Certifique-se de que o CEP contenha exatamente 8 dígitos numéricos válidos e o nome possua nome e sobrenome. A transportadora recusa etiquetas com CEP incompleto ou inexistente nos Correios.
+            </p>
+          </div>
+        </div>
+
+        {/* Dados do Destinatário */}
+        <div>
+          <h4 className="text-xs uppercase font-bold tracking-wider text-mist mb-3">1. Dados do Destinatário</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <label className="block text-mist font-semibold mb-1">Nome Completo *</label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex: João da Silva"
+                className="w-full bg-obsidian border border-line rounded-lg px-3 py-2 text-ivory placeholder:text-smoke focus:border-gold outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-mist font-semibold mb-1">CPF (para declaração de conteúdo)</label>
+              <input
+                type="text"
+                value={cpf}
+                onChange={(e) => setCpf(e.target.value)}
+                placeholder="000.000.000-00"
+                className="w-full bg-obsidian border border-line rounded-lg px-3 py-2 text-ivory placeholder:text-smoke focus:border-gold outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-mist font-semibold mb-1">Telefone / WhatsApp</label>
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="(31) 99999-9999"
+                className="w-full bg-obsidian border border-line rounded-lg px-3 py-2 text-ivory placeholder:text-smoke focus:border-gold outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-mist font-semibold mb-1">E-mail do Cliente</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="cliente@email.com"
+                className="w-full bg-obsidian border border-line rounded-lg px-3 py-2 text-ivory placeholder:text-smoke focus:border-gold outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Endereço de Entrega */}
+        <div className="border-t border-line pt-4">
+          <h4 className="text-xs uppercase font-bold tracking-wider text-mist mb-3">2. Endereço de Entrega</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div>
+              <label className="block text-mist font-semibold mb-1">CEP (8 dígitos) *</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  value={cep}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCep(val);
+                    const clean = val.replace(/\D/g, '');
+                    if (clean.length === 8) {
+                      handleCepSearch(clean);
+                    }
+                  }}
+                  onBlur={() => handleCepSearch(cep)}
+                  placeholder="00000-000"
+                  className="w-full bg-obsidian border border-line rounded-lg pl-3 pr-8 py-2 text-ivory font-mono placeholder:text-smoke focus:border-gold outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCepSearch(cep)}
+                  disabled={searchingCep}
+                  className="absolute right-2 top-2.5 text-smoke hover:text-gold transition-colors"
+                  title="Buscar dados no ViaCEP"
+                >
+                  {searchingCep ? <Loader2 className="h-4 w-4 animate-spin text-gold" /> : <Search className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-mist font-semibold mb-1">Rua / Logradouro *</label>
+              <input
+                type="text"
+                required
+                value={street}
+                onChange={(e) => setStreet(e.target.value)}
+                placeholder="Ex: Av. Afonso Pena"
+                className="w-full bg-obsidian border border-line rounded-lg px-3 py-2 text-ivory placeholder:text-smoke focus:border-gold outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-mist font-semibold mb-1">Número *</label>
+              <input
+                type="text"
+                required
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+                placeholder="100 ou S/N"
+                className="w-full bg-obsidian border border-line rounded-lg px-3 py-2 text-ivory placeholder:text-smoke focus:border-gold outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-mist font-semibold mb-1">Complemento</label>
+              <input
+                type="text"
+                value={complement}
+                onChange={(e) => setComplement(e.target.value)}
+                placeholder="Apto 101, Bloco B"
+                className="w-full bg-obsidian border border-line rounded-lg px-3 py-2 text-ivory placeholder:text-smoke focus:border-gold outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-mist font-semibold mb-1">Bairro *</label>
+              <input
+                type="text"
+                required
+                value={neighborhood}
+                onChange={(e) => setNeighborhood(e.target.value)}
+                placeholder="Centro"
+                className="w-full bg-obsidian border border-line rounded-lg px-3 py-2 text-ivory placeholder:text-smoke focus:border-gold outline-none"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-mist font-semibold mb-1">Cidade *</label>
+              <input
+                type="text"
+                required
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Belo Horizonte"
+                className="w-full bg-obsidian border border-line rounded-lg px-3 py-2 text-ivory placeholder:text-smoke focus:border-gold outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-mist font-semibold mb-1">Estado (UF) *</label>
+              <input
+                type="text"
+                required
+                maxLength={2}
+                value={state}
+                onChange={(e) => setState(e.target.value.toUpperCase())}
+                placeholder="MG"
+                className="w-full bg-obsidian border border-line rounded-lg px-3 py-2 text-ivory uppercase font-bold placeholder:text-smoke focus:border-gold outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-line">
+          <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="gold" size="sm" disabled={saving} className="gap-1.5 shadow-md shadow-gold/20 font-bold uppercase tracking-wider">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+            <span>{saving ? 'Salvando...' : 'Salvar Endereço'}</span>
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+

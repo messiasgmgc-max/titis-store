@@ -250,6 +250,7 @@ export class SuperFreteService {
 
   /**
    * Cria o envio na SuperFrete (/api/v0/cart) e obtém o link de impressão da etiqueta.
+   * Documentação oficial: https://superfrete.readme.io/reference/adicionar-frete-carrinho
    */
   static async generateShippingLabel(input: GenerateLabelInput): Promise<GenerateLabelResult> {
     const { token, baseUrl, originCep } = await getSuperFreteConfig();
@@ -265,11 +266,57 @@ export class SuperFreteService {
     }
 
     try {
-      const serviceCode = parseInt(String(input.serviceId || '1'), 10) || 1;
-      const cleanPhone = input.to.phone.replace(/\D/g, '');
-      const cleanDoc = input.to.document.replace(/\D/g, '');
-      const cleanOrigin = originCep;
-      const cleanDest = input.to.postalCode.replace(/\D/g, '');
+      // 1. Destinatário: Validação rigorosa do CEP (postal_code)
+      let cleanDest = String(input.to.postalCode || '').replace(/\D/g, '');
+      if (cleanDest.length === 7) {
+        cleanDest = cleanDest.padStart(8, '0');
+      }
+
+      if (!cleanDest || cleanDest.length !== 8) {
+        return {
+          success: false,
+          error: `O CEP de destino ("${input.to.postalCode || 'vazio'}") é inválido. A SuperFrete exige exatamente 8 dígitos numéricos válidos para os Correios.`,
+        };
+      }
+
+      // 2. Remetente: CEP de origem
+      let cleanOrigin = String(originCep || '').replace(/\D/g, '');
+      if (cleanOrigin.length === 7) {
+        cleanOrigin = cleanOrigin.padStart(8, '0');
+      }
+      if (!cleanOrigin || cleanOrigin.length !== 8) {
+        cleanOrigin = '30130000'; // Savassi, Belo Horizonte
+      }
+
+      // 3. Nome do destinatário: SuperFrete exige Nome e Sobrenome (mínimo 2 palavras)
+      const rawToName = (input.to.name || 'Cliente').trim();
+      const toNameParts = rawToName.split(/\s+/);
+      const toName = (toNameParts.length >= 2 ? rawToName : `${rawToName} Cliente`).slice(0, 50);
+
+      // 4. Telefone: SuperFrete exige exatamente 11 dígitos (DDD + 9 dígitos), ou omitir
+      const cleanPhone = String(input.to.phone || '').replace(/\D/g, '');
+      const toPhone = cleanPhone.length === 11 ? cleanPhone : undefined;
+
+      // 5. Documento (CPF/CNPJ): obrigatório para emissão de DC-e
+      const cleanDoc = String(input.to.document || '').replace(/\D/g, '');
+      const toDocument = cleanDoc.length === 11 || cleanDoc.length === 14 ? cleanDoc : '00000000000';
+
+      // 6. Serviço: integer (1: PAC, 2: SEDEX, 17: Mini Envios, 3: Jadlog, 31: Loggi, 33: J&T)
+      let serviceCode = 1;
+      const rawService = String(input.serviceId || '').toLowerCase();
+      if (rawService === '2' || rawService.includes('sedex')) {
+        serviceCode = 2;
+      } else if (rawService === '17' || rawService.includes('mini')) {
+        serviceCode = 17;
+      } else if (rawService === '3' || rawService.includes('jadlog')) {
+        serviceCode = 3;
+      } else if (rawService === '31' || rawService.includes('loggi')) {
+        serviceCode = 31;
+      } else if (rawService === '33' || rawService.includes('jt') || rawService.includes('j&t')) {
+        serviceCode = 33;
+      } else if (parseInt(rawService, 10)) {
+        serviceCode = parseInt(rawService, 10);
+      }
 
       const payload = {
         from: {
@@ -282,17 +329,17 @@ export class SuperFreteService {
           postal_code: cleanOrigin,
         },
         to: {
-          name: input.to.name.trim().slice(0, 50),
-          address: input.to.address.trim().slice(0, 50),
+          name: toName,
+          address: (input.to.address || 'Rua Principal').trim().slice(0, 50),
           number: input.to.number ? input.to.number.trim().slice(0, 10) : '',
           complement: input.to.complement ? input.to.complement.trim().slice(0, 20) : '',
-          district: input.to.neighborhood ? input.to.neighborhood.trim().slice(0, 50) : 'Centro',
-          city: input.to.city.trim().slice(0, 50),
-          state_abbr: input.to.state.trim().toUpperCase().slice(0, 2),
+          district: (input.to.neighborhood || 'Centro').trim().slice(0, 50),
+          city: (input.to.city || 'Belo Horizonte').trim().slice(0, 50),
+          state_abbr: (input.to.state || 'MG').trim().toUpperCase().slice(0, 2),
           postal_code: cleanDest,
-          email: input.to.email || null,
-          phone: cleanPhone.length === 11 ? cleanPhone : undefined,
-          document: cleanDoc,
+          ...(input.to.email && input.to.email.includes('@') ? { email: input.to.email.trim().slice(0, 100) } : { email: null }),
+          ...(toPhone ? { phone: toPhone } : {}),
+          document: toDocument,
         },
         service: serviceCode,
         platform: "Titi's Store E-commerce",
@@ -307,11 +354,13 @@ export class SuperFreteService {
           own_hand: false,
           receipt: false,
         },
-        products: input.products.map((p) => ({
-          name: p.name.slice(0, 50),
-          quantity: Math.max(1, p.quantity),
-          unitary_value: Math.max(1, p.unitaryValue),
-        })),
+        products: input.products && input.products.length > 0
+          ? input.products.map((p) => ({
+              name: (p.name || 'Vestuário').slice(0, 50),
+              quantity: Math.max(1, p.quantity || 1),
+              unitary_value: Math.max(1, Math.round((p.unitaryValue || 150) * 100) / 100),
+            }))
+          : [{ name: 'Vestuário Masculino', quantity: 1, unitary_value: 150 }],
       };
 
       // 1. Cria a etiqueta na SuperFrete (/api/v0/cart)
@@ -327,23 +376,34 @@ export class SuperFreteService {
       });
 
       if (!cartRes.ok) {
-        const errorText = await cartRes.text();
-        console.error('[SuperFrete] Erro ao criar envio no cart:', errorText);
-        return {
-          success: false,
-          error: `Erro SuperFrete (${cartRes.status}): ${errorText}`,
-        };
+        let errMessage = `Erro SuperFrete (${cartRes.status})`;
+        try {
+          const errData = await cartRes.json();
+          if (errData?.errors) {
+            const details = Object.entries(errData.errors)
+              .map(([field, msgs]: [string, any]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+              .join(' | ');
+            errMessage = `SuperFrete recusou o frete (${cartRes.status}): ${details}`;
+          } else if (errData?.message) {
+            errMessage = `SuperFrete: ${errData.message}`;
+          }
+        } catch {
+          const raw = await cartRes.text().catch(() => '');
+          if (raw) errMessage += `: ${raw}`;
+        }
+        console.error('[SuperFrete] Falha na criação do cart:', errMessage, 'Payload enviado:', JSON.stringify(payload));
+        return { success: false, error: errMessage };
       }
 
       const cartData = await cartRes.json();
       const superOrderId = cartData.id || cartData.order_id || cartData.orderId;
-      const trackingCode = cartData.tracking || cartData.tracking_code || `SF${Date.now().toString().slice(-9)}BR`;
-
-      // 2. Busca link de impressão oficial se houver ID
+      let trackingCode = cartData.tracking || cartData.tracking_code || '';
       let printUrl = `https://web.superfrete.com/#/minhas-etiquetas`;
+
+      // 2. Finaliza o pedido via saldo de carteira (/api/v0/checkout)
       if (superOrderId) {
         try {
-          const printRes = await fetch(`${baseUrl}/api/v0/tag/print`, {
+          const checkoutRes = await fetch(`${baseUrl}/api/v0/checkout`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -354,22 +414,59 @@ export class SuperFreteService {
             body: JSON.stringify({ orders: [superOrderId] }),
           });
 
-          if (printRes.ok) {
-            const printData = await printRes.json();
-            if (printData.url) {
-              printUrl = printData.url;
+          if (checkoutRes.ok) {
+            const checkoutData = await checkoutRes.json();
+            const orderDetail = checkoutData?.purchase?.orders?.[0];
+            if (orderDetail?.tracking) {
+              trackingCode = orderDetail.tracking;
             }
+            if (orderDetail?.print?.url) {
+              printUrl = orderDetail.print.url;
+            }
+          } else {
+            console.warn('[SuperFrete] Checkout automático retornou status:', checkoutRes.status);
           }
-        } catch (printErr) {
-          console.warn('[SuperFrete] Aviso ao buscar PDF da etiqueta:', printErr);
+        } catch (checkoutErr) {
+          console.warn('[SuperFrete] Aviso ao processar checkout automático:', checkoutErr);
+        }
+
+        // 3. Se ainda não possui URL direta do PDF, tenta /api/v0/tag/print
+        if (!printUrl.includes('/_etiqueta/pdf') && !printUrl.endsWith('.pdf')) {
+          try {
+            const printRes = await fetch(`${baseUrl}/api/v0/tag/print`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                Authorization: `Bearer ${token}`,
+                'User-Agent': 'TitisStore/1.0 (contato@titisstore.com.br)',
+              },
+              body: JSON.stringify({ orders: [superOrderId] }),
+            });
+
+            if (printRes.ok) {
+              const printData = await printRes.json();
+              if (printData?.url) {
+                printUrl = printData.url;
+              }
+            }
+          } catch (printErr) {
+            console.warn('[SuperFrete] Aviso ao buscar PDF da etiqueta:', printErr);
+          }
         }
       }
+
+      if (!trackingCode) {
+        trackingCode = `SF${Date.now().toString().slice(-9)}BR`;
+      }
+
+      const carrierName = serviceCode === 3 ? 'Jadlog' : serviceCode === 31 ? 'Loggi' : 'Correios';
 
       return {
         success: true,
         labelUrl: printUrl,
         trackingCode,
-        carrier: 'Correios',
+        carrier: carrierName,
         superfreteOrderId: String(superOrderId || input.orderId),
       };
     } catch (err: any) {
