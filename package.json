@@ -6,11 +6,11 @@
   "scripts": {
     "dev": "npm --prefix web run dev",
     "dev:web": "npm --prefix web run dev",
-    "dev:api": "npm --prefix api run start:dev",
+    "dev:api": "npm --prefix backend-api run start:dev",
     "dev:mobile": "npm --prefix mobile start",
     "build": "cd web && npm run build",
-    "build:api": "cd api && npm run build",
-    "install:all": "npm --prefix web install && npm --prefix api install && npm --prefix mobile install"
+    "build:api": "cd backend-api && npm run build",
+    "install:all": "npm --prefix web install && npm --prefix backend-api install && npm --prefix mobile install"
   },
   "dependencies": {
     "next": "16.3.2"

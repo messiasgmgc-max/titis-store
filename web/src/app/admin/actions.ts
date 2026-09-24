@@ -206,3 +206,18 @@ GROQ_API_KEY=${groqKey}
 export async function testNtfyAction(config: { serverUrl?: string; topic?: string; token?: string }) {
   return await testNtfyConnection(config);
 }
+
+export async function generateShippingLabelAction(orderId: string, serviceId?: string) {
+  const { generateShippingLabelForOrder } = await import('@/lib/server/shipping-operations');
+  return await generateShippingLabelForOrder(orderId, serviceId);
+}
+
+export async function dispatchOrderAction(
+  orderId: string,
+  trackingCode: string,
+  trackingCarrier?: string,
+  trackingUrl?: string
+) {
+  const { dispatchOrderManually } = await import('@/lib/server/shipping-operations');
+  return await dispatchOrderManually(orderId, trackingCode, trackingCarrier, trackingUrl);
+}

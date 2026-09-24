@@ -39,6 +39,7 @@ import {
 } from './AdminUI';
 import { ORDER_STATUSES, describeError, displayPhone, formatTimeBR, normalizeSearch, waLinkFor } from './admin-utils';
 import type { Resource } from './useAdminData';
+import { generateShippingLabelAction, dispatchOrderAction } from '@/app/admin/actions';
 
 type StatusFilter = 'all' | OrderStatus;
 
@@ -137,19 +138,30 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
 
   const handleDispatch = async (orderId: string, trackingCode: string, carrier: string) => {
     try {
-      const res = await fetch('/api/admin/orders/dispatch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId,
-          trackingCode,
-          trackingCarrier: carrier,
-        }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || `Falha ao despachar pedido (HTTP ${res.status}).`);
+      let data: any = null;
+      try {
+        data = await dispatchOrderAction(orderId, trackingCode, carrier);
+      } catch (actionErr) {
+        console.warn('[OrdersBoard] dispatchOrderAction falhou, recorrendo a HTTP:', actionErr);
+        const res = await fetch('/api/admin/orders/dispatch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId,
+            trackingCode,
+            trackingCarrier: carrier,
+          }),
+        });
+        data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(data?.error || `Falha ao despachar pedido (HTTP ${res.status}).`);
+        }
       }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Falha ao despachar pedido.');
+      }
+
       toast('Pedido despachado! Notificações enviadas por WhatsApp, E-mail e Push.', 'success');
       await reload();
     } catch (err: any) {
@@ -161,15 +173,26 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
     setGeneratingLabel((prev) => ({ ...prev, [orderId]: true }));
     try {
       toast('Conectando ao serviço de frete e gerando etiqueta...', 'info');
-      const res = await fetch('/api/admin/orders/generate-label', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || `Falha ao emitir etiqueta (HTTP ${res.status}).`);
+      let data: any = null;
+      try {
+        data = await generateShippingLabelAction(orderId);
+      } catch (actionErr) {
+        console.warn('[OrdersBoard] generateShippingLabelAction falhou, recorrendo a HTTP:', actionErr);
+        const res = await fetch('/api/admin/orders/generate-label', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId }),
+        });
+        data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(data?.error || `Falha ao emitir etiqueta (HTTP ${res.status}).`);
+        }
       }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Falha ao emitir etiqueta.');
+      }
+
       toast(`Etiqueta gerada! Rastreio: ${data.trackingCode}. Notificações enviadas!`, 'success');
       await reload();
       if (data.labelUrl) {

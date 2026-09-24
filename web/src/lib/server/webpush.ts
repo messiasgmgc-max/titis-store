@@ -268,6 +268,75 @@ export class WebPushService {
     }
   }
 
+  /** Envia notificação de pedido despachado/em trânsito para o cliente */
+  static async sendOrderDispatchedNotification(params: {
+    orderId: string;
+    customerName?: string;
+    customerEmail?: string | null;
+    customerPhone?: string | null;
+    userId?: string | null;
+    trackingCode: string;
+    carrier: string;
+    trackingUrl?: string | null;
+  }): Promise<{ sentCount: number; totalFound: number }> {
+    const { orderId, customerName, customerEmail, customerPhone, userId, trackingCode, carrier, trackingUrl } = params;
+
+    const shortId = orderId.slice(0, 8);
+    const payload: PushPayload = {
+      title: `🚚 Pedido Despachado! #${shortId}`,
+      body: `Olá ${customerName ? customerName.split(' ')[0] : 'Cliente'}! Seu pedido está a caminho via ${carrier}. Rastreio: ${trackingCode}`,
+      icon: '/titislogo.jpeg',
+      badge: '/titislogo.jpeg',
+      tag: `dispatch-${orderId}`,
+      url: trackingUrl || `/dashboard?aba=pedidos`,
+      orderId,
+      trackingCode,
+      actions: [
+        { action: 'track', title: '🔍 Rastrear Envio' },
+        { action: 'open', title: '📦 Ver Pedido' },
+      ],
+    };
+
+    try {
+      const supabase = createServiceSupabase();
+      let query = supabase.from('push_subscriptions').select('*');
+
+      const conditions: string[] = [];
+      if (userId) conditions.push(`user_id.eq.${userId}`);
+      if (customerEmail) conditions.push(`customer_email.eq.${customerEmail.trim().toLowerCase()}`);
+      if (customerPhone) {
+        const clean = customerPhone.replace(/\D/g, '');
+        if (clean) conditions.push(`customer_phone.eq.${clean}`);
+      }
+
+      if (conditions.length > 0) {
+        query = query.or(conditions.join(','));
+      }
+
+      const { data: subs, error } = await query;
+      if (error || !subs || subs.length === 0) {
+        return await this.sendBroadcast(payload);
+      }
+
+      let sent = 0;
+      for (const sub of subs) {
+        const res = await this.sendToSubscription(
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
+          payload
+        );
+        if (res.success) sent++;
+      }
+
+      return { sentCount: sent, totalFound: subs.length };
+    } catch (err) {
+      console.error('[WebPushService] Erro ao enviar notificação de despacho:', err);
+      return { sentCount: 0, totalFound: 0 };
+    }
+  }
+
   /** Envia notificação broadcast para todos os dispositivos cadastrados */
   static async sendBroadcast(payload: PushPayload): Promise<{ sentCount: number; totalFound: number }> {
     try {
