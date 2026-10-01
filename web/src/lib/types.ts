@@ -165,6 +165,9 @@ export interface CartItem {
   priceCents: number | null;
   quantity: number;
   lookTitle?: string | null;
+  costCents?: number | null;
+  profitCents?: number | null;
+  marginPercent?: number | null;
 }
 
 export type OrderStatus = 'novo' | 'em_atendimento' | 'concluido' | 'cancelado' | 'pending' | 'paid';
@@ -191,11 +194,32 @@ export interface OrderRow {
   items: CartItem[];
   total_cents: number | null;
   status: OrderStatus;
-  channel: 'whatsapp' | 'online' | 'mercadopago';
+  channel: 'whatsapp' | 'online' | 'mercadopago' | 'pdv' | 'externa';
   created_at: string;
   updated_at?: string;
   paid_at?: string | null;
   dispatched_at?: string | null;
+}
+
+export interface PdvSaleInput {
+  customerName?: string;
+  customerPhone?: string;
+  customerCpf?: string;
+  paymentMethod: 'pix' | 'debito' | 'credito' | 'dinheiro';
+  installments?: number;
+  channelLocation: string; // Ex: 'Ateliê Betim', 'Feira / Evento', 'Showroom', 'Venda Externa'
+  notes?: string;
+  notifyCustomerWhatsApp?: boolean;
+  items: Array<{
+    productId?: string | null;
+    name: string;
+    size?: string | null;
+    color?: string | null;
+    image?: string | null;
+    quantity: number;
+    unitCostCents: number;
+    unitChargedCents: number;
+  }>;
 }
 
 // ------------------------------------------------------------

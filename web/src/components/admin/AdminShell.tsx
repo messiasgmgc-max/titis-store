@@ -15,6 +15,7 @@ import { hasConsultingAccess } from '@/lib/access';
 import { couponStatus } from '@/lib/coupons';
 import { ProductManager, type ProductStatusFilter } from './ProductManager';
 import { OrdersBoard } from './OrdersBoard';
+import { PdvManager } from './PdvManager';
 import { ClientsTable } from './ClientsTable';
 import { PaymentsBoard } from './PaymentsBoard';
 import { CouponsBoard } from './CouponsBoard';
@@ -30,15 +31,16 @@ import {
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-type TabId = 'acervo' | 'pedidos' | 'clientes' | 'pagamentos' | 'cupons' | 'configuracoes';
+type TabId = 'acervo' | 'pedidos' | 'pdv' | 'clientes' | 'pagamentos' | 'cupons' | 'configuracoes';
 
 const TABS: { id: TabId; label: string; numeral: string }[] = [
   { id: 'acervo', label: 'Acervo', numeral: 'I' },
   { id: 'pedidos', label: 'Pedidos', numeral: 'II' },
-  { id: 'clientes', label: 'Clientes', numeral: 'III' },
-  { id: 'pagamentos', label: 'Pagamentos', numeral: 'IV' },
-  { id: 'cupons', label: 'Cupons', numeral: 'V' },
-  { id: 'configuracoes', label: 'Configurações', numeral: 'VI' },
+  { id: 'pdv', label: 'PDV & Saídas', numeral: 'III' },
+  { id: 'clientes', label: 'Clientes', numeral: 'IV' },
+  { id: 'pagamentos', label: 'Pagamentos', numeral: 'V' },
+  { id: 'cupons', label: 'Cupons', numeral: 'VI' },
+  { id: 'configuracoes', label: 'Configurações', numeral: 'VII' },
 ];
 
 function tabFromHash(): TabId {
@@ -218,9 +220,12 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
     },
   ];
 
+  const pdvCount = orders.data.filter((o) => o.channel === 'pdv' || o.channel === 'externa').length;
+
   const tabCount: Record<TabId, number | null> = {
     acervo: products.loading ? null : products.data.length,
     pedidos: orders.loading ? null : stats.fresh,
+    pdv: orders.loading ? null : pdvCount,
     clientes: clients.loading ? null : clients.data.length,
     pagamentos: payments.loading ? null : payments.data.length,
     cupons: coupons.loading ? null : stats.activeCoupons,
@@ -349,6 +354,13 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
         <div role="tabpanel" id={`admin-painel-${tab}`} aria-labelledby={`admin-aba-${tab}`} className="pt-10 sm:pt-12">
           {tab === 'acervo' && <ProductManager resource={products} status={productStatus} onStatusChange={setProductStatus} />}
           {tab === 'pedidos' && <OrdersBoard resource={orders} />}
+          {tab === 'pdv' && (
+            <PdvManager
+              ordersResource={orders}
+              productsResource={products}
+              settingsResource={settings}
+            />
+          )}
           {tab === 'clientes' && (
             <ClientsTable
               resource={clients}

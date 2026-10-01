@@ -3,7 +3,7 @@
 // Titi's Store (E-commerce) & Consultoria de Imagem
 // ============================================================
 
-import { getNotificationsSettingsFresh } from './settings';
+import { getNotificationsSettingsFresh, getSettingsFresh } from './settings';
 
 export type NotificationType =
   | 'PIX_GENERATED'
@@ -23,6 +23,26 @@ export interface OrderNotificationPayload {
   trackingCarrier?: string;
   trackingUrl?: string;
   planName?: string;
+}
+
+export interface MerchantOrderNotificationPayload {
+  orderId: string;
+  totalCents: number;
+  customerName: string;
+  customerPhone?: string | null;
+  customerEmail?: string | null;
+  paymentMethod?: string | null;
+  shippingService?: string | null;
+  shippingCity?: string | null;
+  shippingState?: string | null;
+  channel?: string | null;
+  items: Array<{
+    name: string;
+    quantity: number;
+    priceCents?: number | null;
+    size?: string | null;
+    color?: string | null;
+  }>;
 }
 
 export class NotificationService {
@@ -148,6 +168,105 @@ export class NotificationService {
     } catch (err) {
       console.error('[NotificationService] Erro na requisição para Evolution API:', err);
       return false;
+    }
+  }
+
+  /** Dispara notificação instantânea para o WhatsApp do lojista assim que um pedido é aprovado no site */
+  static async sendMerchantOrderApprovedNotification(
+    payload: MerchantOrderNotificationPayload,
+    customRecipientPhone?: string
+  ): Promise<{ success: boolean; error?: string; phoneUsed?: string }> {
+    const { apiUrl, apiKey, instance } = await this.getConfig();
+    const notif = await getNotificationsSettingsFresh().catch(() => null);
+    const siteSettings = await getSettingsFresh().catch(() => null);
+
+    if (notif && notif.merchant_notify_on_order === false && !customRecipientPhone) {
+      console.log('[NotificationService] Notificação para lojista desativada nas configurações.');
+      return { success: false, error: 'Notificação do lojista desativada nas configurações.' };
+    }
+
+    if (!apiUrl || !apiKey) {
+      console.log('[NotificationService] Evolution API não configurada; alerta do lojista em log:', {
+        orderId: payload.orderId,
+        amount: payload.totalCents,
+        customer: payload.customerName,
+      });
+      return { success: false, error: 'Evolution API não configurada (URL ou API Key ausente).' };
+    }
+
+    const rawPhone = (
+      customRecipientPhone ||
+      notif?.merchant_whatsapp_phone ||
+      process.env.MERCHANT_WHATSAPP_PHONE ||
+      process.env.ADMIN_WHATSAPP_PHONE ||
+      siteSettings?.whatsapp?.number ||
+      ''
+    ).replace(/\D/g, '');
+
+    const formattedPhone = this.formatPhone(rawPhone);
+    if (!formattedPhone || formattedPhone.length < 10) {
+      console.warn('[NotificationService] Telefone do lojista não configurado ou inválido:', rawPhone);
+      return { success: false, error: 'Número de WhatsApp do lojista não configurado ou inválido.' };
+    }
+
+    const amountBrl = (payload.totalCents / 100).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+
+    const itemsSummary = payload.items && payload.items.length > 0
+      ? payload.items.map(item => {
+          const details = [item.size ? `Tam: ${item.size}` : null, item.color ? `Cor: ${item.color}` : null].filter(Boolean).join(', ');
+          return `• *${item.quantity}x* ${item.name}${details ? ` _(${details})_` : ''}`;
+        }).join('\n')
+      : '• Peças do pedido';
+
+    const paymentFormatted =
+      payload.paymentMethod === 'pix' ? 'Pix Instantâneo' :
+      payload.paymentMethod === 'debito' ? 'Cartão de Débito' :
+      payload.paymentMethod === 'credito' || payload.paymentMethod === 'credit_card' ? 'Cartão de Crédito' :
+      payload.paymentMethod === 'dinheiro' ? 'Dinheiro em Espécie' :
+      payload.paymentMethod || 'Aprovado Online';
+
+    const location = [payload.shippingCity, payload.shippingState].filter(Boolean).join('/');
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.titisstore.com.br';
+
+    const messageText =
+      `👑 *TITI'S STORE — NOVO PEDIDO APROVADO!* 🛍️\n\n` +
+      `Uma nova venda acaba de ser aprovada no site:\n\n` +
+      `📦 *Pedido:* \`#${payload.orderId}\`\n` +
+      `💰 *Valor Total:* *${amountBrl}*\n` +
+      `💳 *Pagamento:* ${paymentFormatted}\n\n` +
+      `👤 *Cliente:* ${payload.customerName}\n` +
+      (payload.customerPhone ? `📱 *WhatsApp:* ${payload.customerPhone}\n` : '') +
+      (payload.customerEmail ? `✉️ *E-mail:* ${payload.customerEmail}\n` : '') +
+      (payload.shippingService ? `🚚 *Envio:* ${payload.shippingService}${location ? ` (${location})` : ''}\n` : '') +
+      `\n📋 *Itens do Pedido:*\n${itemsSummary}\n\n` +
+      `⚡ *Ver detalhes no Painel:* \n${siteUrl}/admin#pedidos`;
+
+    try {
+      const response = await fetch(`${apiUrl}/message/sendText/${instance}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: apiKey,
+        },
+        body: JSON.stringify({
+          number: formattedPhone,
+          text: messageText,
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text().catch(() => '');
+        console.warn(`[NotificationService] Falha Evolution API (${response.status}) para lojista ${formattedPhone}:`, errBody);
+        return { success: false, error: `Evolution API retornou status ${response.status}: ${errBody}`, phoneUsed: formattedPhone };
+      }
+
+      return { success: true, phoneUsed: formattedPhone };
+    } catch (err: any) {
+      console.error('[NotificationService] Erro ao enviar WhatsApp para lojista:', err);
+      return { success: false, error: err?.message || 'Erro de conexão com Evolution API', phoneUsed: formattedPhone };
     }
   }
 }

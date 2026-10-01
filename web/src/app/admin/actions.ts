@@ -279,3 +279,187 @@ export async function updateOrderAddressAction(
   return { success: true, order: data };
 }
 
+export async function createManualPdvSaleAction(input: import('@/lib/types').PdvSaleInput) {
+  const { createServiceSupabase } = await import('@/lib/server/mercadopago');
+  const service = createServiceSupabase();
+
+  if (!input.items || input.items.length === 0) {
+    return { success: false, error: 'Selecione ao menos um produto para lançar a venda.' };
+  }
+
+  const cleanPhone = (input.customerPhone || '').replace(/\D/g, '');
+  const orderId = `TITIS-PDV-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+
+  let totalCostCents = 0;
+  let totalChargedCents = 0;
+
+  const cartItems = input.items.map((item, idx) => {
+    const qty = Math.max(1, item.quantity || 1);
+    const unitCost = Math.max(0, item.unitCostCents || 0);
+    const unitCharged = Math.max(0, item.unitChargedCents || 0);
+
+    const itemTotalCost = unitCost * qty;
+    const itemTotalCharged = unitCharged * qty;
+    const itemProfit = itemTotalCharged - itemTotalCost;
+    const itemMargin = itemTotalCharged > 0 ? (itemProfit / itemTotalCharged) * 100 : 0;
+
+    totalCostCents += itemTotalCost;
+    totalChargedCents += itemTotalCharged;
+
+    return {
+      key: `pdv-item-${idx}-${Date.now()}`,
+      productId: item.productId || null,
+      name: item.name || 'Peça Alfaiataria',
+      detail: `Venda Externa · ${input.channelLocation || 'PDV'}`,
+      color: item.color || '',
+      hex: '',
+      image: item.image || null,
+      size: item.size || null,
+      priceCents: unitCharged,
+      quantity: qty,
+      costCents: unitCost,
+      profitCents: itemProfit,
+      marginPercent: Math.round(itemMargin * 10) / 10,
+    };
+  });
+
+  const grossProfitCents = totalChargedCents - totalCostCents;
+  const marginPercent = totalChargedCents > 0 ? (grossProfitCents / totalChargedCents) * 100 : 0;
+
+  const paymentMethodLabel =
+    input.paymentMethod === 'pix' ? 'Pix Instantâneo' :
+    input.paymentMethod === 'debito' ? 'Cartão de Débito' :
+    input.paymentMethod === 'credito' ? (input.installments && input.installments > 1 ? `Cartão de Crédito (${input.installments}x)` : 'Cartão de Crédito à Vista') :
+    'Dinheiro em Espécie';
+
+  const notesFormatted = [
+    `[PDV / VENDA EXTERNA · ${input.channelLocation || 'Balcão'}]`,
+    `Pagamento: ${paymentMethodLabel}`,
+    `Custo Mercadorias: ${(totalCostCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`,
+    `Valor Cobrado: ${(totalChargedCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`,
+    `Lucro Bruto: ${(grossProfitCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (${marginPercent.toFixed(1)}%)`,
+    input.notes ? `Observações: ${input.notes}` : null,
+  ].filter(Boolean).join('\n');
+
+  const insertData = {
+    id: orderId,
+    customer_name: (input.customerName || 'Cliente Balcão').trim(),
+    customer_phone: cleanPhone || null,
+    customer_cpf: (input.customerCpf || '').replace(/\D/g, '') || null,
+    payment_method: input.paymentMethod,
+    channel: 'pdv' as const,
+    status: 'concluido' as const,
+    total_cents: totalChargedCents,
+    paid_at: new Date().toISOString(),
+    dispatched_at: new Date().toISOString(),
+    shipping_service_name: `Venda Externa (${input.channelLocation || 'Balcão'})`,
+    shipping_price_cents: 0,
+    shipping_address: {
+      type: 'pdv',
+      location: input.channelLocation || 'Ateliê Betim',
+      total_cost_cents: totalCostCents,
+      total_charged_cents: totalChargedCents,
+      gross_profit_cents: grossProfitCents,
+      margin_percent: Math.round(marginPercent * 10) / 10,
+    },
+    items: cartItems,
+    notes: notesFormatted,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await service
+    .from('orders')
+    .insert(insertData)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('[createManualPdvSaleAction] Erro ao gravar pedido PDV:', error);
+    return { success: false, error: `Falha ao salvar venda PDV: ${error.message}`, message: `Falha ao salvar venda PDV: ${error.message}` };
+  }
+
+  // Notificação para o cliente via WhatsApp se solicitado
+  if (input.notifyCustomerWhatsApp && cleanPhone) {
+    const formattedBrl = (totalChargedCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const itemsText = cartItems.map(i => `• ${i.quantity}x ${i.name}${i.size ? ` (Tam: ${i.size})` : ''}`).join('\n');
+
+    const customerMsg =
+      `👑 *TITI'S STORE — COMPROVANTE DE COMPRA* ✨\n\n` +
+      `Olá, *${input.customerName || 'Cliente'}*!\n` +
+      `Agradecemos pela preferência em nosso atendimento presencial.\n\n` +
+      `🧾 *Comprovante:* \`#${orderId}\`\n` +
+      `💳 *Forma de Pagamento:* ${paymentMethodLabel}\n` +
+      `💰 *Total Pago:* *${formattedBrl}*\n\n` +
+      `🛍️ *Peças Adquiridas:*\n${itemsText}\n\n` +
+      `Ficamos muito felizes em vestir você com excelência e sofisticação!`;
+
+    try {
+      const notifSettings = await import('@/lib/server/settings').then(m => m.getNotificationsSettingsFresh()).catch(() => null);
+      const apiUrl = (notifSettings?.evolution_api_url || process.env.EVOLUTION_API_URL || '').replace(/\/+$/, '');
+      const apiKey = (notifSettings?.evolution_api_key || process.env.EVOLUTION_API_KEY || '').trim();
+      const instance = (notifSettings?.evolution_instance_name || process.env.EVOLUTION_INSTANCE_NAME || 'titis-store').trim();
+
+      if (apiUrl && apiKey) {
+        const phoneWithDdi = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+        await fetch(`${apiUrl}/message/sendText/${instance}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: apiKey },
+          body: JSON.stringify({ number: phoneWithDdi, text: customerMsg }),
+        }).catch(err => console.warn('[createManualPdvSaleAction] Erro envio recibo WhatsApp:', err));
+      }
+    } catch (e) {
+      console.warn('[createManualPdvSaleAction] Aviso no envio do recibo WhatsApp:', e);
+    }
+  }
+
+  return { success: true, orderId, orderNumber: orderId, order: data, message: `Venda ${orderId} lançada com sucesso!` };
+}
+
+export async function cancelPdvSaleAction(orderId: string) {
+  const { createServiceSupabase } = await import('@/lib/server/mercadopago');
+  const service = createServiceSupabase();
+
+  const { data, error } = await service
+    .from('orders')
+    .update({ status: 'cancelado', updated_at: new Date().toISOString() })
+    .eq('id', orderId.trim())
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    return { success: false, error: error.message, message: error.message };
+  }
+  return { success: true, order: data, message: 'Venda externa cancelada com sucesso.' };
+}
+
+export async function testMerchantWhatsAppNotificationAction(customPhone?: string) {
+  const { NotificationService } = await import('@/lib/server/notifications');
+  const res = await NotificationService.sendMerchantOrderApprovedNotification({
+    orderId: `TITIS-${Math.floor(1000 + Math.random() * 9000)}-APROVADO`,
+    totalCents: 48900,
+    customerName: 'Rodrigo Guimarães (Demonstração)',
+    customerPhone: '31998765432',
+    customerEmail: 'rodrigo.guimaraes@exemplo.com.br',
+    paymentMethod: 'pix',
+    shippingService: 'Correios SEDEX Express',
+    shippingCity: 'Belo Horizonte',
+    shippingState: 'MG',
+    channel: 'online',
+    items: [
+      { name: 'Costume Alfaiataria Super 120s Chumbo', quantity: 1, size: '50', color: 'Cinza Chumbo', priceCents: 38900 },
+      { name: 'Camisa Maquinetada Egípcia Clássica', quantity: 1, size: 'M', color: 'Branca', priceCents: 10000 },
+    ],
+  }, customPhone);
+
+  return {
+    success: res.success,
+    message: res.success
+      ? `Notificação enviada com sucesso no WhatsApp (${res.phoneUsed || 'Lojista'})!`
+      : `Falha ao enviar notificação: ${res.error || 'Erro desconhecido'}`,
+    phoneUsed: res.phoneUsed,
+    error: res.error,
+  };
+}
+
+

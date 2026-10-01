@@ -40,6 +40,9 @@ export interface NotificationsSetting {
   evolution_api_url: string;
   evolution_api_key: string;
   evolution_instance_name: string;
+  // WhatsApp do lojista (recebe alerta instantâneo de novos pedidos aprovados)
+  merchant_whatsapp_phone: string;
+  merchant_notify_on_order: boolean;
   // ntfy.sh (Alertas push instantâneos de compras e vendas)
   ntfy_enabled: boolean;
   ntfy_server_url: string;
@@ -97,6 +100,8 @@ export function defaultSettings(): SiteSettings {
       evolution_api_url: (process.env.EVOLUTION_API_URL || '').replace(/\/+$/, ''),
       evolution_api_key: (process.env.EVOLUTION_API_KEY || '').trim(),
       evolution_instance_name: process.env.EVOLUTION_INSTANCE_NAME || 'titis-store',
+      merchant_whatsapp_phone: (process.env.MERCHANT_WHATSAPP_PHONE || process.env.ADMIN_WHATSAPP_PHONE || SITE.whatsapp || '').replace(/\D/g, ''),
+      merchant_notify_on_order: process.env.MERCHANT_NOTIFY_ON_ORDER !== 'false',
       ntfy_enabled: process.env.NTFY_ENABLED !== 'false',
       ntfy_server_url: (process.env.NTFY_SERVER_URL || 'https://ntfy.sh').replace(/\/+$/, ''),
       ntfy_topic: (process.env.NTFY_TOPIC || 'titis-store-vendas').trim(),
@@ -199,6 +204,12 @@ export function parseSettings(rows: Array<{ key: string; value: unknown }>): Sit
     if (typeof notifications.evolution_api_url === 'string') base.notifications.evolution_api_url = notifications.evolution_api_url.trim();
     if (typeof notifications.evolution_api_key === 'string') base.notifications.evolution_api_key = notifications.evolution_api_key.trim();
     if (typeof notifications.evolution_instance_name === 'string') base.notifications.evolution_instance_name = notifications.evolution_instance_name.trim();
+    if (typeof notifications.merchant_whatsapp_phone === 'string') {
+      base.notifications.merchant_whatsapp_phone = notifications.merchant_whatsapp_phone.replace(/\D/g, '');
+    }
+    if (typeof notifications.merchant_notify_on_order === 'boolean') {
+      base.notifications.merchant_notify_on_order = notifications.merchant_notify_on_order;
+    }
     if (typeof notifications.ntfy_enabled === 'boolean') base.notifications.ntfy_enabled = notifications.ntfy_enabled;
     if (typeof notifications.ntfy_server_url === 'string') base.notifications.ntfy_server_url = notifications.ntfy_server_url.trim().replace(/\/+$/, '');
     if (typeof notifications.ntfy_topic === 'string') base.notifications.ntfy_topic = notifications.ntfy_topic.trim();
@@ -250,6 +261,8 @@ export function settingsToRows(settings: SiteSettings): Array<{ key: SettingKey;
         evolution_api_url: settings.notifications.evolution_api_url,
         evolution_api_key: settings.notifications.evolution_api_key,
         evolution_instance_name: settings.notifications.evolution_instance_name,
+        merchant_whatsapp_phone: settings.notifications.merchant_whatsapp_phone,
+        merchant_notify_on_order: settings.notifications.merchant_notify_on_order,
         ntfy_enabled: settings.notifications.ntfy_enabled,
         ntfy_server_url: settings.notifications.ntfy_server_url,
         ntfy_topic: settings.notifications.ntfy_topic,

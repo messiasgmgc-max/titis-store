@@ -545,6 +545,7 @@ const ORDER_STATUS_IDS = new Set<string>(ORDER_STATUSES.map((s) => s.id));
 function normalizeCartItem(raw: unknown, index: number): CartItem {
   const i = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  const numOrNull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   return {
     key: str(i.key) || `item-${index}`,
     productId: typeof i.productId === 'string' ? i.productId : null,
@@ -554,9 +555,12 @@ function normalizeCartItem(raw: unknown, index: number): CartItem {
     hex: str(i.hex),
     image: typeof i.image === 'string' && i.image ? i.image : null,
     size: typeof i.size === 'string' && i.size ? i.size : null,
-    priceCents: typeof i.priceCents === 'number' ? i.priceCents : null,
+    priceCents: numOrNull(i.priceCents),
     quantity: typeof i.quantity === 'number' && i.quantity > 0 ? Math.round(i.quantity) : 1,
     lookTitle: typeof i.lookTitle === 'string' && i.lookTitle ? i.lookTitle : null,
+    costCents: numOrNull(i.costCents),
+    profitCents: numOrNull(i.profitCents),
+    marginPercent: numOrNull(i.marginPercent),
   };
 }
 
@@ -586,7 +590,7 @@ export function normalizeOrder(row: Record<string, unknown>): OrderRow {
     items: Array.isArray(row.items) ? row.items.map(normalizeCartItem) : [],
     total_cents: typeof row.total_cents === 'number' ? row.total_cents : null,
     status: ORDER_STATUS_IDS.has(String(row.status)) ? (row.status as OrderStatus) : 'novo',
-    channel: channel === 'mercadopago' || channel === 'online' ? channel : 'whatsapp',
+    channel: channel === 'mercadopago' || channel === 'online' || channel === 'pdv' || channel === 'externa' ? channel : 'whatsapp',
     created_at: typeof row.created_at === 'string' ? row.created_at : '',
     updated_at: typeof row.updated_at === 'string' ? row.updated_at : undefined,
     paid_at: typeof row.paid_at === 'string' ? row.paid_at : null,

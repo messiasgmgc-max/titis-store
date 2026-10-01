@@ -44,7 +44,7 @@ import type { CheckoutProvider, PlanId } from '@/lib/types';
 import { ErrorState, Field, InlineError, LoadingRows, PillOption, RefreshButton, SectionLabel, Switch } from './AdminUI';
 import { centsToInput, describeError, displayPhone, formatShortDateBR, parsePriceToCents } from './admin-utils';
 import type { Resource } from './useAdminData';
-import { getAdminEnvStatusAction, testNtfyAction } from '@/app/admin/actions';
+import { getAdminEnvStatusAction, testMerchantWhatsAppNotificationAction, testNtfyAction } from '@/app/admin/actions';
 
 type IconComponent = React.ComponentType<{ className?: string; strokeWidth?: number; 'aria-hidden'?: boolean }>;
 
@@ -91,6 +91,7 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
   const [planErrors, setPlanErrors] = useState<Partial<Record<PlanId, string>>>({});
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
   const [testingNtfy, setTestingNtfy] = useState(false);
+  const [testingEvo, setTestingEvo] = useState(false);
 
   // Estados do Diagnóstico e Descoberta de Chaves Vercel
   const [isDiscovering, setIsDiscovering] = useState(false);
@@ -175,6 +176,22 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
       toast('Erro de rede ao testar notificação ntfy.', 'error');
     } finally {
       setTestingNtfy(false);
+    }
+  };
+
+  const handleTestMerchantWhatsApp = async () => {
+    setTestingEvo(true);
+    try {
+      const res = await testMerchantWhatsAppNotificationAction(notifications.merchant_whatsapp_phone || undefined);
+      if (res.success) {
+        toast(res.message, 'success');
+      } else {
+        toast(res.message, 'error');
+      }
+    } catch {
+      toast('Erro de rede ao testar notificação no WhatsApp.', 'error');
+    } finally {
+      setTestingEvo(false);
     }
   };
 
@@ -654,46 +671,84 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
 
         {/* 💬 WhatsApp & Evolution API (Notificações) --------------------- */}
         <SettingsCard icon={MessageCircle} title="Evolution API (WhatsApp Automático)" stamp={stamp('notifications')} className="lg:col-span-2">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Field label="URL da API Evolution" htmlFor="cfg-evo-url" hint="Ex: https://api.meuservidor.com">
-              <input
-                id="cfg-evo-url"
-                value={notifications.evolution_api_url}
-                onChange={(e) => setNotifications((n) => ({ ...n, evolution_api_url: e.target.value }))}
-                placeholder="https://api.seuservidor.com"
-                className="field rounded-2xl text-xs"
-              />
-            </Field>
-
-            <Field label="API Key (Chave Global/Instância)" htmlFor="cfg-evo-key">
-              <div className="relative">
-                <input
-                  id="cfg-evo-key"
-                  type={showTokens['evo'] ? 'text' : 'password'}
-                  value={notifications.evolution_api_key}
-                  onChange={(e) => setNotifications((n) => ({ ...n, evolution_api_key: e.target.value }))}
-                  placeholder="Sua API Key da Evolution..."
-                  className="field rounded-2xl pr-10 font-mono text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={() => toggleTokenVisibility('evo')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-smoke hover:text-ivory"
-                >
-                  {showTokens['evo'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-line p-4 bg-surface/40">
+              <div>
+                <p className="text-sm font-semibold text-ivory">Notificações no WhatsApp do Lojista</p>
+                <p className="text-xs text-mist">
+                  Envie alertas instantâneos no WhatsApp pessoal do lojista assim que um novo pedido for aprovado no site.
+                </p>
               </div>
-            </Field>
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleTestMerchantWhatsApp}
+                  loading={testingEvo}
+                  disabled={!notifications.evolution_api_url}
+                  className="text-xs border-gold/40 text-gold hover:bg-gold/10"
+                >
+                  Testar WhatsApp do Lojista
+                </Button>
+                <Switch
+                  checked={notifications.merchant_notify_on_order}
+                  onChange={(val) => setNotifications((n) => ({ ...n, merchant_notify_on_order: val }))}
+                  label="Notificar Lojista"
+                />
+              </div>
+            </div>
 
-            <Field label="Nome da Instância" htmlFor="cfg-evo-inst" hint="Padrão: titis-store">
-              <input
-                id="cfg-evo-inst"
-                value={notifications.evolution_instance_name}
-                onChange={(e) => setNotifications((n) => ({ ...n, evolution_instance_name: e.target.value }))}
-                placeholder="titis-store"
-                className="field rounded-2xl text-xs"
-              />
-            </Field>
+            <div className="grid gap-4 md:grid-cols-4">
+              <Field label="URL da API Evolution" htmlFor="cfg-evo-url" hint="Ex: https://api.meuservidor.com">
+                <input
+                  id="cfg-evo-url"
+                  value={notifications.evolution_api_url}
+                  onChange={(e) => setNotifications((n) => ({ ...n, evolution_api_url: e.target.value }))}
+                  placeholder="https://api.seuservidor.com"
+                  className="field rounded-2xl text-xs"
+                />
+              </Field>
+
+              <Field label="API Key (Chave Global/Instância)" htmlFor="cfg-evo-key">
+                <div className="relative">
+                  <input
+                    id="cfg-evo-key"
+                    type={showTokens['evo'] ? 'text' : 'password'}
+                    value={notifications.evolution_api_key}
+                    onChange={(e) => setNotifications((n) => ({ ...n, evolution_api_key: e.target.value }))}
+                    placeholder="Sua API Key da Evolution..."
+                    className="field rounded-2xl pr-10 font-mono text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleTokenVisibility('evo')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-smoke hover:text-ivory"
+                  >
+                    {showTokens['evo'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </Field>
+
+              <Field label="Nome da Instância" htmlFor="cfg-evo-inst" hint="Padrão: titis-store">
+                <input
+                  id="cfg-evo-inst"
+                  value={notifications.evolution_instance_name}
+                  onChange={(e) => setNotifications((n) => ({ ...n, evolution_instance_name: e.target.value }))}
+                  placeholder="titis-store"
+                  className="field rounded-2xl text-xs"
+                />
+              </Field>
+
+              <Field label="WhatsApp do Lojista" htmlFor="cfg-evo-phone" hint="DDI+DDD+Número (ex: 5531999999999)">
+                <input
+                  id="cfg-evo-phone"
+                  value={notifications.merchant_whatsapp_phone}
+                  onChange={(e) => setNotifications((n) => ({ ...n, merchant_whatsapp_phone: e.target.value.replace(/\D/g, '').slice(0, 15) }))}
+                  placeholder="5531999999999"
+                  className="field rounded-2xl text-xs tabular-nums font-mono"
+                />
+              </Field>
+            </div>
           </div>
           <SaveRow dirty={notificationsDirty} busy={savingKey === 'notifications'} onSave={saveNotifications} />
         </SettingsCard>

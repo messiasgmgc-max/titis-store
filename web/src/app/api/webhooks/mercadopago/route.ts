@@ -280,6 +280,20 @@ export async function POST(req: Request) {
             state: (order.shipping_address as any)?.state,
             items: (order.items as any) || [],
           }).catch((e) => console.error('[Webhook MP] Erro notificação ntfy:', e));
+
+          // Notificação instantânea no WhatsApp do Lojista via Evolution API
+          NotificationService.sendMerchantOrderApprovedNotification({
+            orderId: order.id,
+            totalCents: order.total_cents || 0,
+            customerName: order.customer_name || 'Cliente',
+            customerEmail: order.customer_email,
+            customerPhone: order.customer_phone,
+            paymentMethod: (order as any).payment_method || 'Mercado Pago',
+            shippingService: (order as any).shipping_service_name,
+            shippingCity: (order.shipping_address as any)?.city,
+            shippingState: (order.shipping_address as any)?.state,
+            items: (order.items as any) || [],
+          }).catch((e) => console.error('[Webhook MP] Erro notificação WhatsApp lojista:', e));
         }
         return jsonOk({ received: true, status: payment.status });
       }
@@ -382,6 +396,24 @@ export async function POST(req: Request) {
         customerName,
         customerEmail,
       }).catch((e) => console.error('[Webhook MP Consultor] Erro ntfy plano:', e));
+
+      // Notificação instantânea no WhatsApp do Lojista via Evolution API
+      NotificationService.sendMerchantOrderApprovedNotification({
+        orderId: syncOrderId,
+        totalCents: row.amount_cents,
+        customerName,
+        customerEmail,
+        customerPhone,
+        paymentMethod: 'Mercado Pago',
+        shippingService: 'Acesso Digital Imediato',
+        items: [
+          {
+            name: `Assinatura Consultoria · ${planName}`,
+            quantity: 1,
+            priceCents: row.amount_cents,
+          },
+        ],
+      }).catch((e) => console.error('[Webhook MP Consultor] Erro WhatsApp lojista:', e));
 
       if (customerEmail) {
         EmailService.sendConsultingAccessGranted({

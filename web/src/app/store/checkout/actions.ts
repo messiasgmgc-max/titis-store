@@ -139,6 +139,21 @@ export async function processTransparentCheckoutAction(
       items: data.items || [],
     }).catch((err) => console.error('[Ntfy checkout action]', err));
 
+    if (isApproved) {
+      NotificationService.sendMerchantOrderApprovedNotification({
+        orderId,
+        totalCents: data.amountCents,
+        customerName: `${data.payer.firstName} ${data.payer.lastName || ''}`.trim(),
+        customerEmail: data.payer.email,
+        customerPhone: data.payer.phone,
+        paymentMethod: data.paymentMethod,
+        shippingService: data.shippingService?.name,
+        shippingCity: (data.shipping as any)?.city,
+        shippingState: (data.shipping as any)?.state,
+        items: data.items || [],
+      }).catch((err) => console.error('[NotificationService Lojista checkout]', err));
+    }
+
     if (data.paymentMethod === 'pix') {
       if (data.payer.phone && result.qrCode) {
         NotificationService.sendOrderNotification({
