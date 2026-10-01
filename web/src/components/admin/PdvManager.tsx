@@ -35,6 +35,7 @@ import {
   Layers,
   ShoppingBag,
   ArrowRight,
+  LoaderCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -581,7 +582,7 @@ export function PdvManager({
         </PillOption>
         <PillOption active={activeTab === 'terminal'} onClick={() => setActiveTab('terminal')}>
           <span className="flex items-center gap-2 whitespace-nowrap">
-            <ShoppingCart className="h-4 w-4" /> Terminal PDV (Nova Venda)
+            <ShoppingCart className="h-4 w-4" /> Nova Venda (PDV)
           </span>
         </PillOption>
         <PillOption active={activeTab === 'saidas'} onClick={() => setActiveTab('saidas')}>
@@ -617,30 +618,34 @@ export function PdvManager({
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
                 onClick={() => setActiveTab('terminal')}
-                className="bg-gold text-obsidian font-bold text-xs hover:bg-gold-light shadow-md flex items-center gap-1.5 flex-1 sm:flex-none justify-center"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-gold via-gold-light to-gold px-5 py-2.5 text-xs sm:text-sm font-extrabold text-obsidian shadow-lg shadow-gold/20 transition-all hover:brightness-105 active:scale-95 cursor-pointer"
               >
-                <Plus className="h-3.5 w-3.5" /> Lançar Venda
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setActiveTab('saidas')}
-                className="border-line text-ivory hover:border-gold/50 text-xs flex items-center gap-1.5 flex-1 sm:flex-none justify-center"
-              >
-                <TrendingUp className="h-3.5 w-3.5 text-gold" /> Saídas
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setActiveTab('evolution')}
-                className="border-line text-ivory hover:border-gold/50 text-xs flex items-center gap-1.5"
-              >
-                <Smartphone className="h-3.5 w-3.5 text-emerald-400" /> WhatsApp
-              </Button>
+                <Plus className="h-4 w-4 shrink-0 stroke-[2.5]" />
+                <span>Lançar Venda no PDV</span>
+              </button>
+
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('saidas')}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-line bg-surface/80 px-3.5 py-2.5 text-xs font-semibold text-ivory transition-all hover:border-gold/50 hover:bg-surface active:scale-95 cursor-pointer"
+                >
+                  <TrendingUp className="h-3.5 w-3.5 text-gold shrink-0" />
+                  <span>Ver Saídas</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('evolution')}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-line bg-surface/80 px-3.5 py-2.5 text-xs font-semibold text-ivory transition-all hover:border-gold/50 hover:bg-surface active:scale-95 cursor-pointer"
+                >
+                  <Smartphone className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span>WhatsApp</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1419,32 +1424,50 @@ export function PdvManager({
               </div>
 
               {/* Botão de Finalização da Venda */}
-              <Button
-                size="lg"
+              <button
+                type="button"
                 onClick={handleFinalizeSale}
-                loading={submitting}
-                disabled={cart.length === 0}
-                className="w-full bg-gold text-obsidian font-extrabold hover:bg-gold-light py-4 text-sm shadow-xl flex items-center justify-center gap-2"
+                disabled={cart.length === 0 || submitting}
+                className={cn(
+                  'w-full rounded-2xl py-4 px-4 font-display font-extrabold text-sm sm:text-base shadow-xl flex items-center justify-center gap-2 transition-all duration-300',
+                  cart.length > 0 && !submitting
+                    ? 'bg-gradient-to-r from-gold via-gold-light to-gold text-obsidian shadow-gold/20 hover:brightness-105 active:scale-[0.99] cursor-pointer'
+                    : 'bg-surface-2 text-smoke cursor-not-allowed opacity-50 border border-line',
+                )}
               >
-                <CheckCircle2 className="h-5 w-5" />
-                Confirmar Venda & Registrar Saída
-              </Button>
+                {submitting ? (
+                  <>
+                    <LoaderCircle className="h-5 w-5 animate-spin text-obsidian" />
+                    <span>Lançando Venda no PDV...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-5 w-5 shrink-0" />
+                    <span className="truncate">
+                      {cart.length === 0
+                        ? 'Adicione Peças para Lançar Venda'
+                        : `Lançar Venda · ${formatBRL(cartSummary.totalChargedCents)}`}
+                    </span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
           {/* Barra Flutuante Mobile para Finalizar Venda */}
           {cart.length > 0 && (
-            <div className="lg:hidden fixed bottom-4 inset-x-4 z-40">
+            <div className="lg:hidden fixed bottom-4 inset-x-4 z-40 drop-shadow-2xl">
               <button
                 type="button"
                 onClick={() => document.getElementById('pdv-cart-panel')?.scrollIntoView({ behavior: 'smooth' })}
-                className="w-full rounded-2xl bg-gold text-obsidian font-extrabold py-3.5 px-5 shadow-2xl flex items-center justify-between border border-gold-light active:scale-[0.98] transition-transform"
+                className="w-full rounded-2xl bg-gradient-to-r from-gold via-gold-light to-gold text-obsidian font-extrabold py-3.5 px-4 shadow-2xl flex items-center justify-between border border-gold-light active:scale-[0.98] transition-transform"
               >
-                <span className="flex items-center gap-2 text-xs">
-                  <ShoppingCart className="h-4 w-4" /> Carrinho ({cartSummary.totalItems} un.)
+                <span className="flex items-center gap-2 text-xs font-bold">
+                  <ShoppingCart className="h-4 w-4 shrink-0" /> {cartSummary.totalItems} {cartSummary.totalItems === 1 ? 'peça' : 'peças'}
                 </span>
-                <span className="font-display text-sm font-bold tabular-nums">
-                  {formatBRL(cartSummary.totalChargedCents)} · Finalizar &rarr;
+                <span className="font-display text-sm font-black tabular-nums flex items-center gap-1.5">
+                  {formatBRL(cartSummary.totalChargedCents)}
+                  <span className="text-xs font-bold uppercase tracking-wider bg-obsidian/20 px-2.5 py-0.5 rounded-lg text-obsidian">Lançar &rarr;</span>
                 </span>
               </button>
             </div>
