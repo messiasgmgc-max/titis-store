@@ -31,6 +31,10 @@ import {
   BadgePercent,
   X,
   Clock,
+  BarChart3,
+  Layers,
+  ShoppingBag,
+  ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -103,7 +107,7 @@ export function PdvManager({
   const settings = useMemo(() => parseSettings(settingRows), [settingRows]);
 
   // Sub-tabs
-  const [activeTab, setActiveTab] = useState<'terminal' | 'saidas' | 'evolution'>('terminal');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'terminal' | 'saidas' | 'evolution'>('dashboard');
 
   // Terminal PDV: Search & Selection
   const [searchCatalog, setSearchCatalog] = useState('');
@@ -448,6 +452,109 @@ export function PdvManager({
     };
   }, [pdvOutflows]);
 
+  // Omnichannel and Executive Dashboard Metrics
+  const dashboardMetrics = useMemo(() => {
+    let onlineRevenue = 0;
+    let onlineCount = 0;
+    let pdvRevenue = 0;
+    let pdvCount = 0;
+    let pdvCost = 0;
+    let pdvPieces = 0;
+
+    const paymentStats: Record<string, { total: number; count: number; label: string; color: string }> = {
+      pix: { total: 0, count: 0, label: 'Pix Instantâneo', color: 'bg-emerald-400' },
+      credito: { total: 0, count: 0, label: 'Cartão de Crédito', color: 'bg-gold' },
+      debito: { total: 0, count: 0, label: 'Cartão de Débito', color: 'bg-sky-400' },
+      dinheiro: { total: 0, count: 0, label: 'Dinheiro em Espécie', color: 'bg-amber-400' },
+    };
+
+    const productSalesMap = new Map<string, { name: string; image: string | null; qty: number; revenue: number }>();
+
+    orders.forEach((order) => {
+      if (order.status === 'cancelado') return;
+
+      const total = order.total_cents ?? 0;
+      const isPdv = order.channel === 'pdv' || order.channel === 'externa';
+
+      if (isPdv) {
+        pdvRevenue += total;
+        pdvCount += 1;
+
+        let orderCost = 0;
+        order.items.forEach((item) => {
+          const q = item.quantity || 1;
+          const cost = item.costCents ?? Math.round((item.priceCents || 0) * 0.4);
+          orderCost += cost * q;
+          pdvPieces += q;
+
+          // Ranking
+          const key = (item.name || 'Peça').toLowerCase().trim();
+          const existing = productSalesMap.get(key) || { name: item.name || 'Peça', image: item.image ?? null, qty: 0, revenue: 0 };
+          existing.qty += q;
+          existing.revenue += (item.priceCents || 0) * q;
+          productSalesMap.set(key, existing);
+        });
+
+        pdvCost += orderCost;
+
+        const pm = (order.payment_method ?? '').toLowerCase();
+        if (pm.includes('pix')) {
+          paymentStats.pix.total += total;
+          paymentStats.pix.count += 1;
+        } else if (pm.includes('credito')) {
+          paymentStats.credito.total += total;
+          paymentStats.credito.count += 1;
+        } else if (pm.includes('debito')) {
+          paymentStats.debito.total += total;
+          paymentStats.debito.count += 1;
+        } else if (pm.includes('dinheiro')) {
+          paymentStats.dinheiro.total += total;
+          paymentStats.dinheiro.count += 1;
+        }
+      } else {
+        onlineRevenue += total;
+        onlineCount += 1;
+      }
+    });
+
+    const totalCombinedRevenue = onlineRevenue + pdvRevenue;
+    const pdvProfit = pdvRevenue - pdvCost;
+    const pdvMargin = pdvRevenue > 0 ? (pdvProfit / pdvRevenue) * 100 : 0;
+    const ticketMedioPdv = pdvCount > 0 ? Math.round(pdvRevenue / pdvCount) : 0;
+
+    const topSellingProducts = Array.from(productSalesMap.values())
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 5);
+
+    const maxProductQty = topSellingProducts.length > 0 ? Math.max(...topSellingProducts.map((p) => p.qty), 1) : 1;
+
+    const onlinePercent = totalCombinedRevenue > 0 ? (onlineRevenue / totalCombinedRevenue) * 100 : 0;
+    const pdvPercent = totalCombinedRevenue > 0 ? (pdvRevenue / totalCombinedRevenue) * 100 : 0;
+
+    const recentPdvOrders = orders
+      .filter((o) => (o.channel === 'pdv' || o.channel === 'externa'))
+      .slice(0, 5);
+
+    return {
+      onlineRevenue,
+      onlineCount,
+      pdvRevenue,
+      pdvCount,
+      pdvCost,
+      pdvProfit,
+      pdvMargin,
+      pdvPieces,
+      ticketMedioPdv,
+      totalCombinedRevenue,
+      onlinePercent,
+      pdvPercent,
+      paymentStats,
+      topSellingProducts,
+      maxProductQty,
+      recentPdvOrders,
+    };
+  }, [orders]);
+
   return (
     <section aria-labelledby="pdv-heading" className="space-y-8">
       {/* Header */}
@@ -467,6 +574,11 @@ export function PdvManager({
 
       {/* Navigation Sub-Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-line pb-3">
+        <PillOption active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')}>
+          <span className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-gold" /> Dashboard Geral
+          </span>
+        </PillOption>
         <PillOption active={activeTab === 'terminal'} onClick={() => setActiveTab('terminal')}>
           <span className="flex items-center gap-2">
             <ShoppingCart className="h-4 w-4" /> Terminal PDV (Nova Venda)
@@ -483,6 +595,402 @@ export function PdvManager({
           </span>
         </PillOption>
       </div>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* SUB-TAB 0: DASHBOARD GERAL & MÉTRICAS EXECUTIVAS                  */}
+      {/* ----------------------------------------------------------------- */}
+      {activeTab === 'dashboard' && (
+        <div className="space-y-8">
+          {/* Barra de Ações Rápidas do Dashboard */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-3xl border border-gold/30 bg-gradient-to-r from-gold/[0.08] via-obsidian-card to-surface/60 p-5 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gold/20 text-gold border border-gold/40">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-bold text-ivory">
+                  Painel Executivo de Vendas & Rentabilidade
+                </h3>
+                <p className="text-xs text-mist">
+                  Monitoramento em tempo real do faturamento presencial, margem de contribuição e baixas de estoque.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2.5">
+              <Button
+                size="sm"
+                onClick={() => setActiveTab('terminal')}
+                className="bg-gold text-obsidian font-bold text-xs hover:bg-gold-light shadow-md flex items-center gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" /> Lançar Venda no PDV
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setActiveTab('saidas')}
+                className="border-line text-ivory hover:border-gold/50 text-xs flex items-center gap-1.5"
+              >
+                <TrendingUp className="h-3.5 w-3.5 text-gold" /> Ver Saídas
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setActiveTab('evolution')}
+                className="border-line text-ivory hover:border-gold/50 text-xs flex items-center gap-1.5"
+              >
+                <Smartphone className="h-3.5 w-3.5 text-emerald-400" /> WhatsApp
+              </Button>
+            </div>
+          </div>
+
+          {/* Cards de Métricas Principais (4 KPIs) */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Card 1: Faturamento PDV */}
+            <div className="panel rounded-3xl p-6 border border-gold/30 bg-gradient-to-br from-surface/80 to-surface/40 space-y-3 shadow-md relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gold flex items-center gap-1.5">
+                  <ShoppingBag className="h-4 w-4" /> Faturamento PDV
+                </span>
+                <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold uppercase">
+                  Presencial
+                </span>
+              </div>
+              <p className="font-display text-3xl font-extrabold text-ivory tabular-nums">
+                {formatBRL(dashboardMetrics.pdvRevenue)}
+              </p>
+              <p className="text-xs text-smoke">
+                <strong className="text-ivory font-mono">{dashboardMetrics.pdvCount}</strong> vendas realizadas · Ticket Médio:{' '}
+                <strong className="text-gold-light font-mono">{formatBRL(dashboardMetrics.ticketMedioPdv)}</strong>
+              </p>
+            </div>
+
+            {/* Card 2: Lucro Bruto Líquido */}
+            <div className="panel rounded-3xl p-6 border border-emerald-500/30 bg-gradient-to-br from-surface/80 to-surface/40 space-y-3 shadow-md relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                  <TrendingUp className="h-4 w-4" /> Lucro Bruto Real
+                </span>
+                <span
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase font-mono',
+                    dashboardMetrics.pdvMargin >= 40
+                      ? 'bg-emerald-500/15 text-emerald-400'
+                      : 'bg-amber-500/15 text-amber-400',
+                  )}
+                >
+                  {dashboardMetrics.pdvMargin.toFixed(1)}% Margem
+                </span>
+              </div>
+              <p className="font-display text-3xl font-extrabold text-emerald-400 tabular-nums">
+                {formatBRL(dashboardMetrics.pdvProfit)}
+              </p>
+              <p className="text-xs text-smoke">
+                Resultado líquido após dedução do custo de cada mercadoria (CMV).
+              </p>
+            </div>
+
+            {/* Card 3: Custo de Mercadorias (CMV) */}
+            <div className="panel rounded-3xl p-6 border border-line bg-surface/50 space-y-3 shadow-md">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-mist flex items-center gap-1.5">
+                  <Calculator className="h-4 w-4" /> Custo Mercadorias (CMV)
+                </span>
+                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold text-smoke uppercase font-mono">
+                  {dashboardMetrics.pdvPieces} un. baixadas
+                </span>
+              </div>
+              <p className="font-display text-3xl font-extrabold text-mist tabular-nums">
+                {formatBRL(dashboardMetrics.pdvCost)}
+              </p>
+              <p className="text-xs text-smoke">
+                Custo de aquisição/produção das peças vendidas no PDV.
+              </p>
+            </div>
+
+            {/* Card 4: Faturamento Global Omnichannel */}
+            <div className="panel rounded-3xl p-6 border border-line bg-surface/50 space-y-3 shadow-md">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-smoke flex items-center gap-1.5">
+                  <Layers className="h-4 w-4 text-gold-light" /> Receita Omnichannel
+                </span>
+                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold text-smoke uppercase">
+                  Loja + PDV
+                </span>
+              </div>
+              <p className="font-display text-3xl font-extrabold text-ivory tabular-nums">
+                {formatBRL(dashboardMetrics.totalCombinedRevenue)}
+              </p>
+              <p className="text-xs text-smoke">
+                PDV: <strong className="text-gold-light">{dashboardMetrics.pdvPercent.toFixed(0)}%</strong> · Online:{' '}
+                <strong className="text-sky-300">{dashboardMetrics.onlinePercent.toFixed(0)}%</strong>
+              </p>
+            </div>
+          </div>
+
+          {/* Gráficos e Distribuições Visuais (2 Colunas: 7 e 5) */}
+          <div className="grid gap-8 lg:grid-cols-12">
+            {/* Coluna Esquerda: Comparativo de Canais & Mix de Pagamento (7 cols) */}
+            <div className="space-y-6 lg:col-span-7">
+              {/* Comparativo de Canais de Venda */}
+              <div className="panel rounded-3xl p-6 space-y-5 border border-line">
+                <div className="flex items-center justify-between border-b border-line pb-4">
+                  <h4 className="font-display text-base font-bold text-ivory flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-gold" /> Comparativo de Canais: Online vs Presencial (PDV)
+                  </h4>
+                  <span className="text-xs text-smoke font-mono">
+                    Total: {formatBRL(dashboardMetrics.totalCombinedRevenue)}
+                  </span>
+                </div>
+
+                {/* Barra Visual Proporcional Bicolor */}
+                <div className="space-y-2">
+                  <div className="h-4 w-full rounded-full bg-surface-2 overflow-hidden flex border border-line">
+                    <div
+                      style={{ width: `${Math.max(5, dashboardMetrics.pdvPercent)}%` }}
+                      className="h-full bg-gradient-to-r from-gold to-gold-light transition-all duration-700"
+                      title={`PDV: ${dashboardMetrics.pdvPercent.toFixed(1)}%`}
+                    />
+                    <div
+                      style={{ width: `${Math.max(5, dashboardMetrics.onlinePercent)}%` }}
+                      className="h-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-700"
+                      title={`Online: ${dashboardMetrics.onlinePercent.toFixed(1)}%`}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-smoke font-mono">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-gold inline-block" />
+                      Presencial / PDV: <strong className="text-ivory">{dashboardMetrics.pdvPercent.toFixed(1)}%</strong> ({formatBRL(dashboardMetrics.pdvRevenue)})
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-sky-400 inline-block" />
+                      Online / E-commerce: <strong className="text-ivory">{dashboardMetrics.onlinePercent.toFixed(1)}%</strong> ({formatBRL(dashboardMetrics.onlineRevenue)})
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="rounded-2xl border border-line bg-surface/40 p-4 space-y-1">
+                    <p className="text-[11px] text-smoke font-medium">Vendas Presenciais (PDV)</p>
+                    <p className="font-display text-xl font-bold text-gold tabular-nums">
+                      {formatBRL(dashboardMetrics.pdvRevenue)}
+                    </p>
+                    <p className="text-[11px] text-smoke font-mono">{dashboardMetrics.pdvCount} vendas registradas</p>
+                  </div>
+                  <div className="rounded-2xl border border-line bg-surface/40 p-4 space-y-1">
+                    <p className="text-[11px] text-smoke font-medium">Vendas Online (Site)</p>
+                    <p className="font-display text-xl font-bold text-sky-400 tabular-nums">
+                      {formatBRL(dashboardMetrics.onlineRevenue)}
+                    </p>
+                    <p className="text-[11px] text-smoke font-mono">{dashboardMetrics.onlineCount} pedidos finalizados</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mix de Formas de Pagamento no PDV */}
+              <div className="panel rounded-3xl p-6 space-y-5 border border-line">
+                <div className="flex items-center justify-between border-b border-line pb-4">
+                  <h4 className="font-display text-base font-bold text-ivory flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-gold" /> Mix de Pagamento no PDV
+                  </h4>
+                  <span className="text-xs text-smoke font-mono">
+                    {dashboardMetrics.pdvCount} vendas externas
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  {Object.entries(dashboardMetrics.paymentStats).map(([key, stat]) => {
+                    const percent = dashboardMetrics.pdvRevenue > 0 ? (stat.total / dashboardMetrics.pdvRevenue) * 100 : 0;
+                    return (
+                      <div key={key} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium text-ivory flex items-center gap-2">
+                            {key === 'pix' && <QrCode className="h-3.5 w-3.5 text-emerald-400" />}
+                            {key === 'credito' && <CreditCard className="h-3.5 w-3.5 text-gold" />}
+                            {key === 'debito' && <CreditCard className="h-3.5 w-3.5 text-sky-400" />}
+                            {key === 'dinheiro' && <Banknote className="h-3.5 w-3.5 text-amber-400" />}
+                            {stat.label}
+                          </span>
+                          <div className="flex items-center gap-3 font-mono">
+                            <span className="text-smoke text-[11px]">{stat.count}x</span>
+                            <span className="font-bold text-ivory">{formatBRL(stat.total)}</span>
+                            <span className="text-gold-light text-[11px] w-12 text-right">{percent.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-surface-2 overflow-hidden">
+                          <div
+                            style={{ width: `${percent}%` }}
+                            className={cn('h-full rounded-full transition-all duration-500', stat.color)}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Coluna Direita: Top Peças Vendidas & Status de Notificações (5 cols) */}
+            <div className="space-y-6 lg:col-span-5">
+              {/* Ranking das Peças Mais Vendidas no PDV */}
+              <div className="panel rounded-3xl p-6 space-y-5 border border-line">
+                <div className="flex items-center justify-between border-b border-line pb-4">
+                  <h4 className="font-display text-base font-bold text-ivory flex items-center gap-2">
+                    <Package className="h-4 w-4 text-gold" /> Top Peças no PDV
+                  </h4>
+                  <span className="text-xs text-smoke font-mono">Maior saída</span>
+                </div>
+
+                <div className="space-y-3">
+                  {dashboardMetrics.topSellingProducts.map((prod, idx) => {
+                    const relativeWidth = Math.round((prod.qty / dashboardMetrics.maxProductQty) * 100);
+                    return (
+                      <div key={idx} className="rounded-2xl border border-line bg-surface/40 p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-ivory truncate">{prod.name}</p>
+                          <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold font-mono whitespace-nowrap">
+                            {prod.qty} un.
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-smoke font-mono">
+                          <span>Receita gerada:</span>
+                          <strong className="text-gold-light">{formatBRL(prod.revenue)}</strong>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-surface-2 overflow-hidden">
+                          <div style={{ width: `${relativeWidth}%` }} className="h-full bg-gold rounded-full" />
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {dashboardMetrics.topSellingProducts.length === 0 && (
+                    <div className="py-8 text-center text-xs text-smoke">
+                      Nenhuma saída registrada ainda para calcular o ranking.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Status das Automações e WhatsApp */}
+              <div className="panel rounded-3xl p-6 space-y-4 border border-line bg-surface/30">
+                <div className="flex items-center justify-between border-b border-line pb-4">
+                  <h4 className="font-display text-base font-bold text-ivory flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-emerald-400" /> Automações & WhatsApp
+                  </h4>
+                  <span className="text-[10px] rounded-full bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 font-bold uppercase">
+                    Operacional
+                  </span>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div className="flex items-center justify-between rounded-xl border border-line p-3 bg-surface/50">
+                    <span className="text-smoke flex items-center gap-2">
+                      <WhatsAppIcon className="h-4 w-4 text-emerald-400" /> Evolution API:
+                    </span>
+                    <span className="font-mono text-ivory font-bold">
+                      {settings.notifications.merchant_whatsapp_phone ? displayPhone(settings.notifications.merchant_whatsapp_phone) : 'Configurado'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-xl border border-line p-3 bg-surface/50">
+                    <span className="text-smoke flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-gold" /> Notificação Lojista:
+                    </span>
+                    <span className="text-emerald-400 font-bold">
+                      {settings.notifications.merchant_notify_on_order ? '✅ Ativado' : '❌ Desativado'}
+                    </span>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveTab('evolution')}
+                    className="w-full border-gold/40 text-gold hover:bg-gold/10 text-xs flex items-center justify-center gap-2 mt-2"
+                  >
+                    <Send className="h-3.5 w-3.5" /> Abrir Simulador de Disparo WhatsApp
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Feed das Últimas Vendas do PDV */}
+          <div className="panel rounded-3xl p-6 space-y-4 border border-line">
+            <div className="flex items-center justify-between border-b border-line pb-4">
+              <div>
+                <h4 className="font-display text-base font-bold text-ivory flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-gold" /> Últimas Vendas Registradas no PDV
+                </h4>
+                <p className="text-xs text-mist">Transações e baixas de estoque mais recentes do balcão</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setActiveTab('saidas')}
+                className="text-xs border-line text-smoke hover:text-ivory flex items-center gap-1.5"
+              >
+                Ver Todas <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            <div className="divide-y divide-line">
+              {dashboardMetrics.recentPdvOrders.map((ord) => {
+                let orderCost = 0;
+                ord.items.forEach((it) => {
+                  const q = it.quantity || 1;
+                  const c = it.costCents ?? Math.round((it.priceCents || 0) * 0.4);
+                  orderCost += c * q;
+                });
+                const profit = (ord.total_cents ?? 0) - orderCost;
+
+                return (
+                  <div key={ord.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-ivory">{ord.id}</span>
+                        <span className="rounded-full bg-gold/10 text-gold px-2 py-0.2 text-[10px] font-bold capitalize">
+                          {ord.payment_method || 'Pix'}
+                        </span>
+                        <span className="text-smoke text-[11px]">
+                          {formatDateBR(ord.created_at)} às {formatTimeBR(ord.created_at)}
+                        </span>
+                      </div>
+                      <p className="text-mist truncate max-w-md">
+                        {ord.customer_name ? <strong className="text-ivory mr-1">{ord.customer_name}:</strong> : ''}
+                        {ord.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-4 self-end sm:self-auto font-mono">
+                      <div className="text-right">
+                        <p className="font-bold text-ivory text-sm">{formatBRL(ord.total_cents ?? 0)}</p>
+                        <p className="text-[11px] text-emerald-400 font-bold">Lucro: +{formatBRL(profit)}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setCompletedOrder(ord);
+                          setReceiptModalOpen(true);
+                        }}
+                        className="text-[10px] h-7 px-2.5 border-line text-smoke hover:text-ivory"
+                      >
+                        <Receipt className="h-3 w-3 mr-1" /> Recibo
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {dashboardMetrics.recentPdvOrders.length === 0 && (
+                <div className="py-8 text-center text-xs text-smoke">
+                  Nenhuma venda lançada no PDV ainda. Clique em &quot;Lançar Venda no PDV&quot; para registrar a primeira!
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ----------------------------------------------------------------- */}
       {/* SUB-TAB 1: TERMINAL PDV (NOVA VENDA)                              */}
