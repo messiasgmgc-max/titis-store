@@ -729,23 +729,23 @@ export function PdvManager({
           </div>
 
           {/* Gráficos e Distribuições Visuais (2 Colunas: 7 e 5) */}
-          <div className="grid gap-8 lg:grid-cols-12">
+          <div className="grid gap-6 sm:gap-8 lg:grid-cols-12 min-w-0">
             {/* Coluna Esquerda: Comparativo de Canais & Mix de Pagamento (7 cols) */}
-            <div className="space-y-6 lg:col-span-7">
+            <div className="space-y-6 lg:col-span-7 min-w-0">
               {/* Comparativo de Canais de Venda */}
-              <div className="panel rounded-3xl p-6 space-y-5 border border-line">
-                <div className="flex items-center justify-between border-b border-line pb-4">
-                  <h4 className="font-display text-base font-bold text-ivory flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-gold" /> Comparativo de Canais: Online vs Presencial (PDV)
+              <div className="panel rounded-3xl p-4 sm:p-6 space-y-5 border border-line min-w-0 overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-line pb-3 sm:pb-4">
+                  <h4 className="font-display text-sm sm:text-base font-bold text-ivory flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-gold shrink-0" /> Comparativo de Canais
                   </h4>
                   <span className="text-xs text-smoke font-mono">
-                    Total: {formatBRL(dashboardMetrics.totalCombinedRevenue)}
+                    Total: <strong className="text-ivory">{formatBRL(dashboardMetrics.totalCombinedRevenue)}</strong>
                   </span>
                 </div>
 
                 {/* Barra Visual Proporcional Bicolor */}
-                <div className="space-y-2">
-                  <div className="h-4 w-full rounded-full bg-surface-2 overflow-hidden flex border border-line">
+                <div className="space-y-2.5">
+                  <div className="h-3.5 sm:h-4 w-full rounded-full bg-surface-2 overflow-hidden flex border border-line">
                     <div
                       style={{ width: `${Math.max(5, dashboardMetrics.pdvPercent)}%` }}
                       className="h-full bg-gradient-to-r from-gold to-gold-light transition-all duration-700"
@@ -757,44 +757,44 @@ export function PdvManager({
                       title={`Online: ${dashboardMetrics.onlinePercent.toFixed(1)}%`}
                     />
                   </div>
-                  <div className="flex items-center justify-between text-xs text-smoke font-mono">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-smoke font-mono">
                     <span className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-full bg-gold inline-block" />
-                      Presencial / PDV: <strong className="text-ivory">{dashboardMetrics.pdvPercent.toFixed(1)}%</strong> ({formatBRL(dashboardMetrics.pdvRevenue)})
+                      <span className="h-2.5 w-2.5 rounded-full bg-gold shrink-0 inline-block" />
+                      Presencial (PDV): <strong className="text-ivory">{dashboardMetrics.pdvPercent.toFixed(1)}%</strong> ({formatBRL(dashboardMetrics.pdvRevenue)})
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-full bg-sky-400 inline-block" />
-                      Online / E-commerce: <strong className="text-ivory">{dashboardMetrics.onlinePercent.toFixed(1)}%</strong> ({formatBRL(dashboardMetrics.onlineRevenue)})
+                      <span className="h-2.5 w-2.5 rounded-full bg-sky-400 shrink-0 inline-block" />
+                      Online (Site): <strong className="text-ivory">{dashboardMetrics.onlinePercent.toFixed(1)}%</strong> ({formatBRL(dashboardMetrics.onlineRevenue)})
                     </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="rounded-2xl border border-line bg-surface/40 p-4 space-y-1">
-                    <p className="text-[11px] text-smoke font-medium">Vendas Presenciais (PDV)</p>
-                    <p className="font-display text-xl font-bold text-gold tabular-nums">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pt-1">
+                  <div className="rounded-2xl border border-line bg-surface/40 p-3 sm:p-4 space-y-1 min-w-0">
+                    <p className="text-[10px] sm:text-[11px] text-smoke font-medium truncate">Presencial (PDV)</p>
+                    <p className="font-display text-base sm:text-xl font-bold text-gold tabular-nums truncate">
                       {formatBRL(dashboardMetrics.pdvRevenue)}
                     </p>
-                    <p className="text-[11px] text-smoke font-mono">{dashboardMetrics.pdvCount} vendas registradas</p>
+                    <p className="text-[10px] sm:text-[11px] text-smoke font-mono truncate">{dashboardMetrics.pdvCount} vendas registradas</p>
                   </div>
-                  <div className="rounded-2xl border border-line bg-surface/40 p-4 space-y-1">
-                    <p className="text-[11px] text-smoke font-medium">Vendas Online (Site)</p>
-                    <p className="font-display text-xl font-bold text-sky-400 tabular-nums">
+                  <div className="rounded-2xl border border-line bg-surface/40 p-3 sm:p-4 space-y-1 min-w-0">
+                    <p className="text-[10px] sm:text-[11px] text-smoke font-medium truncate">Online (Site)</p>
+                    <p className="font-display text-base sm:text-xl font-bold text-sky-400 tabular-nums truncate">
                       {formatBRL(dashboardMetrics.onlineRevenue)}
                     </p>
-                    <p className="text-[11px] text-smoke font-mono">{dashboardMetrics.onlineCount} pedidos finalizados</p>
+                    <p className="text-[10px] sm:text-[11px] text-smoke font-mono truncate">{dashboardMetrics.onlineCount} pedidos finalizados</p>
                   </div>
                 </div>
               </div>
 
               {/* Mix de Formas de Pagamento no PDV */}
-              <div className="panel rounded-3xl p-6 space-y-5 border border-line">
-                <div className="flex items-center justify-between border-b border-line pb-4">
-                  <h4 className="font-display text-base font-bold text-ivory flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-gold" /> Mix de Pagamento no PDV
+              <div className="panel rounded-3xl p-4 sm:p-6 space-y-5 border border-line min-w-0 overflow-hidden">
+                <div className="flex items-center justify-between gap-2 border-b border-line pb-3 sm:pb-4">
+                  <h4 className="font-display text-sm sm:text-base font-bold text-ivory flex items-center gap-2 truncate">
+                    <CreditCard className="h-4 w-4 text-gold shrink-0" /> Mix de Pagamento no PDV
                   </h4>
-                  <span className="text-xs text-smoke font-mono">
-                    {dashboardMetrics.pdvCount} vendas externas
+                  <span className="text-[11px] sm:text-xs text-smoke font-mono shrink-0">
+                    {dashboardMetrics.pdvCount} vendas
                   </span>
                 </div>
 
@@ -802,19 +802,19 @@ export function PdvManager({
                   {Object.entries(dashboardMetrics.paymentStats).map(([key, stat]) => {
                     const percent = dashboardMetrics.pdvRevenue > 0 ? (stat.total / dashboardMetrics.pdvRevenue) * 100 : 0;
                     return (
-                      <div key={key} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-medium text-ivory flex items-center gap-2">
-                            {key === 'pix' && <QrCode className="h-3.5 w-3.5 text-emerald-400" />}
-                            {key === 'credito' && <CreditCard className="h-3.5 w-3.5 text-gold" />}
-                            {key === 'debito' && <CreditCard className="h-3.5 w-3.5 text-sky-400" />}
-                            {key === 'dinheiro' && <Banknote className="h-3.5 w-3.5 text-amber-400" />}
-                            {stat.label}
+                      <div key={key} className="space-y-1.5 min-w-0">
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="font-medium text-ivory flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs truncate min-w-0">
+                            {key === 'pix' && <QrCode className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
+                            {key === 'credito' && <CreditCard className="h-3.5 w-3.5 text-gold shrink-0" />}
+                            {key === 'debito' && <CreditCard className="h-3.5 w-3.5 text-sky-400 shrink-0" />}
+                            {key === 'dinheiro' && <Banknote className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+                            <span className="truncate">{stat.label}</span>
                           </span>
-                          <div className="flex items-center gap-3 font-mono">
-                            <span className="text-smoke text-[11px]">{stat.count}x</span>
+                          <div className="flex items-center gap-1.5 sm:gap-3 font-mono text-[10px] sm:text-xs shrink-0">
+                            <span className="text-smoke">{stat.count}x</span>
                             <span className="font-bold text-ivory">{formatBRL(stat.total)}</span>
-                            <span className="text-gold-light text-[11px] w-12 text-right">{percent.toFixed(1)}%</span>
+                            <span className="text-gold-light font-bold min-w-[32px] text-right">{percent.toFixed(0)}%</span>
                           </div>
                         </div>
                         <div className="h-2 w-full rounded-full bg-surface-2 overflow-hidden">
@@ -831,28 +831,28 @@ export function PdvManager({
             </div>
 
             {/* Coluna Direita: Top Peças Vendidas & Status de Notificações (5 cols) */}
-            <div className="space-y-6 lg:col-span-5">
+            <div className="space-y-6 lg:col-span-5 min-w-0">
               {/* Ranking das Peças Mais Vendidas no PDV */}
-              <div className="panel rounded-3xl p-6 space-y-5 border border-line">
-                <div className="flex items-center justify-between border-b border-line pb-4">
-                  <h4 className="font-display text-base font-bold text-ivory flex items-center gap-2">
-                    <Package className="h-4 w-4 text-gold" /> Top Peças no PDV
+              <div className="panel rounded-3xl p-4 sm:p-6 space-y-4 sm:space-y-5 border border-line min-w-0 overflow-hidden">
+                <div className="flex items-center justify-between gap-2 border-b border-line pb-3 sm:pb-4">
+                  <h4 className="font-display text-sm sm:text-base font-bold text-ivory flex items-center gap-2 truncate">
+                    <Package className="h-4 w-4 text-gold shrink-0" /> Top Peças no PDV
                   </h4>
-                  <span className="text-xs text-smoke font-mono">Maior saída</span>
+                  <span className="text-[11px] sm:text-xs text-smoke font-mono shrink-0">Maior saída</span>
                 </div>
 
                 <div className="space-y-3">
                   {dashboardMetrics.topSellingProducts.map((prod, idx) => {
                     const relativeWidth = Math.round((prod.qty / dashboardMetrics.maxProductQty) * 100);
                     return (
-                      <div key={idx} className="rounded-2xl border border-line bg-surface/40 p-3 space-y-2">
+                      <div key={idx} className="rounded-2xl border border-line bg-surface/40 p-3 space-y-2 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold text-ivory truncate">{prod.name}</p>
-                          <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold font-mono whitespace-nowrap">
+                          <p className="text-[11px] sm:text-xs font-semibold text-ivory truncate min-w-0">{prod.name}</p>
+                          <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-gold font-mono whitespace-nowrap shrink-0">
                             {prod.qty} un.
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-[11px] text-smoke font-mono">
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-smoke font-mono">
                           <span>Receita gerada:</span>
                           <strong className="text-gold-light">{formatBRL(prod.revenue)}</strong>
                         </div>
@@ -872,31 +872,31 @@ export function PdvManager({
               </div>
 
               {/* Status das Automações e WhatsApp */}
-              <div className="panel rounded-3xl p-6 space-y-4 border border-line bg-surface/30">
-                <div className="flex items-center justify-between border-b border-line pb-4">
-                  <h4 className="font-display text-base font-bold text-ivory flex items-center gap-2">
-                    <Smartphone className="h-4 w-4 text-emerald-400" /> Automações & WhatsApp
+              <div className="panel rounded-3xl p-4 sm:p-6 space-y-4 border border-line bg-surface/30 min-w-0 overflow-hidden">
+                <div className="flex items-center justify-between gap-2 border-b border-line pb-3 sm:pb-4">
+                  <h4 className="font-display text-sm sm:text-base font-bold text-ivory flex items-center gap-2 truncate">
+                    <Smartphone className="h-4 w-4 text-emerald-400 shrink-0" /> Automações & WhatsApp
                   </h4>
-                  <span className="text-[10px] rounded-full bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 font-bold uppercase">
+                  <span className="text-[9px] sm:text-[10px] rounded-full bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 font-bold uppercase shrink-0">
                     Operacional
                   </span>
                 </div>
 
                 <div className="space-y-3 text-xs">
-                  <div className="flex items-center justify-between rounded-xl border border-line p-3 bg-surface/50">
-                    <span className="text-smoke flex items-center gap-2">
-                      <WhatsAppIcon className="h-4 w-4 text-emerald-400" /> Evolution API:
+                  <div className="flex items-center justify-between rounded-xl border border-line p-2.5 sm:p-3 bg-surface/50 gap-2">
+                    <span className="text-smoke flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs truncate">
+                      <WhatsAppIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-400 shrink-0" /> Evolution API:
                     </span>
-                    <span className="font-mono text-ivory font-bold">
+                    <span className="font-mono text-ivory font-bold text-[11px] sm:text-xs shrink-0 truncate max-w-[130px] sm:max-w-none text-right">
                       {settings.notifications.merchant_whatsapp_phone ? displayPhone(settings.notifications.merchant_whatsapp_phone) : 'Configurado'}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-xl border border-line p-3 bg-surface/50">
-                    <span className="text-smoke flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-gold" /> Notificação Lojista:
+                  <div className="flex items-center justify-between rounded-xl border border-line p-2.5 sm:p-3 bg-surface/50 gap-2">
+                    <span className="text-smoke flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs truncate">
+                      <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gold shrink-0" /> Notificação Lojista:
                     </span>
-                    <span className="text-emerald-400 font-bold">
+                    <span className="text-emerald-400 font-bold text-[11px] sm:text-xs shrink-0">
                       {settings.notifications.merchant_notify_on_order ? '✅ Ativado' : '❌ Desativado'}
                     </span>
                   </div>
@@ -905,9 +905,10 @@ export function PdvManager({
                     size="sm"
                     variant="outline"
                     onClick={() => setActiveTab('evolution')}
-                    className="w-full border-gold/40 text-gold hover:bg-gold/10 text-xs flex items-center justify-center gap-2 mt-2"
+                    className="w-full border-gold/40 text-gold hover:bg-gold/10 text-xs flex items-center justify-center gap-1.5 py-2.5 mt-2"
                   >
-                    <Send className="h-3.5 w-3.5" /> Abrir Simulador de Disparo WhatsApp
+                    <Send className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">Simulador de Disparo WhatsApp</span>
                   </Button>
                 </div>
               </div>
@@ -915,19 +916,19 @@ export function PdvManager({
           </div>
 
           {/* Feed das Últimas Vendas do PDV */}
-          <div className="panel rounded-3xl p-6 space-y-4 border border-line">
-            <div className="flex items-center justify-between border-b border-line pb-4">
+          <div className="panel rounded-3xl p-4 sm:p-6 space-y-4 border border-line min-w-0 overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-line pb-3 sm:pb-4">
               <div>
-                <h4 className="font-display text-base font-bold text-ivory flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-gold" /> Últimas Vendas Registradas no PDV
+                <h4 className="font-display text-sm sm:text-base font-bold text-ivory flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-gold shrink-0" /> Últimas Vendas Registradas no PDV
                 </h4>
-                <p className="text-xs text-mist">Transações e baixas de estoque mais recentes do balcão</p>
+                <p className="text-[11px] sm:text-xs text-mist">Transações e baixas de estoque mais recentes do balcão</p>
               </div>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setActiveTab('saidas')}
-                className="text-xs border-line text-smoke hover:text-ivory flex items-center gap-1.5"
+                className="text-xs border-line text-smoke hover:text-ivory flex items-center gap-1.5 self-start sm:self-auto"
               >
                 Ver Todas <ArrowRight className="h-3.5 w-3.5" />
               </Button>
@@ -944,9 +945,9 @@ export function PdvManager({
                 const profit = (ord.total_cents ?? 0) - orderCost;
 
                 return (
-                  <div key={ord.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
+                  <div key={ord.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs min-w-0">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono font-bold text-ivory">{ord.id}</span>
                         <span className="rounded-full bg-gold/10 text-gold px-2 py-0.2 text-[10px] font-bold capitalize">
                           {ord.payment_method || 'Pix'}
@@ -955,14 +956,14 @@ export function PdvManager({
                           {formatDateBR(ord.created_at)} às {formatTimeBR(ord.created_at)}
                         </span>
                       </div>
-                      <p className="text-mist truncate max-w-md">
+                      <p className="text-mist truncate max-w-full sm:max-w-md">
                         {ord.customer_name ? <strong className="text-ivory mr-1">{ord.customer_name}:</strong> : ''}
                         {ord.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-4 self-end sm:self-auto font-mono">
-                      <div className="text-right">
+                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 font-mono w-full sm:w-auto pt-1 sm:pt-0 border-t border-line/40 sm:border-0">
+                      <div className="text-left sm:text-right">
                         <p className="font-bold text-ivory text-sm">{formatBRL(ord.total_cents ?? 0)}</p>
                         <p className="text-[11px] text-emerald-400 font-bold">Lucro: +{formatBRL(profit)}</p>
                       </div>
