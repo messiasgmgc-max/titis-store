@@ -102,28 +102,28 @@ export default function PdvTestPage() {
   return (
     <>
       <Header />
-      <main id="conteudo" className="min-h-dvh pb-24 pt-28 sm:pt-36">
-        <div className="container-luxe space-y-10">
+      <main id="conteudo" className="min-h-dvh pb-20 sm:pb-24 pt-24 sm:pt-36">
+        <div className="container-luxe space-y-6 sm:space-y-10">
           {/* Breadcrumb & Navigation */}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-6">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-line pb-4 sm:pb-6">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <Link
                 href="/admin#pdv"
-                className="inline-flex items-center gap-2 rounded-2xl border border-line bg-surface/60 px-4 py-2 text-xs font-semibold text-smoke hover:border-gold/40 hover:text-ivory transition-colors"
+                className="inline-flex items-center gap-2 rounded-2xl border border-line bg-surface/60 px-3 sm:px-4 py-2 text-xs font-semibold text-smoke hover:border-gold/40 hover:text-ivory transition-colors"
               >
-                <ArrowLeft className="h-4 w-4" /> Voltar ao Painel Geral
+                <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Voltar ao Painel Geral
               </Link>
               <span className="text-xs text-smoke">/</span>
-              <span className="text-xs font-semibold text-gold">Página Teste: PDV & Evolution API</span>
+              <span className="text-xs font-semibold text-gold truncate">Página Teste: PDV & Evolution API</span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
-                <ShieldCheck className="h-3.5 w-3.5" /> Ambiente Seguro de Testes
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] sm:text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
+                <ShieldCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Ambiente Seguro
               </span>
               <Link
                 href="/admin#configuracoes"
-                className="inline-flex items-center gap-1.5 text-xs text-smoke hover:text-gold transition-colors"
+                className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-smoke hover:text-gold transition-colors"
               >
                 Configurar Chaves <ExternalLink className="h-3 w-3" />
               </Link>
@@ -135,7 +135,7 @@ export default function PdvTestPage() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: EASE }}
-            className="rounded-3xl border border-gold/40 bg-gradient-to-br from-gold/[0.08] via-obsidian-card to-obsidian-surface/90 p-6 sm:p-8 shadow-2xl relative overflow-hidden"
+            className="rounded-3xl border border-gold/40 bg-gradient-to-br from-gold/[0.08] via-obsidian-card to-obsidian-surface/90 p-5 sm:p-8 shadow-2xl relative overflow-hidden"
           >
             <span className="glow-gold pointer-events-none absolute -right-32 -top-32 h-64 w-64" aria-hidden />
 

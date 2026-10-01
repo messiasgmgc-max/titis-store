@@ -679,7 +679,7 @@ export function SettingsPanel({ resource }: { resource: Resource<SettingRow> }) 
                   Envie alertas instantâneos no WhatsApp pessoal do lojista assim que um novo pedido for aprovado no site.
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <Button
                   size="sm"
                   variant="outline"

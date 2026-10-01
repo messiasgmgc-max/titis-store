@@ -299,7 +299,7 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
           role="tablist"
           aria-label="Seções da administração"
           onKeyDown={onTabKeyDown}
-          className="no-scrollbar flex gap-8 overflow-x-auto border-b border-line sm:gap-12"
+          className="no-scrollbar -mx-4 flex gap-6 overflow-x-auto border-b border-line px-4 sm:mx-0 sm:gap-12 sm:px-0"
         >
           {TABS.map((t, i) => {
             const active = t.id === tab;

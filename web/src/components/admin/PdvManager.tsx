@@ -573,24 +573,24 @@ export function PdvManager({
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-line pb-3">
+      <div className="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-3 sm:mx-0 sm:flex-wrap sm:px-0 border-b border-line">
         <PillOption active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')}>
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 whitespace-nowrap">
             <BarChart3 className="h-4 w-4 text-gold" /> Dashboard Geral
           </span>
         </PillOption>
         <PillOption active={activeTab === 'terminal'} onClick={() => setActiveTab('terminal')}>
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 whitespace-nowrap">
             <ShoppingCart className="h-4 w-4" /> Terminal PDV (Nova Venda)
           </span>
         </PillOption>
         <PillOption active={activeTab === 'saidas'} onClick={() => setActiveTab('saidas')}>
-          <span className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" /> Controle Consolidado de Saídas ({pdvOutflows.length})
+          <span className="flex items-center gap-2 whitespace-nowrap">
+            <TrendingUp className="h-4 w-4" /> Controle de Saídas ({pdvOutflows.length})
           </span>
         </PillOption>
         <PillOption active={activeTab === 'evolution'} onClick={() => setActiveTab('evolution')}>
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 whitespace-nowrap">
             <Smartphone className="h-4 w-4" /> WhatsApp Lojista (Evolution API)
           </span>
         </PillOption>
@@ -602,36 +602,36 @@ export function PdvManager({
       {activeTab === 'dashboard' && (
         <div className="space-y-8">
           {/* Barra de Ações Rápidas do Dashboard */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-3xl border border-gold/30 bg-gradient-to-r from-gold/[0.08] via-obsidian-card to-surface/60 p-5 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-3xl border border-gold/30 bg-gradient-to-r from-gold/[0.08] via-obsidian-card to-surface/60 p-4 sm:p-5 shadow-lg">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gold/20 text-gold border border-gold/40">
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-2xl bg-gold/20 text-gold border border-gold/40">
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-display text-base font-bold text-ivory">
+                <h3 className="font-display text-sm sm:text-base font-bold text-ivory">
                   Painel Executivo de Vendas & Rentabilidade
                 </h3>
-                <p className="text-xs text-mist">
-                  Monitoramento em tempo real do faturamento presencial, margem de contribuição e baixas de estoque.
+                <p className="text-[11px] sm:text-xs text-mist">
+                  Faturamento presencial, margem de contribuição e baixas de estoque em tempo real.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2.5">
+            <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
                 onClick={() => setActiveTab('terminal')}
-                className="bg-gold text-obsidian font-bold text-xs hover:bg-gold-light shadow-md flex items-center gap-1.5"
+                className="bg-gold text-obsidian font-bold text-xs hover:bg-gold-light shadow-md flex items-center gap-1.5 flex-1 sm:flex-none justify-center"
               >
-                <Plus className="h-3.5 w-3.5" /> Lançar Venda no PDV
+                <Plus className="h-3.5 w-3.5" /> Lançar Venda
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setActiveTab('saidas')}
-                className="border-line text-ivory hover:border-gold/50 text-xs flex items-center gap-1.5"
+                className="border-line text-ivory hover:border-gold/50 text-xs flex items-center gap-1.5 flex-1 sm:flex-none justify-center"
               >
-                <TrendingUp className="h-3.5 w-3.5 text-gold" /> Ver Saídas
+                <TrendingUp className="h-3.5 w-3.5 text-gold" /> Saídas
               </Button>
               <Button
                 size="sm"
@@ -645,84 +645,84 @@ export function PdvManager({
           </div>
 
           {/* Cards de Métricas Principais (4 KPIs) */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {/* Card 1: Faturamento PDV */}
-            <div className="panel rounded-3xl p-6 border border-gold/30 bg-gradient-to-br from-surface/80 to-surface/40 space-y-3 shadow-md relative overflow-hidden">
+            <div className="panel rounded-3xl p-4 sm:p-6 border border-gold/30 bg-gradient-to-br from-surface/80 to-surface/40 space-y-2 sm:space-y-3 shadow-md relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-gold flex items-center gap-1.5">
-                  <ShoppingBag className="h-4 w-4" /> Faturamento PDV
+                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gold flex items-center gap-1.5">
+                  <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Faturamento PDV
                 </span>
-                <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold uppercase">
+                <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-gold uppercase">
                   Presencial
                 </span>
               </div>
-              <p className="font-display text-3xl font-extrabold text-ivory tabular-nums">
+              <p className="font-display text-xl sm:text-3xl font-extrabold text-ivory tabular-nums">
                 {formatBRL(dashboardMetrics.pdvRevenue)}
               </p>
-              <p className="text-xs text-smoke">
-                <strong className="text-ivory font-mono">{dashboardMetrics.pdvCount}</strong> vendas realizadas · Ticket Médio:{' '}
+              <p className="text-[10px] sm:text-xs text-smoke">
+                <strong className="text-ivory font-mono">{dashboardMetrics.pdvCount}</strong> vendas · Ticket:{' '}
                 <strong className="text-gold-light font-mono">{formatBRL(dashboardMetrics.ticketMedioPdv)}</strong>
               </p>
             </div>
 
             {/* Card 2: Lucro Bruto Líquido */}
-            <div className="panel rounded-3xl p-6 border border-emerald-500/30 bg-gradient-to-br from-surface/80 to-surface/40 space-y-3 shadow-md relative overflow-hidden">
+            <div className="panel rounded-3xl p-4 sm:p-6 border border-emerald-500/30 bg-gradient-to-br from-surface/80 to-surface/40 space-y-2 sm:space-y-3 shadow-md relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                  <TrendingUp className="h-4 w-4" /> Lucro Bruto Real
+                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                  <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Lucro Real
                 </span>
                 <span
                   className={cn(
-                    'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase font-mono',
+                    'rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase font-mono',
                     dashboardMetrics.pdvMargin >= 40
                       ? 'bg-emerald-500/15 text-emerald-400'
                       : 'bg-amber-500/15 text-amber-400',
                   )}
                 >
-                  {dashboardMetrics.pdvMargin.toFixed(1)}% Margem
+                  {dashboardMetrics.pdvMargin.toFixed(0)}% Margem
                 </span>
               </div>
-              <p className="font-display text-3xl font-extrabold text-emerald-400 tabular-nums">
+              <p className="font-display text-xl sm:text-3xl font-extrabold text-emerald-400 tabular-nums">
                 {formatBRL(dashboardMetrics.pdvProfit)}
               </p>
-              <p className="text-xs text-smoke">
-                Resultado líquido após dedução do custo de cada mercadoria (CMV).
+              <p className="text-[10px] sm:text-xs text-smoke">
+                Resultado líquido após dedução do custo CMV.
               </p>
             </div>
 
             {/* Card 3: Custo de Mercadorias (CMV) */}
-            <div className="panel rounded-3xl p-6 border border-line bg-surface/50 space-y-3 shadow-md">
+            <div className="panel rounded-3xl p-4 sm:p-6 border border-line bg-surface/50 space-y-2 sm:space-y-3 shadow-md">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-mist flex items-center gap-1.5">
-                  <Calculator className="h-4 w-4" /> Custo Mercadorias (CMV)
+                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-mist flex items-center gap-1.5">
+                  <Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Custo CMV
                 </span>
-                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold text-smoke uppercase font-mono">
-                  {dashboardMetrics.pdvPieces} un. baixadas
+                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-smoke uppercase font-mono">
+                  {dashboardMetrics.pdvPieces} un.
                 </span>
               </div>
-              <p className="font-display text-3xl font-extrabold text-mist tabular-nums">
+              <p className="font-display text-xl sm:text-3xl font-extrabold text-mist tabular-nums">
                 {formatBRL(dashboardMetrics.pdvCost)}
               </p>
-              <p className="text-xs text-smoke">
-                Custo de aquisição/produção das peças vendidas no PDV.
+              <p className="text-[10px] sm:text-xs text-smoke">
+                Custo de produção das peças vendidas.
               </p>
             </div>
 
             {/* Card 4: Faturamento Global Omnichannel */}
-            <div className="panel rounded-3xl p-6 border border-line bg-surface/50 space-y-3 shadow-md">
+            <div className="panel rounded-3xl p-4 sm:p-6 border border-line bg-surface/50 space-y-2 sm:space-y-3 shadow-md">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-smoke flex items-center gap-1.5">
-                  <Layers className="h-4 w-4 text-gold-light" /> Receita Omnichannel
+                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-smoke flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gold-light" /> Omnichannel
                 </span>
-                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold text-smoke uppercase">
+                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-smoke uppercase">
                   Loja + PDV
                 </span>
               </div>
-              <p className="font-display text-3xl font-extrabold text-ivory tabular-nums">
+              <p className="font-display text-xl sm:text-3xl font-extrabold text-ivory tabular-nums">
                 {formatBRL(dashboardMetrics.totalCombinedRevenue)}
               </p>
-              <p className="text-xs text-smoke">
-                PDV: <strong className="text-gold-light">{dashboardMetrics.pdvPercent.toFixed(0)}%</strong> · Online:{' '}
+              <p className="text-[10px] sm:text-xs text-smoke">
+                PDV: <strong className="text-gold-light">{dashboardMetrics.pdvPercent.toFixed(0)}%</strong> · Site:{' '}
                 <strong className="text-sky-300">{dashboardMetrics.onlinePercent.toFixed(0)}%</strong>
               </p>
             </div>
@@ -1092,7 +1092,7 @@ export function PdvManager({
           </div>
 
           {/* Coluna Direita: Carrinho, Custos, Preços e Fechamento (5 colunas) */}
-          <div className="space-y-6 lg:col-span-5">
+          <div id="pdv-cart-panel" className="space-y-6 lg:col-span-5 scroll-mt-28">
             <div className="panel rounded-3xl p-5 sm:p-6 space-y-6 border border-gold/30 bg-gradient-to-b from-surface/80 to-surface/40">
               <div className="flex items-center justify-between border-b border-line pb-4">
                 <div className="flex items-center gap-2">
@@ -1430,6 +1430,24 @@ export function PdvManager({
               </Button>
             </div>
           </div>
+
+          {/* Barra Flutuante Mobile para Finalizar Venda */}
+          {cart.length > 0 && (
+            <div className="lg:hidden fixed bottom-4 inset-x-4 z-40">
+              <button
+                type="button"
+                onClick={() => document.getElementById('pdv-cart-panel')?.scrollIntoView({ behavior: 'smooth' })}
+                className="w-full rounded-2xl bg-gold text-obsidian font-extrabold py-3.5 px-5 shadow-2xl flex items-center justify-between border border-gold-light active:scale-[0.98] transition-transform"
+              >
+                <span className="flex items-center gap-2 text-xs">
+                  <ShoppingCart className="h-4 w-4" /> Carrinho ({cartSummary.totalItems} un.)
+                </span>
+                <span className="font-display text-sm font-bold tabular-nums">
+                  {formatBRL(cartSummary.totalChargedCents)} · Finalizar &rarr;
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1439,78 +1457,77 @@ export function PdvManager({
       {activeTab === 'saidas' && (
         <div className="space-y-6">
           {/* Cartões Consolidados (KPIs) */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="panel rounded-3xl p-5 border border-line bg-surface/50 space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-smoke flex items-center justify-between">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            <div className="panel rounded-3xl p-4 sm:p-5 border border-line bg-surface/50 space-y-2">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-smoke flex items-center justify-between">
                 Faturamento PDV
-                <DollarSign className="h-4 w-4 text-gold" />
+                <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gold" />
               </span>
-              <p className="font-display text-3xl font-extrabold text-ivory tabular-nums">
+              <p className="font-display text-xl sm:text-3xl font-extrabold text-ivory tabular-nums">
                 {formatBRL(consolidatedMetrics.totalCharged)}
               </p>
-              <p className="text-[11px] text-smoke">
-                {consolidatedMetrics.activeSalesCount} vendas externas realizadas
+              <p className="text-[10px] sm:text-[11px] text-smoke truncate">
+                {consolidatedMetrics.activeSalesCount} vendas externas
               </p>
             </div>
 
-            <div className="panel rounded-3xl p-5 border border-line bg-surface/50 space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-smoke flex items-center justify-between">
-                Custo de Mercadorias (CMV)
-                <Calculator className="h-4 w-4 text-mist" />
+            <div className="panel rounded-3xl p-4 sm:p-5 border border-line bg-surface/50 space-y-2">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-smoke flex items-center justify-between">
+                Custo Total (CMV)
+                <Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-mist" />
               </span>
-              <p className="font-display text-3xl font-extrabold text-mist tabular-nums">
+              <p className="font-display text-xl sm:text-3xl font-extrabold text-mist tabular-nums">
                 {formatBRL(consolidatedMetrics.totalCost)}
               </p>
-              <p className="text-[11px] text-smoke">Base de custo cadastrada nas saídas</p>
+              <p className="text-[10px] sm:text-[11px] text-smoke truncate">Base de custo das peças</p>
             </div>
 
-            <div className="panel rounded-3xl p-5 border border-gold/30 bg-gold/[0.02] space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gold flex items-center justify-between">
-                Lucro Bruto Consolidado
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
+            <div className="panel rounded-3xl p-4 sm:p-5 border border-gold/30 bg-gold/[0.02] space-y-2">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gold flex items-center justify-between">
+                Lucro Consolidado
+                <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-400" />
               </span>
-              <p className="font-display text-3xl font-extrabold text-emerald-400 tabular-nums">
+              <p className="font-display text-xl sm:text-3xl font-extrabold text-emerald-400 tabular-nums">
                 {formatBRL(consolidatedMetrics.grossProfit)}
               </p>
-              <p className="text-[11px] text-smoke">
-                Margem média:{' '}
-                <strong className="text-emerald-400">{consolidatedMetrics.margin.toFixed(1)}%</strong>
+              <p className="text-[10px] sm:text-[11px] text-smoke truncate">
+                Margem média: <strong className="text-emerald-400">{consolidatedMetrics.margin.toFixed(0)}%</strong>
               </p>
             </div>
 
-            <div className="panel rounded-3xl p-5 border border-line bg-surface/50 space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-smoke flex items-center justify-between">
-                Peças Baixadas do Acervo
-                <Package className="h-4 w-4 text-gold-light" />
+            <div className="panel rounded-3xl p-4 sm:p-5 border border-line bg-surface/50 space-y-2">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-smoke flex items-center justify-between">
+                Peças Baixadas
+                <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gold-light" />
               </span>
-              <p className="font-display text-3xl font-extrabold text-ivory tabular-nums">
-                {consolidatedMetrics.totalPieces} <span className="text-sm font-normal text-mist">peças</span>
+              <p className="font-display text-xl sm:text-3xl font-extrabold text-ivory tabular-nums">
+                {consolidatedMetrics.totalPieces} <span className="text-xs sm:text-sm font-normal text-mist">peças</span>
               </p>
-              <p className="text-[11px] text-smoke">Estoque físico sincronizado</p>
+              <p className="text-[10px] sm:text-[11px] text-smoke truncate">Estoque sincronizado</p>
             </div>
           </div>
 
           {/* Filtros e Busca */}
-          <div className="panel rounded-3xl p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-smoke font-medium mr-1">Período:</span>
+          <div className="panel rounded-3xl p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="no-scrollbar -mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+                <span className="text-xs text-smoke font-medium mr-1 whitespace-nowrap">Período:</span>
                 <PillOption active={periodFilter === 'todos'} onClick={() => setPeriodFilter('todos')}>
-                  Todas as Saídas
+                  <span className="whitespace-nowrap">Todas as Saídas</span>
                 </PillOption>
                 <PillOption active={periodFilter === 'hoje'} onClick={() => setPeriodFilter('hoje')}>
-                  Hoje
+                  <span className="whitespace-nowrap">Hoje</span>
                 </PillOption>
                 <PillOption active={periodFilter === '7dias'} onClick={() => setPeriodFilter('7dias')}>
-                  Últimos 7 dias
+                  <span className="whitespace-nowrap">7 dias</span>
                 </PillOption>
                 <PillOption active={periodFilter === '30dias'} onClick={() => setPeriodFilter('30dias')}>
-                  Últimos 30 dias
+                  <span className="whitespace-nowrap">30 dias</span>
                 </PillOption>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-smoke font-medium mr-1">Pagamento:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-smoke font-medium whitespace-nowrap">Pagamento:</span>
                 <select
                   value={paymentFilter}
                   onChange={(e) => setPaymentFilter(e.target.value)}
@@ -1537,8 +1554,8 @@ export function PdvManager({
             </div>
           </div>
 
-          {/* Tabela de Saídas Consolidadas */}
-          <div className="panel rounded-3xl overflow-hidden border border-line">
+          {/* Tabela de Saídas Consolidadas (Desktop & Tablet) */}
+          <div className="panel rounded-3xl overflow-hidden border border-line hidden md:block">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-surface/80 text-[10px] font-bold uppercase tracking-wider text-smoke border-b border-line">
@@ -1688,6 +1705,121 @@ export function PdvManager({
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Cards de Saídas Consolidadas (Mobile) */}
+          <div className="md:hidden space-y-3">
+            {pdvOutflows.map((order) => {
+              const isCanceled = order.status === 'cancelado';
+              let orderCost = 0;
+              order.items.forEach((item) => {
+                const q = item.quantity || 1;
+                const c = item.costCents ?? Math.round((item.priceCents || 0) * 0.4);
+                orderCost += c * q;
+              });
+              const profit = (order.total_cents ?? 0) - orderCost;
+              const margin = (order.total_cents ?? 0) > 0 ? (profit / (order.total_cents ?? 0)) * 100 : 0;
+              const location = order.shipping_address?.notes?.split('Local: ')?.[1]?.split('; ')?.[0] || 'Ateliê';
+
+              return (
+                <div
+                  key={order.id}
+                  className={cn(
+                    'panel rounded-2xl p-4 border border-line space-y-3 bg-surface/60 transition-colors',
+                    isCanceled && 'opacity-60 bg-surface/20',
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono text-xs font-bold text-ivory">{order.id}</span>
+                        {isCanceled ? (
+                          <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[9px] font-bold text-rose-400 uppercase">
+                            Cancelado
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[9px] font-bold text-gold uppercase capitalize">
+                            {order.payment_method || 'Pix'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-smoke mt-1 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDateBR(order.created_at)} às {formatTimeBR(order.created_at)} · {location}
+                      </p>
+                    </div>
+
+                    <div className="text-right font-mono">
+                      <p className="text-sm font-bold text-ivory">{formatBRL(order.total_cents ?? 0)}</p>
+                      <p className={cn('text-[10px] font-bold', profit >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                        Lucro: {formatBRL(profit)} ({margin.toFixed(0)}%)
+                      </p>
+                    </div>
+                  </div>
+
+                  {order.customer_name && (
+                    <div className="rounded-xl bg-surface/80 px-2.5 py-1.5 text-[11px] text-smoke border border-line/60 flex items-center justify-between">
+                      <span>
+                        Cliente: <strong className="text-ivory">{order.customer_name}</strong>
+                      </span>
+                      {order.customer_phone && (
+                        <span className="font-mono text-[10px] text-gold-light">
+                          {displayPhone(order.customer_phone)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-1 rounded-xl bg-obsidian-card p-2.5 border border-line/40 text-xs">
+                    {order.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-[11px]">
+                        <span className="text-mist truncate mr-2">
+                          <strong className="text-ivory font-mono mr-1">{item.quantity}x</strong>
+                          {item.name}
+                        </span>
+                        <span className="text-smoke text-[10px] whitespace-nowrap">
+                          {item.size || 'U'}{item.color ? ` · ${item.color}` : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-line/50">
+                    <span className="text-[10px] text-smoke font-mono">CMV: {formatBRL(orderCost)}</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setCompletedOrder(order);
+                          setReceiptModalOpen(true);
+                        }}
+                        className="text-[10px] h-7 px-2.5 border-line text-smoke hover:text-ivory"
+                      >
+                        <Receipt className="h-3 w-3 mr-1" /> Recibo
+                      </Button>
+                      {!isCanceled && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelSale(order.id)}
+                          disabled={cancelingId === order.id}
+                          className="text-smoke hover:text-rose-400 p-1.5 transition-colors"
+                          title="Cancelar Venda"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {pdvOutflows.length === 0 && (
+              <div className="panel rounded-2xl py-12 text-center text-xs text-smoke border border-line">
+                Nenhuma venda externa registrada no período selecionado.
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1851,9 +1983,6 @@ export function PdvManager({
       {/* ----------------------------------------------------------------- */}
       {/* MODAL DE RECIBO ELEGANTE (IMPRESSÃO & WHATSAPP)                   */}
       {/* ----------------------------------------------------------------- */}
-      {/* ----------------------------------------------------------------- */}
-      {/* MODAL DE RECIBO ELEGANTE (IMPRESSÃO & WHATSAPP)                   */}
-      {/* ----------------------------------------------------------------- */}
       {receiptModalOpen && completedOrder && (
         <Modal
           onClose={() => setReceiptModalOpen(false)}
@@ -1862,8 +1991,8 @@ export function PdvManager({
           size="md"
           className="max-w-xl"
         >
-          <div className="space-y-6 p-6">
-            <div id="pdv-printable-receipt" className="rounded-2xl border border-line bg-surface/50 p-6 space-y-4">
+          <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+            <div id="pdv-printable-receipt" className="rounded-2xl border border-line bg-surface/50 p-4 sm:p-6 space-y-3 sm:space-y-4">
               <div className="text-center pb-4 border-b border-line space-y-1">
                 <p className="text-[10px] font-caps tracking-[0.2em] text-gold font-bold">TITI&apos;S STORE · ALTA COSTURA</p>
                 <h4 className="font-display text-xl font-bold text-ivory">Recibo de Venda</h4>
