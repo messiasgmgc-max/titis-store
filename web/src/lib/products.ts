@@ -62,12 +62,24 @@ export function normalizeProduct(row: Record<string, unknown>): Product {
     stock: typeof v.stock === 'number' ? v.stock : null,
   }));
 
+  const rawRecommendations = Array.isArray(row.size_recommendations) ? (row.size_recommendations as Record<string, unknown>[]) : [];
+  const size_recommendations = rawRecommendations.map((r) => ({
+    size: String(r.size || ''),
+    min_height_cm: typeof r.min_height_cm === 'number' ? r.min_height_cm : null,
+    max_height_cm: typeof r.max_height_cm === 'number' ? r.max_height_cm : null,
+    min_weight_kg: typeof r.min_weight_kg === 'number' ? r.min_weight_kg : null,
+    max_weight_kg: typeof r.max_weight_kg === 'number' ? r.max_weight_kg : null,
+    description: r.description ? String(r.description) : null,
+  })).filter((r) => Boolean(r.size));
+
   return {
     id: String(row.id),
     slug: (row.slug as string) ?? null,
     name: String(row.name ?? 'Peça sem nome'),
     category,
     slot,
+    mold: typeof row.mold === 'string' && row.mold.trim() ? row.mold.trim() : null,
+    size_recommendations: size_recommendations.length > 0 ? size_recommendations : undefined,
     description: (row.description as string) ?? null,
     fabric: (row.fabric as string) ?? null,
     color_name: (row.color_name as string) ?? null,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { CircleAlert, Layers, LoaderCircle, Plus, Trash2, Upload, WandSparkles, X } from 'lucide-react';
+import { CircleAlert, Layers, LoaderCircle, Plus, Ruler, Sparkles, Trash2, Upload, WandSparkles, X } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { ColorDot } from '@/components/ui/Swatch';
@@ -22,6 +22,7 @@ import {
   type Product,
   type ProductVariant,
   type ProductVisionSuggestion,
+  type SizeRecommendation,
   type SkinToneId,
 } from '@/lib/types';
 import { DangerButton, Field, SectionLabel, SelectBox, Switch } from './AdminUI';
@@ -92,6 +93,19 @@ const FABRIC_SUGGESTIONS = [
 
 const OCCASION_OPTIONS = OCCASIONS.filter((o) => o.id !== 'outro');
 
+const MOLD_SUGGESTIONS = [
+  'Regular Fit',
+  'Slim Fit',
+  'Oversized',
+  'Alfaiataria Tradicional',
+  'Alfaiataria Italiana (Ajustada)',
+  'Comfort / Relaxed Fit',
+  'Skinny',
+  'Reto Tradicional',
+  'Semi-Slim',
+  'Sob Medida / Especial',
+];
+
 // ------------------------------------------------------------
 // Estado
 // ------------------------------------------------------------
@@ -99,8 +113,10 @@ interface FormState {
   name: string;
   category: string;
   slot: PieceSlot;
+  mold: string;
   price: string;
   sizes: string[];
+  size_recommendations: SizeRecommendation[];
   color_name: string;
   hex: string;
   variants: ProductVariant[];
@@ -131,8 +147,10 @@ function initialForm(product: Product | null, products: Product[]): FormState {
       name: '',
       category,
       slot: slotForCategory(category),
+      mold: '',
       price: '',
       sizes: [],
+      size_recommendations: [],
       color_name: '',
       hex: '',
       variants: [],
@@ -151,8 +169,12 @@ function initialForm(product: Product | null, products: Product[]): FormState {
     name: product.name,
     category: product.category,
     slot: product.slot,
+    mold: product.mold ?? '',
     price: centsToInput(product.price_cents),
     sizes: product.sizes,
+    size_recommendations: Array.isArray(product.size_recommendations)
+      ? JSON.parse(JSON.stringify(product.size_recommendations))
+      : [],
     color_name: product.color_name ?? '',
     hex: product.hex_color ? (normalizeHex(product.hex_color) ?? product.hex_color) : '',
     variants: product.variants && Array.isArray(product.variants) ? JSON.parse(JSON.stringify(product.variants)) : [],
@@ -438,6 +460,17 @@ export function ProductForm({ product, products, onClose, onSaved }: ProductForm
       slug,
       category: form.category,
       slot: form.slot,
+      mold: form.mold.trim() || null,
+      size_recommendations: form.size_recommendations
+        .filter((r) => Boolean(r.size && r.size.trim()))
+        .map((r) => ({
+          size: r.size.trim(),
+          min_height_cm: typeof r.min_height_cm === 'number' ? r.min_height_cm : null,
+          max_height_cm: typeof r.max_height_cm === 'number' ? r.max_height_cm : null,
+          min_weight_kg: typeof r.min_weight_kg === 'number' ? r.min_weight_kg : null,
+          max_weight_kg: typeof r.max_weight_kg === 'number' ? r.max_weight_kg : null,
+          description: r.description?.trim() || null,
+        })),
       description: form.description.trim() || null,
       fabric: form.fabric.trim() || null,
       color_name: form.color_name.trim() || null,
@@ -600,25 +633,52 @@ export function ProductForm({ product, products, onClose, onSaved }: ProductForm
                 </Field>
               </div>
 
-              <Field label="Preço" htmlFor={fieldId('price')} hint={priceHint} error={errors.price}>
-                <div className="relative sm:max-w-xs">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-smoke">R$</span>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="Preço" htmlFor={fieldId('price')} hint={priceHint} error={errors.price}>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-smoke">R$</span>
+                    <input
+                      id={fieldId('price')}
+                      inputMode="decimal"
+                      value={form.price}
+                      onChange={(e) => setField('price', e.target.value)}
+                      placeholder="Sob consulta"
+                      autoComplete="off"
+                      aria-invalid={Boolean(errors.price)}
+                      className="field pl-11 tabular-nums"
+                    />
+                  </div>
+                </Field>
+                <Field label="Molde / Caimento da Peça" htmlFor={fieldId('mold')} hint="Ex: Regular Fit, Slim, Oversized">
                   <input
-                    id={fieldId('price')}
-                    inputMode="decimal"
-                    value={form.price}
-                    onChange={(e) => setField('price', e.target.value)}
-                    placeholder="Sob consulta"
+                    id={fieldId('mold')}
+                    list={`${ids}-molds`}
+                    value={form.mold}
+                    onChange={(e) => setField('mold', e.target.value)}
+                    placeholder="Ex.: Regular Fit, Slim Fit, Oversized"
+                    maxLength={80}
                     autoComplete="off"
-                    aria-invalid={Boolean(errors.price)}
-                    className="field pl-11 tabular-nums"
+                    className="field"
                   />
-                </div>
-              </Field>
+                  <datalist id={`${ids}-molds`}>
+                    {MOLD_SUGGESTIONS.map((m) => (
+                      <option key={m} value={m} />
+                    ))}
+                  </datalist>
+                </Field>
+              </div>
 
-              <Field label="Tamanhos" htmlFor={fieldId('sizes')}>
+              <Field label="Tamanhos Disponíveis" htmlFor={fieldId('sizes')}>
                 <SizesInput id={fieldId('sizes')} value={form.sizes} onChange={(sizes) => setField('sizes', sizes)} />
               </Field>
+
+              {/* Recomendação de Tamanho por Faixa de Altura e Peso */}
+              <SizeRecommendationsEditor
+                sizes={form.sizes}
+                recommendations={form.size_recommendations}
+                onChange={(recs) => setField('size_recommendations', recs)}
+                disabled={saving}
+              />
             </section>
 
             {/* III · Cor, variações e matéria */}
@@ -955,6 +1015,243 @@ function SizesInput({ id, value, onChange }: { id: string; value: string[]; onCh
             Limpar
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SizeRecommendationsEditor({
+  sizes,
+  recommendations,
+  onChange,
+  disabled,
+}: {
+  sizes: string[];
+  recommendations: SizeRecommendation[];
+  onChange: (recs: SizeRecommendation[]) => void;
+  disabled?: boolean;
+}) {
+  const { toast } = useUI();
+
+  // Garante que cada tamanho disponível na peça tenha uma linha configurada
+  const activeSizes = useMemo(() => {
+    return sizes.filter(Boolean);
+  }, [sizes]);
+
+  const recBySize = useMemo(() => {
+    const map = new Map<string, SizeRecommendation>();
+    recommendations.forEach((r) => {
+      if (r.size) map.set(r.size, r);
+    });
+    return map;
+  }, [recommendations]);
+
+  const updateSizeRec = (size: string, patch: Partial<SizeRecommendation>) => {
+    const existing = recBySize.get(size) || { size };
+    const updated = { ...existing, ...patch, size };
+    const next = [...recommendations.filter((r) => r.size !== size), updated];
+    onChange(next);
+  };
+
+  const handleAutoSuggest = () => {
+    const suggestions: Record<string, { minH: number; maxH: number; minW: number; maxW: number; desc: string }> = {
+      PP: { minH: 160, maxH: 168, minW: 50, maxW: 62, desc: 'Caimento ajustado para biotipos esguios' },
+      P: { minH: 165, maxH: 173, minW: 60, maxW: 72, desc: 'Caimento padrão perfeito' },
+      M: { minH: 170, maxH: 180, minW: 70, maxW: 82, desc: 'Caimento confortável e alinhado' },
+      G: { minH: 175, maxH: 186, minW: 80, maxW: 94, desc: 'Tórax e ombros mais amplos' },
+      GG: { minH: 178, maxH: 192, minW: 92, maxW: 108, desc: 'Caimento generoso e estruturado' },
+      '38': { minH: 162, maxH: 172, minW: 55, maxW: 65, desc: 'Cintura 76-80cm' },
+      '40': { minH: 166, maxH: 176, minW: 64, maxW: 73, desc: 'Cintura 80-84cm' },
+      '42': { minH: 170, maxH: 180, minW: 72, maxW: 81, desc: 'Cintura 84-88cm' },
+      '44': { minH: 174, maxH: 184, minW: 80, maxW: 89, desc: 'Cintura 88-92cm' },
+      '46': { minH: 176, maxH: 186, minW: 87, maxW: 96, desc: 'Cintura 92-96cm' },
+      '48': { minH: 178, maxH: 188, minW: 94, maxW: 104, desc: 'Cintura 96-102cm' },
+      '50': { minH: 180, maxH: 192, minW: 100, maxW: 112, desc: 'Cintura 102-108cm' },
+      '52': { minH: 180, maxH: 195, minW: 108, maxW: 120, desc: 'Cintura 108-114cm' },
+      Único: { minH: 165, maxH: 188, minW: 60, maxW: 100, desc: 'Ajuste universal ou flexível' },
+    };
+
+    const newRecs: SizeRecommendation[] = [];
+    activeSizes.forEach((s) => {
+      const match = suggestions[s.toUpperCase()] || suggestions[s];
+      if (match) {
+        newRecs.push({
+          size: s,
+          min_height_cm: match.minH,
+          max_height_cm: match.maxH,
+          min_weight_kg: match.minW,
+          max_weight_kg: match.maxW,
+          description: match.desc,
+        });
+      } else {
+        newRecs.push({
+          size: s,
+          min_height_cm: null,
+          max_height_cm: null,
+          min_weight_kg: null,
+          max_weight_kg: null,
+          description: null,
+        });
+      }
+    });
+
+    onChange(newRecs);
+    toast('Faixas de altura e peso preenchidas automaticamente para os tamanhos da peça.', 'success');
+  };
+
+  if (activeSizes.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-line p-4 text-center text-xs text-smoke">
+        Adicione os tamanhos acima para configurar a recomendação por faixa de altura e peso.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-line bg-surface/40 p-4 sm:p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Ruler className="h-4 w-4 text-gold" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-parchment">
+              Recomendação por Faixa de Altura e Peso
+            </h4>
+          </div>
+          <p className="mt-1 text-xs text-smoke">
+            Configure para cada tamanho a faixa de altura e peso recomendada. O cliente poderá informar os dados no site e descobrir o tamanho ideal.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleAutoSuggest}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-line-gold bg-surface px-3 py-1.5 text-xs font-medium text-gold hover:bg-gold/10 transition-colors disabled:opacity-50 shrink-0"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span>Sugerir Faixas Padrão</span>
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {activeSizes.map((size) => {
+          const rec = recBySize.get(size) || { size };
+          return (
+            <div
+              key={size}
+              className="rounded-xl border border-line/70 bg-surface-2/40 p-3.5 space-y-3 transition-colors hover:border-line-gold/50"
+            >
+              <div className="flex items-center justify-between border-b border-line/60 pb-2">
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-line-gold bg-gold/10 px-2.5 py-0.5 text-xs font-bold text-gold-light">
+                  Tamanho {size}
+                </span>
+                <span className="text-[11px] text-smoke">
+                  {rec.min_height_cm && rec.max_height_cm && rec.min_weight_kg && rec.max_weight_kg
+                    ? `${rec.min_height_cm}-${rec.max_height_cm} cm · ${rec.min_weight_kg}-${rec.max_weight_kg} kg`
+                    : 'Faixa pendente'}
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {/* Altura Mínima */}
+                <div>
+                  <label className="text-[0.65rem] uppercase tracking-wider text-smoke block mb-1">
+                    Alt. Mínima (cm)
+                  </label>
+                  <input
+                    type="number"
+                    value={rec.min_height_cm ?? ''}
+                    onChange={(e) =>
+                      updateSizeRec(size, {
+                        min_height_cm: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                    placeholder="Ex.: 165"
+                    disabled={disabled}
+                    className="field py-1.5 text-xs tabular-nums"
+                  />
+                </div>
+
+                {/* Altura Máxima */}
+                <div>
+                  <label className="text-[0.65rem] uppercase tracking-wider text-smoke block mb-1">
+                    Alt. Máxima (cm)
+                  </label>
+                  <input
+                    type="number"
+                    value={rec.max_height_cm ?? ''}
+                    onChange={(e) =>
+                      updateSizeRec(size, {
+                        max_height_cm: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                    placeholder="Ex.: 175"
+                    disabled={disabled}
+                    className="field py-1.5 text-xs tabular-nums"
+                  />
+                </div>
+
+                {/* Peso Mínimo */}
+                <div>
+                  <label className="text-[0.65rem] uppercase tracking-wider text-smoke block mb-1">
+                    Peso Mínimo (kg)
+                  </label>
+                  <input
+                    type="number"
+                    value={rec.min_weight_kg ?? ''}
+                    onChange={(e) =>
+                      updateSizeRec(size, {
+                        min_weight_kg: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                    placeholder="Ex.: 60"
+                    disabled={disabled}
+                    className="field py-1.5 text-xs tabular-nums"
+                  />
+                </div>
+
+                {/* Peso Máximo */}
+                <div>
+                  <label className="text-[0.65rem] uppercase tracking-wider text-smoke block mb-1">
+                    Peso Máximo (kg)
+                  </label>
+                  <input
+                    type="number"
+                    value={rec.max_weight_kg ?? ''}
+                    onChange={(e) =>
+                      updateSizeRec(size, {
+                        max_weight_kg: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                    placeholder="Ex.: 72"
+                    disabled={disabled}
+                    className="field py-1.5 text-xs tabular-nums"
+                  />
+                </div>
+              </div>
+
+              {/* Observação / Dica de Caimento */}
+              <div>
+                <label className="text-[0.65rem] uppercase tracking-wider text-smoke block mb-1">
+                  Dica de Caimento para este tamanho (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={rec.description ?? ''}
+                  onChange={(e) =>
+                    updateSizeRec(size, {
+                      description: e.target.value || null,
+                    })
+                  }
+                  placeholder="Ex: Fica perfeito no peitoral e ombros; se preferir mais solto suba um tamanho."
+                  disabled={disabled}
+                  maxLength={120}
+                  className="field py-1.5 text-xs"
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

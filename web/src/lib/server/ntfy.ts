@@ -17,9 +17,9 @@ export interface NtfySalePayload {
   items?: Array<{
     name: string;
     quantity?: number;
-    priceCents?: number;
-    size?: string;
-    color?: string;
+    priceCents?: number | null;
+    size?: string | null;
+    color?: string | null;
   }>;
   shippingService?: string | null;
   city?: string | null;
@@ -70,7 +70,18 @@ async function getNtfyConfig(): Promise<{
 }
 
 /**
- * Envia uma notificação direta ao ntfy.sh
+ * Interface extensível para múltiplos canais de notificação
+ * (ntfy, Web Push, WhatsApp Evolution, etc.)
+ */
+export interface NotificationChannelProvider {
+  id: string;
+  name: string;
+  isEnabled(): Promise<boolean>;
+  sendSale(payload: NtfySalePayload): Promise<{ success: boolean; error?: string }>;
+}
+
+/**
+ * Envia uma notificação direta ao ntfy.sh com 1 retry simples e timeout de 6s
  */
 export async function sendNtfyMessage(options: {
   title: string;
@@ -80,82 +91,95 @@ export async function sendNtfyMessage(options: {
   clickUrl?: string;
   config?: NtfyConfig;
 }): Promise<{ success: boolean; error?: string }> {
-  try {
-    const activeConfig = options.config
-      ? {
-          enabled: options.config.enabled ?? true,
-          serverUrl: (options.config.serverUrl || 'https://ntfy.sh').replace(/\/+$/, ''),
-          topic: (options.config.topic || 'titis-store-vendas').trim(),
-          token: (options.config.token || '').trim(),
-        }
-      : await getNtfyConfig();
+  const activeConfig = options.config
+    ? {
+        enabled: options.config.enabled ?? true,
+        serverUrl: (options.config.serverUrl || 'https://ntfy.sh').replace(/\/+$/, ''),
+        topic: (options.config.topic || 'titis-store-vendas').trim(),
+        token: (options.config.token || '').trim(),
+      }
+    : await getNtfyConfig();
 
-    if (!activeConfig.enabled) {
-      return { success: true };
-    }
-
-    if (!activeConfig.topic) {
-      return { success: false, error: 'Tópico do ntfy não configurado.' };
-    }
-
-    let endpoint = activeConfig.serverUrl;
-    try {
-      endpoint = new URL(activeConfig.serverUrl).origin;
-    } catch {
-      endpoint = 'https://ntfy.sh';
-    }
-
-    const priorityMap: Record<string, number> = {
-      min: 1,
-      low: 2,
-      default: 3,
-      high: 4,
-      urgent: 5,
-    };
-
-    const numPriority = options.priority ? (priorityMap[options.priority] ?? 3) : 3;
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    if (activeConfig.token) {
-      headers['Authorization'] = `Bearer ${activeConfig.token}`;
-    }
-
-    const payload: Record<string, unknown> = {
-      topic: activeConfig.topic,
-      title: options.title,
-      message: options.message,
-      priority: numPriority,
-      tags: options.tags || [],
-    };
-
-    if (options.clickUrl) {
-      payload.click = options.clickUrl;
-    }
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(6000),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      return { success: false, error: `ntfy HTTP ${res.status}: ${errText.slice(0, 100)}` };
-    }
-
+  if (!activeConfig.enabled) {
     return { success: true };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { success: false, error: msg };
   }
+
+  if (!activeConfig.topic) {
+    return { success: false, error: 'Tópico do ntfy não configurado.' };
+  }
+
+  let endpoint = activeConfig.serverUrl;
+  try {
+    endpoint = new URL(activeConfig.serverUrl).origin;
+  } catch {
+    endpoint = 'https://ntfy.sh';
+  }
+
+  const priorityMap: Record<string, number> = {
+    min: 1,
+    low: 2,
+    default: 3,
+    high: 4,
+    urgent: 5,
+  };
+
+  const numPriority = options.priority ? (priorityMap[options.priority] ?? 3) : 3;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (activeConfig.token) {
+    headers['Authorization'] = `Bearer ${activeConfig.token}`;
+  }
+
+  const payload: Record<string, unknown> = {
+    topic: activeConfig.topic,
+    title: options.title,
+    message: options.message,
+    priority: numPriority,
+    tags: options.tags || [],
+  };
+
+  if (options.clickUrl) {
+    payload.click = options.clickUrl;
+  }
+
+  // Executa envio com 1 retry simples em caso de falha de rede
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(6000),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        if (attempt === 1) continue;
+        return { success: false, error: `ntfy HTTP ${res.status}: ${errText.slice(0, 100)}` };
+      }
+
+      return { success: true };
+    } catch (err: unknown) {
+      if (attempt === 1) {
+        await new Promise((r) => setTimeout(r, 600));
+        continue;
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[sendNtfyMessage] Falha final ao enviar ntfy:', msg);
+      return { success: false, error: msg };
+    }
+  }
+
+  return { success: false, error: 'Falha desconhecida no envio ntfy.' };
 }
 
 /**
  * Dispara notificação push de compra / venda da loja
+ * Sem PII sensível (sem CPF, sem telefone completo, sem endereço de rua).
+ * Apenas primeiro nome, itens, valores, cidade/UF e link para o admin.
  */
 export async function sendNtfySaleNotification(payload: NtfySalePayload): Promise<void> {
   try {
@@ -172,7 +196,7 @@ export async function sendNtfySaleNotification(payload: NtfySalePayload): Promis
     let priority: 'default' | 'high' | 'urgent' = 'high';
 
     if (isPaid) {
-      title = `💰 VENDA APROVADA: ${amountBrl}`;
+      title = `💰 Pagamento Confirmado #${payload.orderId.slice(-6)}: ${amountBrl}`;
       tags = ['moneybag', 'tada', 'white_check_mark'];
       priority = 'urgent';
     } else if (isCancelled) {
@@ -180,32 +204,32 @@ export async function sendNtfySaleNotification(payload: NtfySalePayload): Promis
       tags = ['warning', 'x'];
       priority = 'default';
     } else {
-      const method = payload.paymentMethod.toLowerCase() === 'pix' ? 'Pix Gerado' : 'Cartão Pendente';
-      title = `🛒 Novo Pedido (${method}): ${amountBrl}`;
+      const isPix = payload.paymentMethod.toLowerCase() === 'pix';
+      title = isPix
+        ? `🛒 Novo Pedido #${payload.orderId.slice(-6)} (Aguardando Pix): ${amountBrl}`
+        : `🛒 Novo Pedido #${payload.orderId.slice(-6)} (Cartão Pendente): ${amountBrl}`;
       tags = ['shopping_cart', 'hourglass_flowing_sand'];
       priority = 'high';
     }
 
+    const firstName = payload.customerName?.trim().split(/\s+/)[0] || 'Cliente';
     const lines: string[] = [
       `Pedido: #${payload.orderId}`,
-      `Valor: ${amountBrl}`,
-      `Cliente: ${payload.customerName}`,
+      `Total: ${amountBrl}`,
+      `Cliente: ${firstName}`,
     ];
-
-    if (payload.customerPhone) {
-      lines.push(`WhatsApp: ${payload.customerPhone}`);
-    }
-    if (payload.customerEmail) {
-      lines.push(`E-mail: ${payload.customerEmail}`);
-    }
 
     if (payload.city && payload.state) {
       lines.push(`Destino: ${payload.city}/${payload.state}`);
     }
 
+    if (payload.shippingService) {
+      lines.push(`Envio: ${payload.shippingService}`);
+    }
+
     if (payload.items && payload.items.length > 0) {
       lines.push('');
-      lines.push('Itens comprados:');
+      lines.push('Itens do pedido:');
       for (const item of payload.items) {
         const qty = item.quantity || 1;
         const sizeInfo = item.size ? ` (Tam: ${item.size})` : '';

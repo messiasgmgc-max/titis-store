@@ -12,7 +12,13 @@ import {
   verifyWebhookSignature,
   type MercadoPagoPayment,
 } from '@/lib/server/mercadopago';
-import { PAYMENT_COLUMNS, applyPaymentAccess, grantConsultingAccess, type PaymentRecord } from '@/lib/server/payments';
+import {
+  PAYMENT_COLUMNS,
+  applyPaymentAccess,
+  grantConsultingAccess,
+  applyPaymentResult,
+  type PaymentRecord,
+} from '@/lib/server/payments';
 import { NotificationService } from '@/lib/server/notifications';
 import { EmailService } from '@/lib/server/email';
 import { sendNtfySaleNotification, sendNtfyPlanNotification } from '@/lib/server/ntfy';
@@ -34,7 +40,7 @@ function mapStatus(status: string): PaymentStatus {
     case 'cancelled':
       return 'cancelled';
     case 'refunded':
-      case 'charged_back':
+    case 'charged_back':
       return 'refunded';
     default:
       // pending, authorized, in_process, in_mediation
@@ -114,14 +120,19 @@ async function findPaymentRow(db: ServiceClient, payment: MercadoPagoPayment): P
   return toRecord(created);
 }
 
-export async function POST(req: Request) {
+/**
+ * Handler unificado para notificações GET e POST do Mercado Pago.
+ */
+async function handleWebhookNotification(req: Request) {
   const url = new URL(req.url);
 
   let body: Record<string, unknown> = {};
-  try {
-    body = await readJson(req, 64 * 1024);
-  } catch {
-    // Notificações no formato antigo (IPN) podem vir sem corpo
+  if (req.method === 'POST') {
+    try {
+      body = await readJson(req, 64 * 1024);
+    } catch {
+      // Notificações IPN ou testes sem JSON
+    }
   }
 
   const action = text(body.action);
@@ -131,25 +142,35 @@ export async function POST(req: Request) {
     url.searchParams.get('type') ??
     url.searchParams.get('topic') ??
     (action?.startsWith('payment.') ? 'payment' : null);
-  if (type !== 'payment') return ignored('evento sem relação com pagamentos');
+
+  // Ping de teste ou evento não relacionado
+  if (type !== 'payment') {
+    return ignored('evento sem relação com pagamentos');
+  }
 
   const dataId =
     url.searchParams.get('data.id') ??
     (isRecord(body.data) ? text(body.data.id) : null) ??
     url.searchParams.get('id');
+
   if (!dataId || !/^\d{1,24}$/.test(dataId)) {
-    return jsonError(400, 'bad_request', 'Notificação sem identificador de pagamento.');
+    // 200 OK para o Mercado Pago não retentar notificações sem ID válido
+    return ignored('notificacao_sem_identificador_valido');
   }
 
   if (!(await isMercadoPagoConfigured())) {
     return jsonError(503, 'not_configured', 'Pagamento online não configurado.');
   }
 
-  // Em produção, valida a assinatura HMAC do webhook caso o secret esteja configurado
+  // Validação de assinatura: se x-signature estiver presente E houver webhookSecret
+  const hasSignatureHeader = Boolean(req.headers.get('x-signature'));
   const { webhookSecret } = await getMercadoPagoConfig();
-  if (webhookSecret && !(await verifyWebhookSignature(req, dataId))) {
-    console.warn(`[webhook/mercadopago] assinatura inválida para o pagamento ${dataId}`);
-    return jsonError(401, 'unauthorized', 'Assinatura inválida.');
+  if (hasSignatureHeader && webhookSecret) {
+    const isValid = await verifyWebhookSignature(req, dataId);
+    if (!isValid) {
+      console.warn(`[webhook/mercadopago] Assinatura x-signature inválida para o pagamento ${dataId}`);
+      return jsonError(401, 'unauthorized', 'Assinatura inválida.');
+    }
   }
 
   try {
@@ -164,138 +185,22 @@ export async function POST(req: Request) {
     const db = createServiceSupabase();
 
     // ------------------------------------------------------------
-    // 1. Tratamento de pedidos da Loja e Consultoria (orders table)
+    // 1. Tratamento de pedidos da Loja e Consultoria (public.orders)
     // ------------------------------------------------------------
     if (payment.external_reference && payment.external_reference.startsWith('TITIS-')) {
       const { data: order } = await db
         .from('orders')
-        .select('id, user_id, status, customer_name, customer_email, customer_phone, total_cents, items, notes, shipping_address')
+        .select('*')
         .eq('id', payment.external_reference)
         .maybeSingle();
 
       if (order) {
-        // Idempotência: não processa se já estiver pago
-        if (order.status === 'paid') {
-          return jsonOk({ received: true, status: 'already_paid' });
-        }
-
-        if (payment.status === 'approved') {
-          await db
-            .from('orders')
-            .update({ status: 'paid', paid_at: new Date().toISOString() })
-            .eq('id', order.id);
-
-          // Verifica se o pedido é de plano da consultoria
-          const isPlanOrder =
-            order.id.includes('-PLAN-') ||
-            (order.notes && order.notes.includes('Plano')) ||
-            (Array.isArray(order.items) &&
-              order.items.some(
-                (i: any) =>
-                  i?.planId ||
-                  (typeof i?.name === 'string' &&
-                    (i.name.toLowerCase().includes('assinatura') ||
-                      i.name.toLowerCase().includes('consultoria') ||
-                      i.name.toLowerCase().includes('passe') ||
-                      i.name.toLowerCase().includes('clube')))
-              ));
-
-          if (isPlanOrder) {
-            let planId: PlanId = 'passe';
-            const items = Array.isArray(order.items) ? order.items : [];
-            const planItem = items.find((i: any) => i?.planId || i?.name);
-            if (planItem?.planId === 'clube' || planItem?.name?.toLowerCase().includes('clube')) {
-              planId = 'clube';
-            }
-
-            // Libera o acesso para o cliente comprador!
-            await grantConsultingAccess(db, {
-              userId: order.user_id,
-              email: order.customer_email,
-              planId,
-              amountCents: order.total_cents || 0,
-              paymentProviderId: payment.id,
-            });
-
-            const planInfo = getPlan(planId);
-            const planName = planInfo?.name || 'Clube VIP';
-            const customerName = order.customer_name || 'Cliente VIP';
-
-            if (order.customer_phone) {
-              NotificationService.sendOrderNotification({
-                phone: order.customer_phone,
-                customerName,
-                orderId: order.id,
-                amountCents: order.total_cents || 0,
-                type: 'CONSULTING_ACCESS_GRANTED',
-                planName,
-              }).catch((e) => console.error('[Webhook MP Consultor] Erro WhatsApp:', e));
-            }
-
-            if (order.customer_email) {
-              EmailService.sendConsultingAccessGranted({
-                customerName,
-                customerEmail: order.customer_email,
-                planName,
-              }).catch((e) => console.error('[Webhook MP Consultor] Erro E-mail:', e));
-            }
-
-            return jsonOk({ received: true, status: payment.status, consultingGranted: true });
-          }
-
-          // Pedido físico da loja:
-          if (order.customer_phone) {
-            NotificationService.sendOrderNotification({
-              phone: order.customer_phone,
-              customerName: order.customer_name || 'Cliente',
-              orderId: order.id,
-              amountCents: order.total_cents || 0,
-              type: 'PAYMENT_CONFIRMED',
-            }).catch((e) => console.error('[Webhook MP] Erro notificação WhatsApp:', e));
-          }
-
-          if (order.customer_email) {
-            EmailService.sendOrderPaymentConfirmed({
-              orderId: order.id,
-              customerName: order.customer_name || 'Cliente',
-              customerEmail: order.customer_email,
-              amountCents: order.total_cents || 0,
-              items: order.items || [],
-              shippingAddress: order.shipping_address,
-            }).catch((e) => console.error('[Webhook MP] Erro envio de e-mail:', e));
-          }
-
-          // Notificação push instantânea de venda aprovada via ntfy.sh para o lojista
-          sendNtfySaleNotification({
-            orderId: order.id,
-            totalCents: order.total_cents || 0,
-            amountCents: order.total_cents || 0,
-            paymentMethod: 'mercadopago',
-            status: 'paid',
-            customerName: order.customer_name || 'Cliente',
-            customerEmail: order.customer_email,
-            customerPhone: order.customer_phone,
-            shippingService: (order as any).shipping_service_name,
-            city: (order.shipping_address as any)?.city,
-            state: (order.shipping_address as any)?.state,
-            items: (order.items as any) || [],
-          }).catch((e) => console.error('[Webhook MP] Erro notificação ntfy:', e));
-
-          // Notificação instantânea no WhatsApp do Lojista via Evolution API
-          NotificationService.sendMerchantOrderApprovedNotification({
-            orderId: order.id,
-            totalCents: order.total_cents || 0,
-            customerName: order.customer_name || 'Cliente',
-            customerEmail: order.customer_email,
-            customerPhone: order.customer_phone,
-            paymentMethod: (order as any).payment_method || 'Mercado Pago',
-            shippingService: (order as any).shipping_service_name,
-            shippingCity: (order.shipping_address as any)?.city,
-            shippingState: (order.shipping_address as any)?.state,
-            items: (order.items as any) || [],
-          }).catch((e) => console.error('[Webhook MP] Erro notificação WhatsApp lojista:', e));
-        }
-        return jsonOk({ received: true, status: payment.status });
+        const result = await applyPaymentResult(db, {
+          order,
+          mpPayment: payment,
+          source: 'webhook',
+        });
+        return jsonOk({ received: true, ...result });
       }
     }
 
@@ -433,3 +338,12 @@ export async function POST(req: Request) {
     return jsonError(500, 'internal', 'Falha ao processar a notificação.');
   }
 }
+
+export async function POST(req: Request) {
+  return handleWebhookNotification(req);
+}
+
+export async function GET(req: Request) {
+  return handleWebhookNotification(req);
+}
+

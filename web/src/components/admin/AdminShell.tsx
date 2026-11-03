@@ -353,7 +353,7 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
 
         <div role="tabpanel" id={`admin-painel-${tab}`} aria-labelledby={`admin-aba-${tab}`} className="pt-10 sm:pt-12">
           {tab === 'acervo' && <ProductManager resource={products} status={productStatus} onStatusChange={setProductStatus} />}
-          {tab === 'pedidos' && <OrdersBoard resource={orders} />}
+          {tab === 'pedidos' && <OrdersBoard resource={orders} products={products.data} />}
           {tab === 'pdv' && (
             <PdvManager
               ordersResource={orders}

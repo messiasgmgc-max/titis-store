@@ -566,6 +566,9 @@ alter table public.products
   add column if not exists is_active            boolean not null default true,
   add column if not exists is_featured          boolean not null default false,
   add column if not exists sort_order           integer not null default 100,
+  add column if not exists variants             jsonb not null default '[]'::jsonb,
+  add column if not exists mold                 text,
+  add column if not exists size_recommendations jsonb not null default '[]'::jsonb,
   add column if not exists created_at           timestamptz not null default now(),
   add column if not exists updated_at           timestamptz not null default now();
 

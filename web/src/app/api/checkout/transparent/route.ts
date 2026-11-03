@@ -10,6 +10,9 @@ import {
 } from '@/lib/server/mercadopago';
 import { NotificationService } from '@/lib/server/notifications';
 import { EmailService } from '@/lib/server/email';
+import { sendNtfySaleNotification } from '@/lib/server/ntfy';
+import { validateAndCalculateCheckout } from '@/lib/server/checkout-validation';
+import { isValidDocument } from '@/lib/format';
 
 function siteOrigin(req: Request): string {
   const configured = (process.env.NEXT_PUBLIC_SITE_URL ?? '').trim().replace(/\/+$/, '');
@@ -39,7 +42,28 @@ export async function POST(req: NextRequest) {
     }
 
     if (!payer?.email || !payer?.cpf || !payer?.firstName) {
-      return NextResponse.json({ error: 'Dados do comprador incompletos.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Dados do comprador incompletos (nome, e-mail e CPF são obrigatórios).' },
+        { status: 400 }
+      );
+    }
+
+    const cleanCpf = String(payer.cpf).replace(/\D/g, '');
+    if (!isValidDocument(cleanCpf)) {
+      return NextResponse.json(
+        { error: 'O CPF informado é inválido. Por favor, confira os números digitados (o CPF deve possuir dígitos verificadores válidos).' },
+        { status: 400 }
+      );
+    }
+
+    if (card?.cardholderCpf) {
+      const cleanCardholderCpf = String(card.cardholderCpf).replace(/\D/g, '');
+      if (!isValidDocument(cleanCardholderCpf)) {
+        return NextResponse.json(
+          { error: 'O CPF do titular do cartão é inválido. Por favor, confira os números digitados.' },
+          { status: 400 }
+        );
+      }
     }
 
     if (!(await isMercadoPagoConfigured())) {
@@ -52,13 +76,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const orderId = `TITIS-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     const service = createServiceSupabase();
+
+    // Recálculo e validação estrita no servidor (segurança contra manipulação de preço/itens no cliente)
+    const validated = await validateAndCalculateCheckout(
+      service,
+      items || [],
+      shippingService,
+      shipping
+    );
+
+    const orderId = `TITIS-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
     // 1. Cria o pagamento transparente no Mercado Pago
     const result = await createTransparentPayment({
       orderId,
-      amountCents,
+      amountCents: validated.totalCents,
       paymentMethod,
       payer,
       cardToken,
@@ -76,7 +109,7 @@ export async function POST(req: NextRequest) {
       .insert({
         id: orderId,
         user_id: userId || null,
-        total_cents: amountCents,
+        total_cents: validated.totalCents,
         status: isApproved ? 'paid' : 'pending',
         channel: 'mercadopago',
         payment_method: paymentMethod,
@@ -86,16 +119,36 @@ export async function POST(req: NextRequest) {
         customer_phone: payer.phone || null,
         customer_cpf: payer.cpf.replace(/\D/g, ''),
         shipping_address: shipping || null,
-        shipping_service_id: shippingService?.id || null,
-        shipping_service_name: shippingService?.name || null,
-        shipping_price_cents: shippingService?.priceCents || 0,
-        shipping_delivery_days: shippingService?.deliveryDays || null,
-        items: items || [],
+        shipping_service_id: validated.shippingService.id || null,
+        shipping_service_name: validated.shippingService.name || null,
+        shipping_price_cents: validated.shippingService.priceCents || 0,
+        shipping_delivery_days: validated.shippingService.deliveryDays || null,
+        items: validated.items || [],
         paid_at: isApproved ? new Date().toISOString() : null,
       })
       .then(undefined, (err) => {
         console.warn('[api/checkout/transparent] Falha ao gravar pedido em orders:', err?.message);
       });
+
+    // Notificação push instantânea via ntfy para o lojista (aguardando envio para não ser morta pela Vercel)
+    try {
+      await sendNtfySaleNotification({
+        orderId,
+        totalCents: validated.totalCents,
+        amountCents: validated.totalCents,
+        paymentMethod,
+        status: isApproved ? 'paid' : 'pending',
+        customerName: `${payer.firstName} ${payer.lastName || ''}`.trim(),
+        customerEmail: payer.email,
+        customerPhone: payer.phone,
+        shippingService: validated.shippingService.name,
+        city: (shipping as any)?.city,
+        state: (shipping as any)?.state,
+        items: validated.items || [],
+      });
+    } catch (ntfyErr) {
+      console.error('[Ntfy checkout api route]', ntfyErr);
+    }
 
     // 3. Notificações automáticas (WhatsApp + E-mail)
     if (paymentMethod === 'pix') {

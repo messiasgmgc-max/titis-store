@@ -34,28 +34,46 @@ function parseBag(raw: string | null): CartItem[] {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return EMPTY;
-    return parsed.filter(
-      (i): i is CartItem =>
-        Boolean(i) && typeof i === 'object' && typeof (i as CartItem).key === 'string' && typeof (i as CartItem).name === 'string',
-    );
+    return parsed
+      .filter(
+        (i): i is CartItem =>
+          Boolean(i) && typeof i === 'object' && typeof (i as CartItem).key === 'string' && typeof (i as CartItem).name === 'string',
+      )
+      .map((item) => ({
+        ...item,
+        color: !item.color || item.color.toLowerCase() === 'padrão' || item.color.toLowerCase() === 'padrao' ? 'Única' : item.color,
+        variantId: item.variantId ?? null,
+      }));
   } catch {
     return EMPTY;
   }
 }
 
 function lineKey(item: CartInput): string {
-  return [item.productId ?? slugify(item.name), item.size ?? '', item.color ?? ''].join('|');
+  const normColor = !item.color || item.color.toLowerCase() === 'padrão' || item.color.toLowerCase() === 'padrao' ? 'Única' : item.color;
+  return [
+    item.productId ?? slugify(item.name),
+    item.variantId ?? '',
+    item.size ?? '',
+    normColor,
+  ].join('|');
 }
 
 function merge(list: CartItem[], input: CartInput): CartItem[] {
-  const key = lineKey(input);
-  const qty = Math.min(MAX_QUANTITY, Math.max(1, input.quantity ?? 1));
-  const existing = list.find((i) => i.key === key);
+  const normColor = !input.color || input.color.toLowerCase() === 'padrão' || input.color.toLowerCase() === 'padrao' ? 'Única' : input.color;
+  const normalizedInput: CartInput = {
+    ...input,
+    color: normColor,
+    variantId: input.variantId ?? null,
+  };
+  const key = lineKey(normalizedInput);
+  const qty = Math.min(MAX_QUANTITY, Math.max(1, normalizedInput.quantity ?? 1));
+  const existing = list.find((i) => i.key === key || (!i.variantId && lineKey(i) === key));
   if (existing) {
-    return list.map((i) => (i.key === key ? { ...i, quantity: Math.min(MAX_QUANTITY, i.quantity + qty) } : i));
+    return list.map((i) => (i.key === existing.key ? { ...i, ...normalizedInput, key, quantity: Math.min(MAX_QUANTITY, i.quantity + qty) } : i));
   }
   if (list.length >= MAX_CART_LINES) return list;
-  return [...list, { ...input, key, quantity: qty }];
+  return [...list, { ...normalizedInput, key, quantity: qty }];
 }
 
 /** Aplica a mudança sobre o valor mais recente gravado (evita closures desatualizadas). */

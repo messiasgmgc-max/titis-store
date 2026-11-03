@@ -19,6 +19,8 @@ import {
   MapPin,
   Edit2,
   Search,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -26,8 +28,8 @@ import { ColorDot } from '@/components/ui/Swatch';
 import { WhatsAppIcon } from '@/components/ui/icons';
 import { useUI } from '@/providers/UIProvider';
 import { supabase } from '@/lib/supabaseClient';
-import { cn, formatBRL, formatDateBR } from '@/lib/format';
-import type { OrderRow, OrderStatus } from '@/lib/types';
+import { cn, formatBRL, formatDateBR, maskCPF } from '@/lib/format';
+import type { OrderRow, OrderStatus, Product } from '@/lib/types';
 import { PushNotificationCard } from '@/components/notifications/PushNotificationCard';
 import {
   EmptyState,
@@ -67,7 +69,13 @@ function itemCount(order: OrderRow): number {
 }
 
 /** Pedidos da loja e consultoria: status, itens, endereço, rastreamento e notificações */
-export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
+export function OrdersBoard({
+  resource,
+  products = [],
+}: {
+  resource: Resource<OrderRow>;
+  products?: Product[];
+}) {
   const { data: orders, loading, refreshing, error, reload, setData } = resource;
   const { toast } = useUI();
 
@@ -95,6 +103,22 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
     });
     return base;
   }, [orders]);
+
+  const productsById = useMemo(() => {
+    const map = new Map<string, Product>();
+    for (const p of products) {
+      if (p.id) map.set(p.id, p);
+    }
+    return map;
+  }, [products]);
+
+  const productsByName = useMemo(() => {
+    const map = new Map<string, Product>();
+    for (const p of products) {
+      if (p.name) map.set(p.name.trim().toLowerCase(), p);
+    }
+    return map;
+  }, [products]);
 
   const filtered = useMemo(() => {
     const q = normalizeSearch(query);
@@ -141,7 +165,60 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
     }
   };
 
+  const [syncingMp, setSyncingMp] = useState<Record<string, boolean>>({});
+  const [unconfirmedWarning, setUnconfirmedWarning] = useState<{
+    order: OrderRow;
+    actionType: 'label' | 'dispatch';
+    dispatchArgs?: { trackingCode: string; carrier: string };
+  } | null>(null);
+
+  const handleSyncWithMp = async (order: OrderRow) => {
+    setSyncingMp((prev) => ({ ...prev, [order.id]: true }));
+    try {
+      toast('Consultando status em tempo real no Mercado Pago...', 'info');
+      const res = await fetch('/api/admin/orders/reconcile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id, paymentId: order.payment_provider_id }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Falha ao sincronizar com o Mercado Pago.');
+      }
+
+      const outcome = data.outcome;
+      if (outcome?.status === 'paid' && outcome?.action === 'paid_transition') {
+        toast(`Pagamento confirmado com sucesso no Mercado Pago! Pedido #${order.id} marcado como pago.`, 'success');
+      } else if (outcome?.action === 'already_processed') {
+        toast(`Pedido #${order.id} já estava sincronizado (${outcome.status}).`, 'info');
+      } else {
+        toast(`Mercado Pago retornou status "${outcome?.status || 'desconhecido'}". Ação: ${outcome?.action || 'nenhuma'}.`, 'info');
+      }
+
+      await reload();
+    } catch (err: any) {
+      toast(err.message || 'Erro ao sincronizar com o Mercado Pago.', 'error');
+    } finally {
+      setSyncingMp((prev) => {
+        const copy = { ...prev };
+        delete copy[order.id];
+        return copy;
+      });
+    }
+  };
+
   const handleDispatch = async (order: OrderRow, trackingCode: string, carrier: string) => {
+    // Alerta se o pagamento não estiver confirmado (status não for 'paid')
+    if (order.status !== 'paid' && !unconfirmedWarning) {
+      setUnconfirmedWarning({
+        order,
+        actionType: 'dispatch',
+        dispatchArgs: { trackingCode, carrier },
+      });
+      return;
+    }
+
     try {
       let data: any = null;
       try {
@@ -192,6 +269,15 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
 
   const handleGenerateLabel = async (order: OrderRow) => {
     const orderId = order.id;
+
+    // Alerta se o pagamento não estiver confirmado (status não for 'paid')
+    if (order.status !== 'paid' && !unconfirmedWarning) {
+      setUnconfirmedWarning({
+        order,
+        actionType: 'label',
+      });
+      return;
+    }
 
     // 1. Verifica se é Retirada no Atelier
     let addr = order.shipping_address;
@@ -328,11 +414,15 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
             open={Boolean(expanded[order.id])}
             saving={Boolean(saving[order.id])}
             generatingLabel={Boolean(generatingLabel[order.id])}
+            isSyncingMp={Boolean(syncingMp[order.id])}
+            productsById={productsById}
+            productsByName={productsByName}
             onToggle={() => toggleItems(order.id)}
             onStatusChange={(next) => void changeStatus(order, next)}
             onDispatch={(code, carrier) => handleDispatch(order, code, carrier)}
             onGenerateLabel={() => handleGenerateLabel(order)}
             onEditAddress={() => setEditingAddressOrder(order)}
+            onSyncWithMp={() => void handleSyncWithMp(order)}
           />
         ))}
       </ul>
@@ -391,6 +481,71 @@ export function OrdersBoard({ resource }: { resource: Resource<OrderRow> }) {
           }}
         />
       )}
+
+      {/* MODAL DE CONFIRMAÇÃO PARA PEDIDOS COM PAGAMENTO NÃO CONFIRMADO */}
+      {unconfirmedWarning && (
+        <Modal
+          onClose={() => setUnconfirmedWarning(null)}
+          title="⚠️ Pagamento Não Confirmado"
+        >
+          <div className="space-y-4 p-6 text-sm text-ivory">
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300">
+              <AlertTriangle className="h-6 w-6 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold">Atenção: O status deste pedido é "{statusLabel(unconfirmedWarning.order.status)}".</p>
+                <p className="text-xs text-amber-300/80">
+                  O pagamento ainda não consta como <strong>Aprovado</strong> no sistema. Gerar etiqueta ou despachar sem confirmação pode gerar prejuízo financeiro ou envio indevido.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-mist">
+              Pedido: <strong className="text-ivory">#{unconfirmedWarning.order.id}</strong> — Cliente: <strong className="text-ivory">{unconfirmedWarning.order.customer_name}</strong> (Total: {formatBRL(unconfirmedWarning.order.total_cents)})
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-line justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setUnconfirmedWarning(null)}
+                className="w-full sm:w-auto"
+              >
+                Cancelar
+              </Button>
+
+              {unconfirmedWarning.order.payment_provider_id && (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    const orderToSync = unconfirmedWarning.order;
+                    setUnconfirmedWarning(null);
+                    await handleSyncWithMp(orderToSync);
+                  }}
+                  className="w-full sm:w-auto border-gold/40 text-gold hover:bg-gold/10"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                  Sincronizar com Mercado Pago
+                </Button>
+              )}
+
+              <Button
+                variant="gold"
+                onClick={async () => {
+                  const target = unconfirmedWarning;
+                  setUnconfirmedWarning(null);
+                  if (target.actionType === 'label') {
+                    await handleGenerateLabel(target.order);
+                  } else if (target.actionType === 'dispatch' && target.dispatchArgs) {
+                    await handleDispatch(target.order, target.dispatchArgs.trackingCode, target.dispatchArgs.carrier);
+                  }
+                }}
+                className="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 text-obsidian font-bold"
+              >
+                Prosseguir Mesmo Assim
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -401,21 +556,29 @@ function OrderCard({
   open,
   saving,
   generatingLabel,
+  isSyncingMp,
+  productsById,
+  productsByName,
   onToggle,
   onStatusChange,
   onDispatch,
   onGenerateLabel,
   onEditAddress,
+  onSyncWithMp,
 }: {
   order: OrderRow;
   open: boolean;
   saving: boolean;
   generatingLabel: boolean;
+  isSyncingMp?: boolean;
+  productsById?: Map<string, Product>;
+  productsByName?: Map<string, Product>;
   onToggle: () => void;
   onStatusChange: (next: OrderStatus) => void;
   onDispatch: (code: string, carrier: string) => Promise<void>;
   onGenerateLabel: () => Promise<void>;
   onEditAddress: () => void;
+  onSyncWithMp?: () => void;
 }) {
   const tone = STATUS_TONE[order.status] || STATUS_TONE.novo;
   const pieces = itemCount(order);
@@ -527,7 +690,9 @@ function OrderCard({
               </span>
             )}
             {order.customer_cpf && (
-              <span className="text-smoke">CPF: {order.customer_cpf}</span>
+              <span className="text-smoke" title="CPF mascarado para privacidade">
+                CPF: {maskCPF(order.customer_cpf)}
+              </span>
             )}
           </div>
         </div>
@@ -646,6 +811,20 @@ function OrderCard({
                   <CheckCircle className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">Despachado</span>
                 </span>
+              )}
+
+              {/* Botão de Sincronizar com Mercado Pago para pedidos pendentes ou sem paid_at */}
+              {(order.status === 'pending' || order.status === 'novo' || !order.paid_at) && onSyncWithMp && (
+                <button
+                  type="button"
+                  onClick={onSyncWithMp}
+                  disabled={isSyncingMp}
+                  className="btn btn-outline h-8 justify-center px-2.5 text-xs tracking-wider gap-1.5 shrink-0 text-gold hover:border-gold w-full md:w-auto lg:w-full border-dashed"
+                  title="Consultar status no Mercado Pago"
+                >
+                  <RefreshCw className={cn('h-3.5 w-3.5 shrink-0 text-gold', isSyncingMp && 'animate-spin')} />
+                  <span className="truncate">{isSyncingMp ? 'Checando...' : 'Sincronizar MP'}</span>
+                </button>
               )}
             </div>
           </div>
@@ -852,20 +1031,55 @@ function OrderCard({
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {order.items.map((item) => (
-                  <tr key={item.key}>
-                    <td className="py-2.5 pl-5 pr-3 sm:pl-6">
-                      <div className="flex items-center gap-3">
-                        <Thumb src={item.image} alt={item.name} className="h-12 w-9" />
-                        <div className="min-w-0">
-                          <p className="max-w-[16rem] truncate text-ivory font-semibold">{item.name}</p>
-                          <p className="max-w-[16rem] truncate text-xs text-smoke">
-                            {item.lookTitle ? `Look “${item.lookTitle}”` : item.detail}
-                          </p>
+                {order.items.map((item) => {
+                  // Resolução de foto: foto gravada no item > variante no acervo > produto no acervo
+                  let displayImage = item.image || null;
+                  let isApproximation = false;
+
+                  if (!displayImage) {
+                    const productMatch =
+                      (item.productId && productsById?.get(item.productId)) ||
+                      (item.name && productsByName?.get(item.name.trim().toLowerCase()));
+
+                    if (productMatch) {
+                      // Procura variante por cor se houver
+                      const matchedVariant = item.color
+                        ? productMatch.variants?.find(
+                            (v: any) => v.color_name && v.color_name.toLowerCase() === item.color!.toLowerCase()
+                          )
+                        : null;
+
+                      displayImage = matchedVariant?.image_url || productMatch.image_url || null;
+                      if (displayImage) {
+                        isApproximation = true;
+                      }
+                    }
+                  }
+
+                  return (
+                    <tr key={item.key}>
+                      <td className="py-2.5 pl-5 pr-3 sm:pl-6">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Thumb src={displayImage} alt={item.name} className="h-12 w-9" />
+                            {isApproximation && (
+                              <span
+                                className="absolute -bottom-1 -right-1 rounded bg-amber-500/90 px-1 py-0.2 text-[8px] font-bold text-obsidian uppercase tracking-wider"
+                                title="Foto aproximada do catálogo (pedido antigo sem snapshot de imagem)"
+                              >
+                                Aprox.
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="max-w-[16rem] truncate text-ivory font-semibold">{item.name}</p>
+                            <p className="max-w-[16rem] truncate text-xs text-smoke">
+                              {item.lookTitle ? `Look “${item.lookTitle}”` : item.detail}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5 text-parchment">{item.size ?? '—'}</td>
+                      </td>
+                      <td className="px-3 py-2.5 text-parchment">{item.size ?? '—'}</td>
                     <td className="px-3 py-2.5">
                       {item.color || item.hex ? (
                         <span className="flex items-center gap-2 text-parchment">
@@ -890,7 +1104,8 @@ function OrderCard({
                       )}
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>

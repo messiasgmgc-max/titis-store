@@ -24,10 +24,11 @@ import {
   Trash2,
   MapPin,
   Store,
+  RefreshCw,
 } from 'lucide-react';
 import { useCart } from '@/providers/CartProvider';
 import { useSession } from '@/providers/SessionProvider';
-import { formatBRL, formatCEP, formatCPF, formatPhoneBR, isValidCPF, isValidDocument } from '@/lib/format';
+import { cn, formatBRL, formatCEP, formatCPF, formatPhoneBR, isValidCPF, isValidDocument } from '@/lib/format';
 import { getInstallmentOptions } from '@/lib/installments';
 import { processTransparentCheckoutAction } from './actions';
 
@@ -113,6 +114,8 @@ export default function TransparentCheckoutPage() {
     qrCodeBase64?: string | null;
     qrCode?: string | null;
   } | null>(null);
+  const [pixSecondsLeft, setPixSecondsLeft] = useState<number>(30 * 60);
+  const [pixExpired, setPixExpired] = useState(false);
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -436,21 +439,41 @@ export default function TransparentCheckoutPage() {
     }
   };
 
-  // Monitora o pagamento Pix em tempo real
+  // Monitora o pagamento Pix em tempo real e gerencia o cronômetro de expiração de 30 minutos
   useEffect(() => {
     if (!pixResult?.orderId) return;
 
+    setPixSecondsLeft(30 * 60);
+    setPixExpired(false);
+
+    // 1. Cronômetro regressivo de 30 minutos
+    const timerInterval = setInterval(() => {
+      setPixSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerInterval);
+          setPixExpired(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // 2. Polling de status a cada 3 segundos
     const currentOrderId = pixResult.orderId;
-    const interval = setInterval(async () => {
+    const pollingInterval = setInterval(async () => {
       try {
         const res = await fetch(`/api/checkout/status?orderId=${encodeURIComponent(currentOrderId)}`);
         if (!res.ok) return;
         const data = await res.json();
         if (data.isPaid) {
-          clearInterval(interval);
+          clearInterval(pollingInterval);
+          clearInterval(timerInterval);
           setConfirmedOrderId(currentOrderId);
           setPaymentConfirmed(true);
           setPixResult(null);
+
+          // Limpa a sacola de compras com segurança assim que o pagamento for aprovado
+          clear();
 
           try {
             confetti({
@@ -464,11 +487,14 @@ export default function TransparentCheckoutPage() {
           }
         }
       } catch {
-        // ignora erro transitório
+        // ignora erro transitório de rede
       }
     }, 3000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(pollingInterval);
+      clearInterval(timerInterval);
+    };
   }, [pixResult?.orderId]);
 
   const handleCheckout = async (e: React.FormEvent) => {
@@ -552,11 +578,15 @@ export default function TransparentCheckoutPage() {
           deliveryDays: selectedShipping.deliveryDays,
         },
         items: items.map((i) => ({
+          productId: i.productId || null,
+          variantId: i.variantId || null,
+          sku: i.sku || null,
           name: i.name,
-          priceCents: i.priceCents,
-          quantity: i.quantity,
-          size: i.size,
-          color: i.color,
+          color: i.color || 'Única',
+          hex: i.hex || '#181b24',
+          image: i.image || null,
+          size: i.size || null,
+          quantity: i.quantity || 1,
         })),
         ...(paymentMethod === 'credit_card'
           ? {
@@ -616,8 +646,6 @@ export default function TransparentCheckoutPage() {
         }
       }
 
-      clear();
-
       if (paymentMethod === 'pix') {
         setPixResult({
           orderId: data.orderId,
@@ -625,6 +653,7 @@ export default function TransparentCheckoutPage() {
           qrCode: data.qrCode,
         });
       } else {
+        clear();
         setConfirmedOrderId(data.orderId);
         setPaymentConfirmed(true);
         try {
@@ -759,48 +788,89 @@ export default function TransparentCheckoutPage() {
               <p className="text-sm text-mist mt-1">
                 Pedido <strong>#{pixResult.orderId}</strong> registrado. Pague agora pelo aplicativo do seu banco.
               </p>
+
+              {/* Cronômetro Regressivo */}
+              <div className="mt-3 flex items-center justify-center gap-2">
+                <span className="text-xs text-smoke uppercase tracking-wider">Tempo restante para pagamento:</span>
+                <span className={cn(
+                  'font-mono text-sm font-bold px-2.5 py-0.5 rounded-full border',
+                  pixExpired
+                    ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                    : pixSecondsLeft < 300
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 animate-pulse'
+                    : 'bg-surface border-line text-gold'
+                )}>
+                  {Math.floor(pixSecondsLeft / 60).toString().padStart(2, '0')}:{(pixSecondsLeft % 60).toString().padStart(2, '0')}
+                </span>
+              </div>
             </div>
 
-            {/* QR Code Imagem em Alta Definição */}
-            {pixResult.qrCodeBase64 && (
-              <div className="mx-auto w-64 h-64 bg-white p-3 rounded-2xl shadow-2xl border-4 border-gold/40 flex items-center justify-center">
-                <img
-                  src={`data:image/png;base64,${pixResult.qrCodeBase64}`}
-                  alt="QR Code Pix"
-                  className="w-full h-full object-contain"
-                />
+            {/* Aviso de Pix Expirado */}
+            {pixExpired ? (
+              <div className="max-w-md mx-auto p-5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center space-y-3">
+                <p className="text-sm font-bold text-rose-300">
+                  ⚠️ Este código Pix expirou!
+                </p>
+                <p className="text-xs text-mist">
+                  O tempo limite de 30 minutos terminou. Caso já tenha efetuado a transferência, aguarde alguns instantes ou gere um novo código Pix abaixo:
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPixResult(null);
+                    setPixExpired(false);
+                    setPixSecondsLeft(30 * 60);
+                  }}
+                  className="btn btn-gold btn-sm w-full font-bold"
+                >
+                  <RefreshCw className="h-4 w-4 mr-1.5" />
+                  Gerar Novo Pix
+                </button>
               </div>
-            )}
+            ) : (
+              <>
+                {/* QR Code Imagem em Alta Definição */}
+                {pixResult.qrCodeBase64 && (
+                  <div className="mx-auto w-64 h-64 bg-white p-3 rounded-2xl shadow-2xl border-4 border-gold/40 flex items-center justify-center">
+                    <img
+                      src={`data:image/png;base64,${pixResult.qrCodeBase64}`}
+                      alt="QR Code Pix"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                )}
 
-            {/* Chave Pix Copia e Cola */}
-            {pixResult.qrCode && (
-              <div className="max-w-lg mx-auto space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-parchment block">
-                  Código Pix Copia e Cola:
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={pixResult.qrCode}
-                    className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-3 text-xs text-mist font-mono truncate select-all focus:outline-none focus:border-gold"
-                  />
-                  <button
-                    type="button"
-                    onClick={copyPixCode}
-                    className="px-5 py-3 rounded-xl bg-gold text-obsidian font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 hover:bg-gold-light transition-all shrink-0 active:scale-95 shadow-lg shadow-gold/20"
-                  >
-                    {copiedPix ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    <span>{copiedPix ? 'Copiado!' : 'Copiar Código'}</span>
-                  </button>
+                {/* Chave Pix Copia e Cola */}
+                {pixResult.qrCode && (
+                  <div className="max-w-lg mx-auto space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-parchment block">
+                      Código Pix Copia e Cola:
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={pixResult.qrCode}
+                        className="w-full bg-obsidian border border-line rounded-xl px-3.5 py-3 text-xs text-mist font-mono truncate select-all focus:outline-none focus:border-gold"
+                      />
+                      <button
+                        type="button"
+                        onClick={copyPixCode}
+                        className="px-5 py-3 rounded-xl bg-gold text-obsidian font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 hover:bg-gold-light transition-all shrink-0 active:scale-95 shadow-lg shadow-gold/20"
+                      >
+                        {copiedPix ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        <span>{copiedPix ? 'Copiado!' : 'Copiar Código'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-4 rounded-2xl bg-surface border border-line max-w-lg mx-auto text-xs text-mist space-y-1">
+                  <p className="font-bold text-ivory">⚡ Identificação Automática:</p>
+                  <p>Não feche esta página. Assim que você pagar no app do seu banco, ela se atualizará sozinha em poucos segundos!</p>
                 </div>
-              </div>
+              </>
             )}
-
-            <div className="p-4 rounded-2xl bg-surface border border-line max-w-lg mx-auto text-xs text-mist space-y-1">
-              <p className="font-bold text-ivory">⚡ Identificação Automática:</p>
-              <p>Não feche esta página. Assim que você pagar no app do seu banco, ela se atualizará sozinha em poucos segundos!</p>
-            </div>
 
             <div>
               <Link href="/colecao" className="btn btn-outline btn-md inline-flex">

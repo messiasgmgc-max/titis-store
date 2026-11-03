@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/Button';
 import { useSession } from '@/providers/SessionProvider';
 import { diagnosisFromChoice, useDiagnosis } from '@/providers/DiagnosisProvider';
 import { useUI } from '@/providers/UIProvider';
-import { formatCEP, formatCPF, formatPhoneBR } from '@/lib/format';
+import { formatCEP, formatCPF, formatPhoneBR, isValidCPF } from '@/lib/format';
 import {
   BODY_TYPES,
   CONTRASTS,
@@ -193,6 +193,16 @@ export function ProfileTab({ onSignOut, signingOut }: { onSignOut: () => void; s
     }
     if (phoneDigits.length > 0 && phoneDigits.length < 10) {
       setPersonalFeedback({ tone: 'error', message: 'Informe o WhatsApp com DDD.' });
+      return;
+    }
+
+    // CPF obrigatório e validado para cadastro e emissão de frete/nota
+    if (!cpfDigits) {
+      setPersonalFeedback({ tone: 'error', message: 'Informe o CPF (obrigatório para envio e nota fiscal).' });
+      return;
+    }
+    if (!isValidCPF(cpfDigits)) {
+      setPersonalFeedback({ tone: 'error', message: 'O CPF informado é inválido. Confira os 11 números digitados.' });
       return;
     }
 

@@ -228,7 +228,7 @@ export class EmailService {
     customerName: string;
     customerEmail: string;
     amountCents: number;
-    items?: Array<{ name: string; quantity: number; priceCents?: number; size?: string }>;
+    items?: Array<{ name: string; quantity: number; priceCents?: number | null; size?: string | null; color?: string | null }>;
     pixCode?: string;
   }): Promise<boolean> {
     const totalBrl = formatCurrency(data.amountCents);
@@ -308,7 +308,7 @@ export class EmailService {
     customerName: string;
     customerEmail: string;
     amountCents: number;
-    items?: Array<{ name: string; quantity: number; priceCents?: number; size?: string }>;
+    items?: Array<{ name: string; quantity: number; priceCents?: number | null; size?: string | null; color?: string | null }>;
     shippingAddress?: {
       street?: string;
       number?: string;

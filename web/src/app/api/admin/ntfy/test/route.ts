@@ -1,10 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { testNtfyConnection } from '@/lib/server/ntfy';
+import { requireAdmin } from '@/lib/server/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const adminCheck = await requireAdmin(req);
+    if (adminCheck instanceof Response) {
+      return adminCheck;
+    }
+
     const body = await req.json().catch(() => ({}));
     const result = await testNtfyConnection({
       serverUrl: body.serverUrl,

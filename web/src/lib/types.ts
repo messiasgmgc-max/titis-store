@@ -47,6 +47,15 @@ export interface ProductVariant {
   stock?: number | null;
 }
 
+export interface SizeRecommendation {
+  size: string;
+  min_height_cm?: number | null;
+  max_height_cm?: number | null;
+  min_weight_kg?: number | null;
+  max_weight_kg?: number | null;
+  description?: string | null;
+}
+
 // ------------------------------------------------------------
 // Catálogo (tabela public.products)
 // ------------------------------------------------------------
@@ -56,6 +65,8 @@ export interface Product {
   name: string;
   category: string; // ProductCategory na prática; string para tolerar dados antigos
   slot: PieceSlot;
+  mold?: string | null; // ex: "Slim Fit", "Regular", "Oversized", "Alfaiataria Tradicional"
+  size_recommendations?: SizeRecommendation[];
   description: string | null;
   fabric: string | null;
   color_name: string | null;
@@ -156,6 +167,8 @@ export interface LooksResponse {
 export interface CartItem {
   key: string; // identificador único da linha
   productId: string | null;
+  variantId?: string | null;
+  sku?: string | null;
   name: string;
   detail: string; // categoria ou "Peça do look X"
   color: string;

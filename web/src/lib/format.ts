@@ -54,6 +54,14 @@ export function formatCPF(value: string): string {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
+/** Mascara CPF para proteção de privacidade LGPD: ***.456.789-** */
+export function maskCPF(value: string | null | undefined): string {
+  if (!value) return '';
+  const d = value.replace(/\D/g, '');
+  if (d.length !== 11) return '***.***.***-**';
+  return `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**`;
+}
+
 /**
  * Validação oficial do algoritmo de CPF (módulo 11 dos dígitos verificadores).
  * Rejeita CPFs com números repetidos (111.111.111-11, 000.000.000-00, etc.) ou dígitos incorretos.
