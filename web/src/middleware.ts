@@ -20,6 +20,7 @@ const SHARED_ROUTES = [
   '/auth',
   '/auth/callback',
   '/admin',
+  '/pedidos',
   '/termos',
   '/privacidade',
   '/links',

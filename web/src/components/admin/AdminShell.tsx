@@ -267,6 +267,9 @@ function AdminPanel({ userId, adminName }: { userId: string; adminName: string |
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <Link href="/pedidos" className="link-luxe text-gold-light">
+                Central de pedidos <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+              </Link>
               {firstName && (
                 <span className="text-[0.62rem] uppercase tracking-[0.22em] text-smoke">
                   Sessão de <span className="text-parchment">{firstName}</span>
