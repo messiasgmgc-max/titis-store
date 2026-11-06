@@ -1,5 +1,12 @@
 'use client';
 
+import {
+  fetchOrderCenterAction,
+  acknowledgeOrderViewAction,
+  getOrderPushStateAction,
+  saveOrderPushSettingsAction,
+} from '@/app/pedidos/actions';
+
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -59,12 +66,36 @@ function Center({ token, adminName, orderId }: { token: string; adminName: strin
   const [ackError, setAckError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const router = useRouter();
-  const request = useCallback(async (path: string, body?: unknown) => {
-    const res = await fetch(path, { method: body === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }), cache: 'no-store', signal: AbortSignal.timeout(15000) });
-    const data = await res.json();
-    if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Não foi possível concluir. Tente novamente.');
-    return data;
+  const request = useCallback(async (path: string, body?: any): Promise<any> => {
+    try {
+      if (path.startsWith('/api/admin/order-center')) {
+        if (body === undefined) {
+          const url = new URL(path, 'http://localhost');
+          const id = url.searchParams.get('pedido');
+          const res = await fetchOrderCenterAction(token, id);
+          if (res.error) throw new Error(res.error);
+          return res;
+        } else {
+          const res = await acknowledgeOrderViewAction(token, body?.orderId);
+          if (res.error) throw new Error(res.error);
+          return res;
+        }
+      }
+      if (path.startsWith('/api/admin/order-push')) {
+        if (body === undefined) {
+          const res = await getOrderPushStateAction(token);
+          if (res.error) throw new Error(res.error);
+          return res;
+        } else {
+          const res = await saveOrderPushSettingsAction(token, body);
+          if (res.error) throw new Error(res.error);
+          return res;
+        }
+      }
+      throw new Error('Ação não suportada.');
+    } catch (err: any) {
+      throw new Error(err?.message || 'Falha de comunicação.');
+    }
   }, [token]);
   const reload = useCallback(async () => {
     try { const data = await request('/api/admin/order-center'); setOrders(data.orders.map(normalize)); setError(''); }
