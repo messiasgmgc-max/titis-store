@@ -230,6 +230,8 @@ export class NotificationService {
 
     const location = [payload.shippingCity, payload.shippingState].filter(Boolean).join('/');
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.titisstore.com.br';
+    const cleanSiteUrl = siteUrl.replace(/\/+$/, '');
+    const orderUrl = `${cleanSiteUrl}/pedidos?pedido=${encodeURIComponent(payload.orderId)}`;
 
     const messageText =
       `👑 *TITI'S STORE — NOVO PEDIDO APROVADO!* 🛍️\n\n` +
@@ -242,7 +244,8 @@ export class NotificationService {
       (payload.customerEmail ? `✉️ *E-mail:* ${payload.customerEmail}\n` : '') +
       (payload.shippingService ? `🚚 *Envio:* ${payload.shippingService}${location ? ` (${location})` : ''}\n` : '') +
       `\n📋 *Itens do Pedido:*\n${itemsSummary}\n\n` +
-      `⚡ *Ver detalhes no Painel:* \n${siteUrl}/admin#pedidos`;
+      `⚡ *Acessar Pedido:* \n${orderUrl}\n\n` +
+      `🔗 *Painel Geral:* ${cleanSiteUrl}/admin#pedidos`;
 
     try {
       const response = await fetch(`${apiUrl}/message/sendText/${instance}`, {

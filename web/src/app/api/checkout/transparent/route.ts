@@ -197,6 +197,20 @@ export async function POST(req: NextRequest) {
           shippingAddress: shipping,
         }).catch((err) => console.error('[EmailService Card]', err));
       }
+
+      // Notifica o lojista via WhatsApp (Evolution API)
+      NotificationService.sendMerchantOrderApprovedNotification({
+        orderId,
+        customerName: [payer.firstName, payer.lastName].filter(Boolean).join(' ') || payer.firstName,
+        customerEmail: payer.email,
+        customerPhone: payer.phone,
+        totalCents: amountCents,
+        paymentMethod: 'credit_card',
+        items: items || [],
+        shippingService: shipping?.service,
+        shippingCity: shipping?.city,
+        shippingState: shipping?.state,
+      }).catch((err) => console.error('[NotificationService Merchant Card WhatsApp]', err));
     }
 
     return NextResponse.json({
