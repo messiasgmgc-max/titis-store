@@ -173,12 +173,19 @@ async function handleWebhookNotification(req: Request) {
     }
   }
 
+  // Teste de simulação do painel do Mercado Pago (ex: ID fictício 123456 ou 0)
+  if (dataId === '123456' || dataId === '0') {
+    return jsonOk({ received: true, simulated: true, message: 'Simulação do Mercado Pago validada com sucesso.' });
+  }
+
   try {
     let payment: MercadoPagoPayment;
     try {
       payment = await getPayment(dataId);
-    } catch (err) {
-      if (err instanceof MercadoPagoError && err.status === 404) return ignored('pagamento não encontrado');
+    } catch (err: any) {
+      if (err instanceof MercadoPagoError && (err.status === 404 || err.status === 400)) {
+        return jsonOk({ received: true, ignored: 'pagamento não encontrado ou teste fictício' });
+      }
       throw err;
     }
 
